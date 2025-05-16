@@ -1,0 +1,40 @@
+# Ignore JetBrains IDEs: 
+.idea/
+
+# Ignore VSCode
+.vscode/
+
+# Ignore Node dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Ignore Python virtual environment
+venv/
+.venv/
+env/
+.env
+.env.*
+!.env.example
+!allow.env
+
+# Ignore build artifacts
+dist/
+build/
+
+# Ignore macOS system files
+.DS_Store
+
+# Ignore service account keys and sensitive credentials
+jsonkey/
+*.pem
+secrets/
+credentials/
+
+# Ignore Expo specific files
+.expo/
+*.jks
+*.p8
+*.p12
+*.mobileprovision

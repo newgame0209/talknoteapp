@@ -1,0 +1,176 @@
+---
+description: しゃべるノート – 詳細・段階的実装計画
+---
+
+# IMPLEMENTATION_PLAN.md
+しゃべるノート – 詳細・段階的実装計画  
+更新日: 2025-05-05
+
+---
+
+このドキュメントはしゃべるノートの実装計画書です。
+このドキュメントの計画に従って、実装を実行していってください。
+
+## 0. 前提
+* リポジトリ: GitHub (main / develop / feature-*)
+* 工程粒度: 2 週間スプリント  
+* フェーズ: α(Core) → β(Cloud) → GA(Production)  
+* 技術スタック: React Native Expo + FastAPI (Cloud Run) + Cloud SQL/PostgreSQL + Google Cloud Storage + Pub/Sub + Terraform + GitHub Actions
+---
+
+## 1. 全体ロードマップ（ガントチャート図式）
+| 月 | 1w | 2w | 3w | 4w |
+|----|----|----|----|----|
+| 2025-05 | 📦Repo/CI | 🎨FE scaffold | 🗄️BE scaffold | 🔐Auth |
+| 2025-06 | 🎙️Recorder | 🚀Media API | 📝Local Note | 🔄α結合 |
+| 2025-07 | 🧪αQA | ✅αRelease (07-31) |   |   |
+| 2025-08 | ☁️Sync | 🖼️OCR | 🤖AI Chat | 🔄β結合 |
+| 2025-09 | 🧪βQA | ✅βRelease (09-15) |   |   |
+| 2025-10 | 💰Billing | 🔊TTS polish | 🛡️Hardening | 🐞GA QA |
+| 2025-11 | 📱Store submit | ✅GA (11-01) |   |   |
+
+---
+
+## 2. フェーズゴール & Done 定義
+| Phase | ゴール | 完了基準 (Must) |
+|-------|--------|----------------|
+| α(Core) | オフライン録音→文字起こし→ローカル保存 | ⚙️録音90m/STT非同期, 🖋️Canvas basic, SQLiteキャッシュ, Jest>80% |
+| β(Cloud) | クラウド同期+OCR+AIチャット | 🌐REST/WS 全API, Cloud SQL, OCR/PDF Import, GPT校正要約, Detox E2E |
+| GA | ストア公開 & 基本課金 | 🏪App Store/Play 配信, In-App Purchase Stub, p95<400 ms, Crash<1% |
+
+---
+
+## 3. スプリント計画（2 週間）
+| Sprint | 期間 | 主テーマ | 主要タスク | 受入 | Owner |
+|--------|------|----------|-----------|------|-------|
+| 0 | 05/05-05/18 | Repo & CI 基盤 | monorepo, ESLint/Black, GitHub Actions, Terraform skeleton | CI green | DevOps |
+| 1 | 05/19-06/01 | Backend/Frontend Scaffold | FastAPI project, Expo init, Tailwind, Firebase SDK, lint/test boilerplate | `/healthz` pass | BE/FE |
+| 2 | 06/02-06/15 | 認証・ユーザー表 | Firebase Auth verify, Users table, Secure route guard, Login UI | Sign-In flow | BE/FE |
+| 3 | 06/16-06/29 | 録音 & Media Upload | expo-av helper, SignedURL API, Resumable PUT, Progress UI | 90 m file upload | FE |
+| 4 | 06/30-07/13 | STT Worker & Transcript | Pub/Sub trigger, STT async, Transcript DB, Webhook, Viewer UI | WER≤12% sample | BE |
+| 5 | 07/14-07/27 | Canvas & Local Note CRUD | react-native-skia drawing, Undo/Redo, SQLite persistence, Dashboard list, **CanvasEditor β版** | Note save/reopen | FE |
+| 6 | 07/28-07/31 | α 結合 & QA | Integration tests, Crashlytics, TestFlight build | αリリース | All |
+| 7 | 08/01-08/14 | Cloud Sync v1 | REST notebooks/pages, delta sync queue, conflict merge | Online-offline roundtrip | BE/FE |
+| 8 | 08/15-08/28 | OCR & Import | Vision API OCR, PDF/URL worker, Import UI flow | OCR ≥95% | BE/FE |
+| 9 | 08/29-09/11 | AI Chat Widget | GPT-4o proxy, Proofread/Summary prompts, UI overlay, **CanvasEditorにAIウィジェット統合** | Chat returns diff | BE/FE |
+| 10 | 09/12-09/15 | β 結合 & QA | Detox E2E, Load test 200 rps, Bugfix | βリリース | QA |
+| 11 | 09/16-09/29 | Billing & Settings | Stripe/StoreKit stub, Plan switch, Settings screens | Purchase mock ok | BE/FE |
+| 12 | 09/30-10/13 | TTS & A11y Polish | Cloud TTS voices, Reading ruler, Color scheme | A11y audits pass | FE |
+| 13 | 10/14-10/27 | Hardening & Observability | SLO alerting, Profiler, Pen-lag optimize | p95<400 ms | DevOps |
+| 14 | 10/28-11/01 | GA QA & Store Submit | Localization, Store assets, Policy checks | Store accepted | QA/PM |
+
+---
+
+## 4. バックエンドタスク詳細
+### 4.1 API 実装順
+1. `/healthz`, `/version`
+2. Auth middleware (`firebase-admin`)
+3. Notebooks CRUD
+4. Pages CRUD + canvas JSON
+5. SignedURL (`/media/upload-url`)
+6. Media status & webhook
+7. STT WebSocket proxy
+8. AI Chat proxy (`/ai/chat`)
+9. Tag Recommend batch
+10. Admin & metrics endpoints
+
+### 4.2 Worker / Job
+| Name | 役割 | Trigger |
+|------|------|---------|
+| media-worker | STT/OCR 実行・保存 | Pub/Sub `media.new` |
+| tagger | GPT ノート分類 | Cloud Scheduler daily |
+| cleanup | GCS TTL delete | Cloud Scheduler weekly |
+
+### 4.3 STT Provider 抽象化
+| Provider | 用途 | 実装優先度 |
+|---------|------|----------|
+| GoogleProvider | 標準 STT (70+ 言語) | Sprint 4 (高) |
+| ParakeetProvider | オフライン英語 STT | Sprint 8 (中) |
+| LocalProvider | 将来拡張用 | 未定 (低) |
+
+**Parakeet-TDT 検証項目 (Sprint 2 Spike)**
+* GKE/L4 GPU ノードでの推論サーバー構築
+* 同一音源での Google STT との WER / 処理時間 / コスト比較
+* モデルサイズ (~2 GB) 配布方式と CC-BY 表記フロー確認
+
+### 4.4 AI Search Provider
+| Provider | 用途 | 実装優先度 |
+|---------|------|----------|
+| AnthropicProvider | リサーチ機能メイン | Sprint 9 (高) |
+| GoogleProvider | バックアップ | Sprint 9 (中) |
+
+**Anthropic Search API 検証項目 (Sprint 3 Spike)**
+* 30 req での Recall/Latency/Cost 比較（JP/EN 各 15 クエリ）
+* BE: `anthropic.py` クライアント実装（API キー SecretManager 管理）
+* FE: 引用リンク UI 調整（favicon, ドメイン表示）
+
+### 4.5 Tech Debt Gate
+* 90% type-hint coverage
+* OpenAPI 3.1 → Redoc autoserve
+* 100 rps load ⇒ <200 ms
+
+---
+
+## 5. フロントエンドタスク詳細
+### 5.1 画面優先度 (MVP)
+1. WelcomeLogin / Onboarding
+2. Dashboard (list/search)
+3. VoiceOverlay
+4. CanvasEditor (+AI Widget)
+5. PhotoScan / ImportData
+6. Settings stack
+
+### 5.2 コア機能
+* Recorder – expo-av, wav encoder (16 kHz)
+* WebSocket STT – PCM 250 ms
+* Canvas – skia, 100 undo
+* OfflineQueue – zustand persister
+* Accessibility – UD fonts, high-contrast
+
+### 5.3 テスト
+* Unit (Jest) ≥80% lines
+* Detox: record→stop→transcript
+* OTA channel: staging / production
+
+---
+
+## 6. インフラ & DevOps
+| 項目 | ツール | Done 条件 |
+|------|-------|-----------|
+| IaC | Terraform | `terraform plan` clean |
+| CI | GitHub Actions | Lint, Test, Build OK |
+| CD | Cloud Buildpacks | Auto-deploy develop->dev |
+| Observability | Cloud Trace/Profiler | Dashboards live |
+| Secrets | Secret Manager | No plain creds in Git |
+
+---
+
+## 7. QA / テスト計画
+| レイヤ | 手法 | 工具 |
+|--------|------|------|
+| Unit | Jest / Pytest | coverage gate |
+| API | Postman/newman | contract tests |
+| Perf | k6 | 200 rps, 5 min |
+| E2E | Detox, Playwright | critical path |
+| Accessibility | react-native-a11y, Lighthouse | score ≥90 |
+
+---
+
+## 8. リスク & ブロッカー
+| リスク | 対策 |
+|--------|------|
+| STT 精度低下 | 編集 UI + GPT 補正 |
+| 大容量録音アップ失敗 | Resumable + Retry queue |
+| モバイル描画遅延 | Skia GPU tuning |
+| GPT API コスト | Token monitoring & cache |
+| 審査リジェクト | ガイドライン事前チェック |
+
+---
+
+## 9. 付録
+### 9.1 Definition of Done
+- コードレビュー 2 人通過
+- Unit test pass & coverage gate
+- Lint/format pass
+- CI green, image scan pass
+- PR lab
