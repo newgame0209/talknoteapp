@@ -8,9 +8,10 @@ from typing import Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
 from pydantic import BaseModel
 
-from app.core.config import settings
+from app.core.settings import settings
 from app.core.deps import get_current_user
 from app.providers.stt.google import GoogleSTTProvider
+from app.providers.stt.mock import MockSTTProvider
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -18,10 +19,22 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Initialize the STT provider
-stt_provider = GoogleSTTProvider(
-    credentials_path=settings.GOOGLE_APPLICATION_CREDENTIALS
-)
+# 環境変数に基づいてSTTプロバイダーを選択
+if settings.STT_ENABLED:
+    try:
+        # 本番用STTプロバイダー
+        stt_provider = GoogleSTTProvider(
+            credentials_path=settings.GOOGLE_APPLICATION_CREDENTIALS
+        )
+        logger.info("Using Google STT Provider")
+    except Exception as e:
+        # 初期化エラーの場合はモックプロバイダーにフォールバック
+        logger.warning(f"Failed to initialize Google STT Provider: {e}. Using Mock STT Provider instead.")
+        stt_provider = MockSTTProvider()
+else:
+    # テスト用モックプロバイダー
+    stt_provider = MockSTTProvider()
+    logger.info("STT is disabled. Using Mock STT Provider.")
 
 
 class STTConfig(BaseModel):

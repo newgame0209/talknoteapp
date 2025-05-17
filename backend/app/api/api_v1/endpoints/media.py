@@ -2,11 +2,14 @@
 しゃべるノート - メディアアセットエンドポイント
 メディアアセットの作成・取得・更新・削除APIを提供
 """
+import json
+import logging
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Path
 from sqlalchemy.orm import Session
 
+from app.core.settings import settings
 from app.core.database import get_db
 from app.core.auth import get_current_user
 from app.services.media import media_asset
@@ -19,6 +22,11 @@ from app.schemas.media import (
     MediaAssetUpdate,
     MediaAssetList
 )
+from app.utils.pubsub import pubsub_client
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -96,7 +104,38 @@ async def create_media_asset(
         raise HTTPException(status_code=404, detail="ページが見つかりません")
     
     # メディアアセットを作成
-    return media_asset.create_with_page(db=db, obj_in=media_in)
+    new_media = media_asset.create_with_page(db=db, obj_in=media_in)
+    
+    # メディアタイプが処理対象の場合、Pub/Subメッセージを発行
+    if new_media.media_type in [MediaType.AUDIO, MediaType.IMAGE, MediaType.PDF, MediaType.URL]:
+        try:
+            # Pub/Subメッセージを作成
+            message = {
+                "media_id": str(new_media.id),
+                "media_type": new_media.media_type.value,
+                "storage_path": new_media.storage_path,
+                "user_id": current_user["uid"]
+            }
+            
+            # Pub/Subメッセージを発行
+            if settings.PUBSUB_ENABLED:
+                pubsub_client.publish_message(
+                    topic_id="media-new",
+                    message=message,
+                    attributes={
+                        "media_type": new_media.media_type.value,
+                        "user_id": current_user["uid"]
+                    }
+                )
+                logger.info(f"Published media processing message for media_id: {new_media.id}")
+            else:
+                logger.info(f"Pub/Sub disabled, skipping message for media_id: {new_media.id}")
+        except Exception as e:
+            logger.error(f"Error publishing Pub/Sub message: {str(e)}")
+            # メッセージ発行の失敗はユーザーに返さない
+            # 後で再試行する仕組みを実装することも考えられる
+    
+    return new_media
 
 
 @router.get("/{media_id}", response_model=MediaAsset)

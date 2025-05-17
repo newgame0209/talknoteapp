@@ -14,7 +14,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
+from app.core.settings import settings
 from app.models.media import MediaAsset, MediaType, ProcessingStatus
 from app.models.transcript import Transcript
 from app.providers.stt.google import GoogleSTTProvider

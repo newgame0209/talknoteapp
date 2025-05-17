@@ -27,10 +27,16 @@ class Settings(BaseSettings):
     GOOGLE_APPLICATION_CREDENTIALS: str
 
     # Google Cloud
+    GCP_PROJECT_ID: str
     GCS_BUCKET: str = "talknote-media"
     GCS_UPLOAD_FOLDER: str = "uploads"
+    
+    # Pub/Sub
+    PUBSUB_ENABLED: bool = False
+    PUBSUB_MEDIA_TOPIC: str = "media-new"
 
     # STT/TTS
+    STT_ENABLED: bool = True
     STT_PROVIDER: str = "google"  # google, parakeet, local
     GOOGLE_STT_API_KEY: Optional[str] = None
     GOOGLE_TTS_API_KEY: Optional[str] = None
@@ -43,12 +49,19 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: Optional[str] = None
     ANTHROPIC_MODEL: str = "claude-3-opus-20240229"
     RESEARCH_PROVIDER: str = "anthropic"  # anthropic, google
+    
+    # Yahoo! API
+    YAHOO_API_CLIENT_ID: Optional[str] = None
+    YAHOO_FURIGANA_API_URL: str = "https://jlp.yahooapis.jp/FuriganaService/V2/furigana"
+    YAHOO_DICTIONARY_API_URL: str = "https://jlp.yahooapis.jp/DAService/V2/parse"
 
     # Database
     DATABASE_URL: str
 
     # 機能フラグ
     FEATURE_OFFLINE_MODE: bool = False
+    FEATURE_PUBSUB: bool = True
+    FEATURE_ASYNC_PROCESSING: bool = True
     FEATURE_OCR: bool = True
     FEATURE_AI_CHAT: bool = True
     FEATURE_RESEARCH: bool = True
