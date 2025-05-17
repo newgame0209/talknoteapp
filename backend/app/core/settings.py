@@ -28,8 +28,15 @@ class Settings(BaseSettings):
 
     # Google Cloud
     GCP_PROJECT_ID: str
-    GCS_BUCKET: str = "talknote-media"
+    GCS_BUCKET_NAME: str = "talknote-media"
     GCS_UPLOAD_FOLDER: str = "uploads"
+    
+    # ストレージ設定
+    STORAGE_PROVIDER: str = "local"  # local, gcs
+    LOCAL_STORAGE_PATH: str = "/tmp/talknote_storage"
+    MAX_DIRECT_UPLOAD_SIZE: int = 5242880  # 5MB
+    MAX_CHUNK_SIZE: int = 5242880  # 5MB
+    API_BASE_URL: Optional[str] = None
     
     # Pub/Sub
     PUBSUB_ENABLED: bool = False
