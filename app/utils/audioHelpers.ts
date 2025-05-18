@@ -53,8 +53,9 @@ export class AudioRecorder {
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
         staysActiveInBackground: true,
-        interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
-        interruptionModeAndroid: Audio.INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
+        // interruptionModelOSエラーを避けるために数値で指定
+        interruptionModeIOS: 1, // DO_NOT_MIX相当
+        interruptionModeAndroid: 1, // DO_NOT_MIX相当
         shouldDuckAndroid: true,
         playThroughEarpieceAndroid: false,
       });
