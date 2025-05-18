@@ -19,12 +19,19 @@ const api = axios.create({
 
 // リクエストインターセプター（認証トークンの追加など）
 api.interceptors.request.use(
-  (config) => {
-    // ここでIDトークンを取得して追加する処理を実装
-    // const idToken = await getIdToken();
-    // if (idToken) {
-    //   config.headers.Authorization = `Bearer ${idToken}`;
-    // }
+  async (config) => {
+    try {
+      // authStoreからIDトークンを取得
+      const authStore = await import('../store/authStore');
+      const idToken = await authStore.default().getIdToken();
+      
+      if (idToken) {
+        // リクエストヘッダーにIDトークンを追加
+        config.headers.Authorization = `Bearer ${idToken}`;
+      }
+    } catch (error) {
+      console.error('認証トークン取得エラー:', error);
+    }
     return config;
   },
   (error) => {
