@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, Animated, Easing, ViewStyle, DimensionValue } from 'react-native';
 
 interface ProgressBarProps {
   progress: number; // 0から1の間の値
-  width?: number | string;
+  width?: DimensionValue;
   height?: number;
   color?: string;
   backgroundColor?: string;
@@ -98,7 +98,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
         style={[
           styles.progressContainer, 
           { 
-            width, 
+            width: typeof width === 'string' ? width : width as number, 
             height, 
             backgroundColor, 
             borderRadius 
