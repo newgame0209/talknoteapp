@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Any, Union
 from fastapi import APIRouter, Depends, HTTPException, Body, Query, Path
 from pydantic import BaseModel, Field
 
-from app.core.auth import get_current_user
+from app.core.deps import get_current_user
 from app.services.ai.service import AIService
 
 # ロギング設定

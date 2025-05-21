@@ -14,7 +14,7 @@ import asyncio
 
 from app.core.settings import settings
 from app.core.database import get_db
-from app.core.auth import get_current_user
+from app.core.deps import get_current_user
 from app.services.media import media_asset
 from app.services.page import page
 from app.services.notebook import notebook

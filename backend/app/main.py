@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from fastapi.openapi.docs import get_swagger_ui_html
 
 from app.core.settings import settings
+from app.core.middleware import PrometheusMiddleware
 from app.api.api_v1.api import api_router
 
 
@@ -29,6 +30,9 @@ def create_application() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    
+    # Prometheusメトリクスミドルウェア
+    application.add_middleware(PrometheusMiddleware)
 
     # カスタムSwaggerUI（アクセストークン対応）
     @application.get("/docs", include_in_schema=False)
@@ -50,25 +54,14 @@ def create_application() -> FastAPI:
         response.headers["X-Process-Time"] = str(process_time)
         return response
 
-    # ヘルスチェックエンドポイント
-    @application.get("/healthz", tags=["Health"])
+    # ヘルスチェックエンドポイント (Kubernetes/Cloud Run用)
+    @application.get("/healthz", tags=["Health"], include_in_schema=False)
     def health_check():
         """
         ヘルスチェックエンドポイント
         Kubernetes/Cloud Run のヘルスチェックに使用
         """
         return {"status": "ok"}
-
-    # バージョン情報エンドポイント
-    @application.get("/version", tags=["Health"])
-    def version():
-        """
-        バージョン情報を返す
-        """
-        return {
-            "version": settings.VERSION,
-            "environment": "development" if settings.DEBUG else "production"
-        }
 
     # APIルーターをマウント
     application.include_router(api_router, prefix=settings.API_V1_STR)

@@ -1,0 +1,32 @@
+/**
+ * しゃべるノート - 開発環境設定例
+ * 実際の値を設定して terraform.tfvars として保存してください
+ */
+
+# GCPプロジェクト設定
+project_id = "talknote-dev-12345"
+region     = "asia-northeast1"
+
+# アプリケーション設定
+api_image = "gcr.io/talknote-dev-12345/talknote-api:latest"
+firebase_project_id = "talknote-dev-12345"
+
+# データベース設定
+db_user     = "talknote"
+db_password = "your-secure-password"  # 本番環境では強力なパスワードを使用
+
+# サービスアカウント設定
+service_account_json = <<EOT
+{
+  "type": "service_account",
+  "project_id": "talknote-dev-12345",
+  "private_key_id": "your-private-key-id",
+  "private_key": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n",
+  "client_email": "talknote-sa@talknote-dev-12345.iam.gserviceaccount.com",
+  "client_id": "your-client-id",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/talknote-sa%40talknote-dev-12345.iam.gserviceaccount.com"
+}
+EOT

@@ -23,7 +23,7 @@ E --> H(OpenAI / GCP APIs)
 | DB | Cloud SQL (PostgreSQL 15) + SQLAlchemy |
 | ストレージ | Cloud Storage (audio/, images/, pdf/) |
 | メッセージング | Pub/Sub (`media.new`, `stt.done`) |
-| 外部 API | Google Cloud Speech‑to‑Text / Text‑to‑Speech, Vision API, OpenAI GPT‑4o, Yahoo! テキスト解析, Google CSE |
+| 外部 API | Google Cloud Speech‑to‑Text, **MiniMax Audio TTS**, Vision API, OpenAI GPT‑4o, Yahoo! テキスト解析, Google CSE |
 | インフラ管理 | Terraform 1.8 (IaC) |
 | CI/CD | GitHub Actions → Cloud Buildpacks → Cloud Run |
 
@@ -31,6 +31,66 @@ E --> H(OpenAI / GCP APIs)
 > 1. クライアントは Firebase Auth で Sign‑In → **ID Token** を取得  
 > 2. 各 REST / WS 要求に `Authorization: Bearer <ID_TOKEN>` を付与  
 > 3. Cloud Endpoints (ESPv2) が公開鍵で検証し、検証済みクレームを FastAPI へ転送 – サーバ側で `firebase‑admin` による 2nd verify も可  
+
+### Firebase ID Token 認証フロー詳細
+
+```mermaid
+sequenceDiagram
+    participant Client as Expo App
+    participant Firebase as Firebase Auth
+    participant ESPv2 as Cloud Endpoints (ESPv2)
+    participant API as FastAPI Backend
+    participant DB as PostgreSQL
+
+    Client->>Firebase: 1. Sign-in (Email/Google/Apple)
+    Firebase-->>Client: 2. ID Token
+    
+    Note over Client,Firebase: ID TokenはJWT形式で以下を含む
+    Note over Client,Firebase: - uid (ユーザーID)
+    Note over Client,Firebase: - email, name, picture
+    Note over Client,Firebase: - 期限 (1時間)
+    
+    Client->>ESPv2: 3. APIリクエスト + Bearer Token
+    ESPv2->>ESPv2: 4. ID Token検証
+    
+    alt 検証成功
+        ESPv2->>API: 5. 検証済みクレーム付きリクエスト
+        
+        opt バックアップ検証
+            API->>API: 6. firebase-adminで再検証
+        end
+        
+        API->>DB: 7. ユーザー存在確認
+        
+        alt 初回ログイン
+            API->>DB: 8. ユーザーレコード作成
+        else 既存ユーザー
+            API->>DB: 8. ユーザー情報更新
+        end
+        
+        API-->>Client: 9. APIレスポンス
+    else 検証失敗
+        ESPv2-->>Client: 401 Unauthorized
+    end
+```
+
+#### ID Tokenの特徴
+
+- **形式**: JWT (JSON Web Token)
+- **署名**: RS256 (非対称鍵)
+- **発行者**: Firebase (`https://securetoken.google.com/<project-id>`)
+- **期限**: 1時間 (クライアント側で自動更新)
+- **クレーム**: uid, email, email_verified, name, picture 等
+
+#### 認証バイパス機能
+
+開発環境では `.env` ファイルで以下の設定を有効化することで認証をスキップできます。
+
+```
+DEBUG=true
+BYPASS_AUTH=true
+TEST_USER_EMAIL=test@example.com
+```
 >
 > **ローカル開発環境用認証バイパス**  
 > * 開発環境では `.env` に `DEBUG=true` および `BYPASS_AUTH=true` を設定することで認証をバイパス可能  
