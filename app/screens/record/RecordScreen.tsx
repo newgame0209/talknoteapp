@@ -101,12 +101,28 @@ const RecordScreen: React.FC = () => {
       
       // 波形アニメーション停止
       stopWaveAnimation();
-      
-      // ここで録音ファイルをアップロードするロジックを追加
-      console.log('録音ファイル:', fileUri);
-      
-      // 録音完了後、ダッシュボードに自動的に戻る
-      navigation.goBack();
+
+      // 録音完了後に再生確認アラート
+      Alert.alert('録音完了', '録音を再生して確認しますか？', [
+        {
+          text: '再生',
+          onPress: async () => {
+            try {
+              const { sound } = await Audio.Sound.createAsync({ uri: fileUri });
+              await sound.playAsync();
+            } catch (e) {
+              console.error('再生エラー:', e);
+            } finally {
+              navigation.goBack();
+            }
+          },
+        },
+        {
+          text: '完了',
+          onPress: () => navigation.goBack(),
+          style: 'cancel',
+        },
+      ]);
     } catch (error) {
       console.error('録音停止エラー:', error);
     }
@@ -172,21 +188,20 @@ const RecordScreen: React.FC = () => {
           interruptionModeIOS: 1, // DO_NOT_MIX相当
           interruptionModeAndroid: 1, // DO_NOT_MIX相当
         });
-        
-        // 権限確認と録音開始
-        requestMicrophonePermission();
       } catch (error) {
         console.error('Audioセッション設定エラー:', error);
       }
     };
     
     setupAudio();
-    
-    // 画面から離れるときに録音を停止
+
+    // 画面を離れるときにRecordingを必ず解放
     return () => {
-      if (recordingState !== 'idle') {
-        stopRecording();
+      audioRecorder.cancelRecording(); // pause 状態でも確実に解放
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
       }
+      stopWaveAnimation();
     };
   }, []);
 
@@ -233,16 +248,18 @@ const RecordScreen: React.FC = () => {
         
         {/* 録音情報 */}
         <View style={styles.recordingInfo}>
-          <View style={styles.timeContainer}>
-            {/* ピンク色の人のアイコン */}
-            <View style={styles.recordingIcon}>
-              <FontAwesome5 name="user" size={20} color="#FFFFFF" />
+          {recordingState !== 'idle' && (
+            <View style={styles.timeContainer}>
+              {/* ピンク色の人のアイコン */}
+              <View style={styles.recordingIcon}>
+                <FontAwesome5 name="user" size={20} color="#FFFFFF" />
+              </View>
+              <Text style={styles.timeText}>{formatTime(recordingTime)}</Text>
             </View>
-            <Text style={styles.timeText}>{formatTime(recordingTime)}</Text>
-          </View>
+          )}
           
           {/* 文字起こしエリア - 録音前はガイダンスとイラスト、録音中は文字起こしを表示 */}
-          {recordingTime === 0 ? (
+          {recordingState === 'idle' ? (
             <>
               {/* ガイダンステキストを背景なしでそのまま表示 */}
               <Text style={styles.guidanceText}>
@@ -301,7 +318,7 @@ const RecordScreen: React.FC = () => {
           // 非録音時：青色のマイクボタンのみ表示
           <TouchableOpacity
             style={styles.recordButton}
-            onPress={startRecording}
+            onPress={requestMicrophonePermission}
             activeOpacity={0.7}
           >
             <FontAwesome5 name="microphone" size={28} color="#FFFFFF" />
@@ -321,7 +338,7 @@ const RecordScreen: React.FC = () => {
               <Text style={styles.controlLabel}>録音停止</Text>
             </View>
             
-            {/* 一時停止/再開ボタン - 青枠の円形ボタン */}
+            {/* 一時停止/再開ボタン - 青色の円形ボタン */}
             <View style={styles.controlGroup}>
               <TouchableOpacity
                 style={styles.pauseButton}
@@ -329,21 +346,21 @@ const RecordScreen: React.FC = () => {
                 activeOpacity={0.7}
               >
                 {recordingState === 'recording' ? (
-                  <Ionicons name="pause" size={30} color="#3B82F6" />
+                  <Ionicons name="pause" size={30} color="#FFFFFF" />
                 ) : (
-                  <Ionicons name="play" size={30} color="#3B82F6" />
+                  <Ionicons name="play" size={30} color="#FFFFFF" />
                 )}
               </TouchableOpacity>
               <Text style={styles.controlTimeLabel}>{formatTime(recordingTime)}</Text>
             </View>
             
-            {/* 設定ボタン - 青枠の円形ボタン */}
+            {/* 設定ボタン - 青色の円形ボタン */}
             <View style={styles.controlGroup}>
               <TouchableOpacity
                 style={styles.settingsButton}
                 activeOpacity={0.7}
               >
-                <Ionicons name="settings-outline" size={24} color="#3B82F6" />
+                <Ionicons name="settings-outline" size={30} color="#FFFFFF" />
               </TouchableOpacity>
               <Text style={styles.controlLabel}>設定</Text>
             </View>
@@ -393,7 +410,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   contentTitle: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: 'normal', // 太字を解除
     color: '#111827',
   },
@@ -521,40 +538,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '33%',
   },
-  // 停止ボタン - Figmaデザインの赤色四角ボタン
+  // 停止ボタン - 赤色の四角ボタン（添付画像に合わせて）
   stopButton: {
-    width: 56,
-    height: 56,
+    width: 64,
+    height: 64,
     backgroundColor: '#EF4444', // 赤色
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowRadius: 2,
+    elevation: 2,
   },
   stopIcon: {
-    width: 18,
-    height: 18,
+    width: 28,
+    height: 28,
     backgroundColor: '#FFFFFF',
     borderRadius: 2,
   },
-  // 一時停止/再開ボタン - Figmaデザインの青枠円形ボタン
+  // 一時停止/再開ボタン - 青色の円形ボタン（添付画像に合わせて）
   pauseButton: {
-    width: 72,
-    height: 72,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 2,
-    borderColor: '#3B82F6', // 青色
-    borderRadius: 36,
+    width: 64,
+    height: 64,
+    backgroundColor: '#3B82F6', // 青色
+    borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowRadius: 2,
     elevation: 2,
   },
   // 時間表示ラベル - Figmaデザインに合わせてボタン下に表示
@@ -564,27 +579,26 @@ const styles = StyleSheet.create({
     color: '#374151',
     marginTop: 8,
   },
-  // 設定ボタン - Figmaデザインの青枠円形ボタン
+  // 設定ボタン - 青色の円形ボタン（添付画像に合わせて）
   settingsButton: {
-    width: 56,
-    height: 56,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 2,
-    borderColor: '#3B82F6', // 青色
-    borderRadius: 28,
+    width: 64,
+    height: 64,
+    backgroundColor: '#3B82F6', // 青色
+    borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowRadius: 2,
     elevation: 2,
   },
-  // コントロールラベル - Figmaデザインに合わせてボタン下に表示
+  // コントロールラベル - 添付画像に合わせてボタン下に表示
   controlLabel: {
     fontSize: 12,
-    color: '#6B7280',
-    marginTop: 6,
+    color: '#374151',
+    fontWeight: '600',
+    marginTop: 8,
   },
 });
 
