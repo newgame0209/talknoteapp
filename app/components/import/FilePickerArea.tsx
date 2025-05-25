@@ -23,10 +23,10 @@ export interface SelectedFile {
 }
 
 interface FilePickerAreaProps {
-  onFileSelected: (file: SelectedFile) => void;
+  navigation?: any;
 }
 
-const FilePickerArea: React.FC<FilePickerAreaProps> = ({ onFileSelected }) => {
+const FilePickerArea: React.FC<FilePickerAreaProps> = ({ navigation }) => {
   const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
 
   // ファイル選択
@@ -62,22 +62,24 @@ const FilePickerArea: React.FC<FilePickerAreaProps> = ({ onFileSelected }) => {
       };
 
       setSelectedFile(selectedFile);
-      onFileSelected(selectedFile);
+      
+      // ファイル選択後、アップロード進捗画面に遷移
+      if (navigation) {
+        navigation.navigate('ImportProgress', { file: selectedFile });
+      }
     } catch (error) {
       console.error('ファイル選択エラー:', error);
       Alert.alert('エラー', 'ファイルの選択中にエラーが発生しました。');
     }
-  }, [onFileSelected]);
+  }, [navigation]);
 
   return (
     <View style={styles.container}>
       {/* ガイダンスメッセージ */}
       <View style={styles.messageContainer}>
-        <Image
-          source={require('../../../assets/images/robot-icon.png')}
-          style={styles.robotIcon}
-          defaultSource={require('../../../assets/images/robot-icon.png')}
-        />
+        <View style={styles.robotIcon}>
+          <Ionicons name="happy-outline" size={32} color="#4F46E5" />
+        </View>
         <Text style={styles.messageText}>
           インポートしたいファイルを選んでください。
           PDFや音声ファイル、画像などに対応しています。
@@ -134,6 +136,10 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     marginRight: 12,
+    backgroundColor: '#EBF4FF',
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   messageText: {
     flex: 1,
