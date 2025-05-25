@@ -4,7 +4,7 @@ description: しゃべるノートの進捗管理ドキュメント
 
 # しゃべるノート プロジェクト進捗状況
 
-最終更新: 2025-05-25
+最終更新: 2025-05-25 14:15
 
 ## 🚀 Sprint 1 進捗状況
 
@@ -70,9 +70,13 @@ description: しゃべるノートの進捗管理ドキュメント
 2. インポート機能の統合
    - FilePickerArea の選択結果が null の時に Import ボタンを disable
    - ImportProgressScreen の expo-file-system.uploadAsync 実装
-3. RecordScreen の cleanup 内で Audio.setAudioModeAsync を reset
-4. TypeScript設定の健全化完了
-5. SQLiteサービスのリファクタリング完了
-6. UIエラー修正と型整備完了
-7. NativeWind & PostCSS安定化完了
-8. ストア/同期ロジック実装開始
+3. ~~RecordScreen の cleanup 内で Audio.setAudioModeAsync を reset~~ ✅ 完了
+4. リアルタイム文字起こし機能の実装 🔄 進行中
+   - フェーズ1: 録音画面でのリアルタイム文字起こし表示
+   - フェーズ2: 録音停止→ダッシュボードへのノート自動生成
+   - フェーズ3: ノート詳細画面での全文表示・編集（次スプリント）
+5. TypeScript設定の健全化完了
+6. SQLiteサービスのリファクタリング完了
+7. UIエラー修正と型整備完了
+8. NativeWind & PostCSS安定化完了
+9. ストア/同期ロジック実装開始
