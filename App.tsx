@@ -14,6 +14,9 @@ import { useDatabaseStore } from './app/store/databaseStore';
 // 画面のインポート
 import RecordScreen from './app/screens/record/RecordScreen';
 import ImportScreen from './app/screens/import/ImportScreen';
+import ImportProgressScreen from './app/screens/import/ImportProgressScreen';
+import DashboardScreen from './app/screens/dashboard/DashboardScreen';
+import FilePickerArea from './app/components/import/FilePickerArea';
 // Skiaのインポートを修正
 // import { Canvas } from '@shopify/react-native-skia';
 
@@ -56,8 +59,19 @@ const HomeScreen = ({ navigation }: any) => (
 // ナビゲーションスタックの型定義
 type RootStackParamList = {
   Home: undefined;
+  Dashboard: undefined;
   Record: undefined;
   Import: undefined;
+  ImportProgress: {
+    file: {
+      name: string;
+      uri: string;
+      type: string;
+      size: number;
+    };
+  };
+  FileImportSheet: undefined;
+  CanvasEditor: { noteId?: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -120,7 +134,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <NavigationContainer>
-        <Stack.Navigator initialRouteName="Home">
+        <Stack.Navigator initialRouteName="Dashboard">
           <Stack.Screen 
             name="Home" 
             component={HomeScreen} 
@@ -136,10 +150,17 @@ export default function App() {
             }} 
           />
           <Stack.Screen 
+            name="Dashboard" 
+            component={DashboardScreen} 
+            options={{ 
+              headerShown: false,
+            }} 
+          />
+          <Stack.Screen 
             name="Record" 
             component={RecordScreen} 
             options={{ 
-              headerShown: false, // ヘッダーを非表示にします
+              headerShown: false,
             }} 
           />
           <Stack.Screen 
@@ -151,6 +172,42 @@ export default function App() {
                 backgroundColor: '#4F46E5',
               },
               headerTintColor: '#fff',
+              headerTitleStyle: {
+                fontWeight: 'bold',
+              },
+            }} 
+          />
+          <Stack.Screen 
+            name="ImportProgress" 
+            component={ImportProgressScreen} 
+            options={{ 
+              headerShown: false,
+            }} 
+          />
+          <Stack.Screen 
+            name="FileImportSheet" 
+            component={FilePickerArea} 
+            options={{ 
+              presentation: 'modal',
+              title: 'ファイルインポート',
+              headerStyle: {
+                backgroundColor: '#4F46E5',
+              },
+              headerTintColor: '#fff',
+              headerTitleStyle: {
+                fontWeight: 'bold',
+              },
+            }} 
+          />
+          <Stack.Screen 
+            name="CanvasEditor" 
+            component={HomeScreen} 
+            options={{ 
+              title: 'ノート編集',
+              headerStyle: {
+                backgroundColor: '#f6f7fb',
+              },
+              headerTintColor: '#000',
               headerTitleStyle: {
                 fontWeight: 'bold',
               },

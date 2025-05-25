@@ -1,9 +1,11 @@
-import { Audio } from 'expo-av';
+import { Audio, AudioMode } from 'expo-av';
+// Node バッファのポリフィル（Expo SDK 49+ は自動 polyfill されないため明示的にインポート）
+import { Buffer } from 'buffer';
 import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
 
 // オーディオデータのコールバック型
-type AudioDataCallback = (data: ArrayBufferLike) => void;
+type AudioDataCallback = (data: ArrayBuffer) => void;
 
 // 録音設定
 const RECORDING_OPTIONS = {
@@ -41,6 +43,7 @@ export class AudioRecorder {
   private audioDataCallback: AudioDataCallback | null = null;
   private dataUpdateInterval: NodeJS.Timeout | null = null;
   private dataUpdateIntervalMs: number = 1000; // 1秒ごとにデータ更新
+  private lastFilePosition: number = 0; // 送信済みのファイル位置
 
   /**
    * 録音を開始
@@ -75,6 +78,9 @@ export class AudioRecorder {
       this.startTime = Date.now();
       await this.recording.startAsync();
       this.status = 'recording';
+      
+      // 送信済み位置をリセット（WAVヘッダ=44byteをスキップ）
+      this.lastFilePosition = 44;
       
       // コールバックが指定されていれば設定
       if (callback) {
@@ -265,17 +271,16 @@ export class AudioRecorder {
   }
 
   /**
-   * Base64をバイナリに変換
-   * @param base64 Base64文字列
-   * @returns バイナリデータ
+   * Base64 → Uint8Array 変換
+   * Expo Go (RN) では `atob` が定義されないため Buffer ポリフィルを使用
    */
   private base64ToBinary(base64: string): Uint8Array {
-    const binaryString = atob(base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
+    try {
+      return Uint8Array.from(Buffer.from(base64, 'base64'));
+    } catch (error) {
+      console.error('Base64 decode error:', error);
+      return new Uint8Array();
     }
-    return bytes;
   }
 
   /**
@@ -325,18 +330,30 @@ export class AudioRecorder {
         const fileInfo = await FileSystem.getInfoAsync(uri);
         if (!fileInfo.exists || fileInfo.size === 0) return;
         
-        // 最新のチャンクを読み込む（最大16KBのデータ）
+        // まだ新しいデータがなければスキップ
+        if (fileInfo.size <= this.lastFilePosition) {
+          return;
+        }
+        
+        // 読み取るバイト数（最大16KB、残り全部）
+        const bytesToRead = Math.min(16 * 1024, fileInfo.size - this.lastFilePosition);
+        
+        // ファイルから増分を読み込む
         const base64 = await FileSystem.readAsStringAsync(uri, {
           encoding: FileSystem.EncodingType.Base64,
-          position: Math.max(0, fileInfo.size - 16 * 1024),
-          length: 16 * 1024
+          position: this.lastFilePosition,
+          length: bytesToRead,
         });
+        
+        // 位置を更新
+        this.lastFilePosition += bytesToRead;
         
         // Base64をバイナリに変換
         const binary = this.base64ToBinary(base64);
         
         // コールバックに渡す
-        this.audioDataCallback(binary.buffer);
+        console.log('Sending audio chunk size:', binary.byteLength);
+        this.audioDataCallback(binary.buffer as ArrayBuffer);
       } catch (error) {
         console.error('録音データの取得に失敗しました:', error);
       }

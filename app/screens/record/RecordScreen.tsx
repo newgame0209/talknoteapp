@@ -6,9 +6,9 @@ import { StatusBar } from 'expo-status-bar';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { AudioRecorder } from '../../utils/audioHelpers';
 import { Audio } from 'expo-av';
-import STTSocket from '../../services/sttSocket';
-// Firebase Auth の型エラーを回避するためにrequireを使用
-const auth = require('@react-native-firebase/auth').default;
+import { getWsUrl } from '../../config/env';
+import { STTSocket, STTResult } from '../../services/sttSocket'; // Ensure named import
+import { auth } from '../../services/firebase';
 
 /**
  * 録音画面
@@ -36,90 +36,134 @@ const RecordScreen: React.FC = () => {
   // WebSocket接続を初期化
   const initializeSTTSocket = async () => {
     try {
-      // すでに接続があれば閉じる
-      if (sttSocketRef.current) {
-        sttSocketRef.current.disconnect();
-      }
-      
+      console.log('[RecordScreen] STTSocket初期化開始');
       setIsConnecting(true);
       
-      // 新しいSTTSocketインスタンスを作成
-      sttSocketRef.current = new STTSocket({
-        onOpen: () => {
-          console.log('WebSocket接続完了');
+      // 既存の接続があれば閉じる
+      if (sttSocketRef.current) {
+        console.log('[RecordScreen] 既存のWebSocket接続を閉じます');
+        sttSocketRef.current.closeConnection(); // disconnect() から closeConnection() に変更
+      }
+      
+      const wsUrl = getWsUrl(); // WebSocket URLを取得
+      const currentUser = auth.currentUser;
+      let idToken: string | null = null;
+
+      if (!currentUser) {
+        console.warn('[RecordScreen] ユーザーが認証されていません。デモモードで続行します。');
+        idToken = 'demo_token_for_development'; // デモトークン
+      } else {
+        console.log('[RecordScreen] 認証済みユーザーのIDトークンを取得中');
+        idToken = await currentUser.getIdToken();
+      }
+
+      const sttConfig = {
+        sample_rate_hertz: 16000, // 適切なサンプルレートに設定
+        language_code: 'ja-JP',
+        enable_automatic_punctuation: true,
+        interim_results: true,
+      };
+
+      // 新しいSTTSocket接続を作成
+      console.log('[RecordScreen] 新しいSTTSocket接続を作成');
+      sttSocketRef.current = new STTSocket(
+        wsUrl, 
+        idToken,
+        sttConfig,
+        // Callbacks
+        () => { // onOpen
+          console.log('[RecordScreen] STT WebSocket接続完了');
           setIsConnecting(false);
         },
-        onMessage: (result) => {
-          if (result.transcript) {
-            // 文字起こし結果を表示
+        (result) => { // onMessage
+          console.log('[RecordScreen] 文字起こし結果を受信:', result.text);
+          if (result.text) {
             setTranscription(prev => {
-              // 最終結果の場合は改行を追加
-              if (result.isFinal) {
-                return prev + result.transcript + '\n';
+              const newText = result.text.trim();
+              if (prev.length > 0 && !/[。、！？]$/.test(prev) && newText.length > 0) {
+                return prev + ' ' + newText;
+              } else {
+                return prev + newText;
               }
-              // 途中結果の場合は最後の行を置き換え
-              const lines = prev.split('\n');
-              if (lines.length > 0 && !lines[lines.length - 1].endsWith('\n')) {
-                lines[lines.length - 1] = result.transcript;
-                return lines.join('\n');
-              }
-              return prev + result.transcript;
             });
-            
-            // 自動スクロール
             setTimeout(() => {
               scrollViewRef.current?.scrollToEnd({ animated: true });
             }, 100);
           }
         },
-        onError: (error) => {
-          console.error('WebSocketエラー:', error);
+        (error) => { // onError
+          console.error('[RecordScreen] STT WebSocketエラー:', error);
           setIsConnecting(false);
           Alert.alert('エラー', '文字起こしサーバーに接続できませんでした。');
         },
-        onClose: () => {
-          console.log('WebSocket接続終了');
+        () => { // onClose
+          console.log('[RecordScreen] STT WebSocket接続終了');
           setIsConnecting(false);
         }
-      });
+      );
       
-      // Firebase IDトークンを取得
-      const currentUser = auth().currentUser;
-      if (!currentUser) {
-        throw new Error('ユーザーが認証されていません');
+      if (idToken) {
+        console.log(`[RecordScreen] WebSocket接続を開始 (URL: ${wsUrl}, Token: ${idToken ? 'あり' : 'なし'})`);
+        sttSocketRef.current.connect(); // 引数なしでconnectを呼び出し
+      } else {
+        // トークンがない場合はエラー処理またはデモモードの継続など
+        console.error('[RecordScreen] IDトークンが取得できませんでした。接続を開始できません。');
+        setIsConnecting(false);
+        Alert.alert('エラー', '認証情報が取得できず、サーバーに接続できません。');
       }
-      
-      const idToken = await currentUser.getIdToken();
-      
-      // WebSocket接続を開始
-      sttSocketRef.current.connect(idToken);
-      
+
     } catch (error) {
-      console.error('STTSocket初期化エラー:', error);
+      console.error('[RecordScreen] STTSocket初期化または接続エラー:', error);
       setIsConnecting(false);
       Alert.alert('エラー', '文字起こしサービスの初期化に失敗しました。');
     }
   };
   
   // オーディオデータ送信用コールバック
-  const handleAudioData = (data: ArrayBufferLike) => {
-    if (sttSocketRef.current && sttSocketRef.current.getState() === 'OPEN') {
+  const handleAudioData = (data: ArrayBuffer) => {
+    console.log(`[RecordScreen] オーディオデータ受信: ${data.byteLength} バイト`);
+    if (sttSocketRef.current) {
+      console.log('[RecordScreen] WebSocketでオーディオデータを送信');
       sttSocketRef.current.sendAudioChunk(data);
+    } else {
+      console.warn('[RecordScreen] STT WebSocketが存在しないためデータ送信をスキップ');
     }
   };
   
   // 録音開始
   const startRecording = async () => {
     try {
+      console.log('[RecordScreen] 録音開始処理を開始');
       // 文字起こし初期化
       setTranscription('');
       
+      // マイク権限の確認
+      console.log('[RecordScreen] マイク権限をリクエスト中...');
+      const { status } = await Audio.requestPermissionsAsync();
+      console.log(`[RecordScreen] マイク権限ステータス: ${status}`);
+      
+      if (status !== 'granted') {
+        console.warn('[RecordScreen] マイク権限が許可されていません');
+        Alert.alert(
+          'マイクの権限が必要です',
+          '録音機能を使用するには、マイクへのアクセスを許可してください。',
+          [
+            { text: 'キャンセル', style: 'cancel' },
+            { text: '設定を開く', onPress: () => Linking.openSettings() }
+          ]
+        );
+        return;
+      }
+      
       // WebSocket接続を初期化
+      console.log('[RecordScreen] WebSocket接続を初期化中...');
       await initializeSTTSocket();
       
       // 録音開始（オーディオデータコールバックを設定）
+      console.log('[RecordScreen] 録音を開始中...');
       await audioRecorder.startRecording(handleAudioData);
       audioRecorder.setDataUpdateInterval(500); // 0.5秒ごとにデータ送信
+      console.log('[RecordScreen] 録音開始完了');
       
       setRecordingState('recording');
       setRecordingTime(0);
@@ -152,19 +196,11 @@ const RecordScreen: React.FC = () => {
         
         // 波形アニメーション停止
         stopWaveAnimation();
-        
-        // WebSocketに一時停止を通知
-        if (sttSocketRef.current) {
-          sttSocketRef.current.sendEndOfStream();
-        }
       } catch (error) {
         console.error('録音一時停止エラー:', error);
       }
     } else if (recordingState === 'paused') {
       try {
-        // WebSocket再接続
-        await initializeSTTSocket();
-        
         // 録音再開
         await audioRecorder.resumeRecording();
         setRecordingState('recording');
@@ -252,21 +288,8 @@ const RecordScreen: React.FC = () => {
   // マイク権限の確認と要求
   const requestMicrophonePermission = async () => {
     try {
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status === 'granted') {
-        // 権限が付与された場合、録音を開始
-        startRecording();
-      } else {
-        // 権限が拒否された場合
-        Alert.alert(
-          'マイクの権限が必要です',
-          '録音機能を使用するには、マイクへのアクセスを許可してください。',
-          [
-            { text: 'キャンセル', onPress: () => navigation.goBack() },
-            { text: '設定を開く', onPress: () => Linking.openSettings() }
-          ]
-        );
-      }
+      // startRecordingに処理を委譲（内部でマイク権限チェックを行う）
+      startRecording();
     } catch (error) {
       console.error('マイク権限の確認エラー:', error);
       Alert.alert('エラー', 'マイクの権限確認中にエラーが発生しました。');

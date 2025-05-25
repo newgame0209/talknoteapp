@@ -140,3 +140,6 @@ class CRUDMediaAsset(CRUDBase[MediaAsset, MediaAssetCreate, MediaAssetUpdate]):
 
 # CRUDメディアアセットのインスタンス
 media_asset = CRUDMediaAsset(MediaAsset)
+
+# 互換性のための別名エクスポート
+crud_media = media_asset

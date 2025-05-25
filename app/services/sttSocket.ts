@@ -1,141 +1,203 @@
-import { Platform } from 'react-native';
-
-// WebSocketのベースURLを環境に応じて設定
-const WS_BASE_URL = __DEV__
-  ? Platform.OS === 'android'
-    ? 'ws://10.0.2.2:8000/api/v1/stt/stream' // Android エミュレータ用
-    : 'ws://localhost:8000/api/v1/stt/stream' // iOS シミュレータ用
-  : 'wss://api.talknote.app/api/v1/stt/stream'; // 本番環境用
+// app/services/sttSocket.ts
 
 // WebSocketの状態を表す型
 type WebSocketState = 'CONNECTING' | 'OPEN' | 'CLOSING' | 'CLOSED';
 
 // STTの結果を表す型
-interface STTResult {
-  transcript: string;
+export interface STTResult {
+  text: string;
   isFinal: boolean;
   confidence?: number;
   language?: string;
 }
 
-// STTSocketのイベントハンドラ
-interface STTSocketHandlers {
-  onOpen?: () => void;
-  onMessage?: (result: STTResult) => void;
-  onError?: (error: any) => void;
-  onClose?: () => void;
+// STTSocketのイベントハンドラ型
+type OnOpenCallback = () => void;
+type OnMessageCallback = (data: STTResult) => void;
+type OnErrorCallback = (error: Error) => void;
+type OnCloseCallback = (code: number, reason: string) => void;
+
+// 初期設定の型
+interface STTConfig {
+  sample_rate_hertz: number;
+  language_code: string;
+  enable_automatic_punctuation: boolean;
+  interim_results: boolean;
 }
 
-/**
- * リアルタイム音声認識用WebSocketクラス
- */
 export class STTSocket {
-  private socket: WebSocket | null = null;
+  private ws: WebSocket | null = null;
   private state: WebSocketState = 'CLOSED';
-  private handlers: STTSocketHandlers = {};
-  private idToken: string | null = null;
+  private url: string;
+  private token: string | null;
+  private initialConfig: STTConfig;
 
-  /**
-   * コンストラクタ
-   * @param handlers イベントハンドラ
-   */
-  constructor(handlers: STTSocketHandlers = {}) {
-    this.handlers = handlers;
+  // Callbacks
+  private onOpenCallback?: OnOpenCallback;
+  private onMessageCallback?: OnMessageCallback;
+  private onErrorCallback?: OnErrorCallback;
+  private onCloseCallback?: OnCloseCallback;
+
+  constructor(
+    url: string,
+    token: string | null,
+    initialConfig: STTConfig,
+    onOpen?: OnOpenCallback,
+    onMessage?: OnMessageCallback,
+    onError?: OnErrorCallback,
+    onClose?: OnCloseCallback,
+  ) {
+    this.url = url;
+    this.token = token;
+    this.initialConfig = initialConfig;
+    this.onOpenCallback = onOpen;
+    this.onMessageCallback = onMessage;
+    this.onErrorCallback = onError;
+    this.onCloseCallback = onClose;
   }
 
-  /**
-   * WebSocketの接続を開始
-   * @param idToken Firebase認証トークン
-   */
-  connect(idToken: string): void {
-    if (this.socket && (this.state === 'OPEN' || this.state === 'CONNECTING')) {
-      console.warn('WebSocket is already connected or connecting');
+  private get urlWithToken(): string {
+    return this.token ? `${this.url}?token=${this.token}` : this.url;
+  }
+
+  public connect(): void {
+    if (this.ws && this.ws.readyState !== WebSocket.CLOSED && this.ws.readyState !== WebSocket.CLOSING) {
+      console.warn('[STTSocket] WebSocket is already connected or connecting/closing.');
       return;
     }
 
-    this.idToken = idToken;
-    this.socket = new WebSocket(`${WS_BASE_URL}?token=${idToken}`);
+    console.log('[STTSocket] STTサーバーへの接続を開始します URL:', this.urlWithToken);
     this.state = 'CONNECTING';
+    try {
+      this.ws = new WebSocket(this.urlWithToken);
+    } catch (error) {
+      console.error('[STTSocket] WebSocket constructor failed:', error);
+      if (this.onErrorCallback) {
+        this.onErrorCallback(error instanceof Error ? error : new Error('WebSocket instantiation failed'));
+      }
+      this.state = 'CLOSED';
+      return;
+    }
 
-    this.socket.onopen = () => {
-      console.log('WebSocket connected');
+    this.ws.onopen = () => {
       this.state = 'OPEN';
-      if (this.handlers.onOpen) this.handlers.onOpen();
-    };
-
-    this.socket.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (this.handlers.onMessage) this.handlers.onMessage(data);
-      } catch (error) {
-        console.error('Failed to parse WebSocket message:', error);
+      console.log('[STTSocket] WebSocket接続成功');
+      if (this.onOpenCallback) {
+        this.onOpenCallback();
+      }
+      // 接続成功後、初期設定JSONを送信
+      if (this.ws && this.ws.readyState === WebSocket.OPEN && this.initialConfig) {
+        try {
+          this.ws.send(JSON.stringify(this.initialConfig));
+          console.log('[STTSocket] 初期設定 JSON を送信しました', this.initialConfig);
+        } catch (error) {
+          console.error('[STTSocket] Failed to send initial config:', error);
+          if (this.onErrorCallback) {
+            this.onErrorCallback(error instanceof Error ? error : new Error('Failed to send initial config'));
+          }
+        }
       }
     };
 
-    this.socket.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      if (this.handlers.onError) this.handlers.onError(error);
+    this.ws.onmessage = (event: MessageEvent) => {
+      try {
+        console.log('[STTSocket] Raw event.data:', event.data); // For debugging
+        const parsedData: STTResult = JSON.parse(String(event.data));
+        console.log('[STTSocket] Parsed data (object):', parsedData); // For debugging
+        console.log('[STTSocket] Parsed data.text:', parsedData.text); // For debugging
+        if (this.onMessageCallback) {
+          this.onMessageCallback(parsedData);
+        }
+      } catch (error) {
+        console.error('[STTSocket] WebSocketメッセージ処理エラー:', error, '受信データ:', event.data);
+        if (this.onErrorCallback) {
+          this.onErrorCallback(error instanceof Error ? error : new Error('Error processing message'));
+        }
+      }
     };
 
-    this.socket.onclose = () => {
-      console.log('WebSocket closed');
+    this.ws.onerror = (event: Event) => {
+      // The Event object itself is often not very informative for WebSocket errors.
+      // The browser console usually logs more detailed information.
+      console.error('[STTSocket] WebSocketエラーが発生しました。詳細はブラウザコンソールを確認してください。', event);
+      if (this.onErrorCallback) {
+        this.onErrorCallback(new Error('WebSocket error occurred. See browser console for details.'));
+      }
+      // Ensure state is updated and ws is cleaned up if error leads to closure
+      if (this.ws && (this.ws.readyState === WebSocket.CLOSING || this.ws.readyState === WebSocket.CLOSED)) {
+        this.state = 'CLOSED';
+        this.ws = null;
+      } else {
+        // If error doesn't close, state might remain OPEN or CONNECTING, which might be an issue
+        // Consider explicitly closing if an error occurs and it's not already closing
+         this.closeConnection(1011, 'WebSocket error'); // 1011: Internal Error
+      }
+    };
+
+    this.ws.onclose = (event: CloseEvent) => {
       this.state = 'CLOSED';
-      this.socket = null;
-      if (this.handlers.onClose) this.handlers.onClose();
+      console.log(`[STTSocket] WebSocketがコード ${event.code} で閉じました、理由: ${event.reason || 'N/A'}`);
+      if (this.onCloseCallback) {
+        this.onCloseCallback(event.code, event.reason || '');
+      }
+      this.ws = null; // Clean up WebSocket instance
     };
   }
 
-  /**
-   * 音声データをサーバーに送信
-   * @param audioChunk 音声データのArrayBufferLike
-   */
-  sendAudioChunk(audioChunk: ArrayBufferLike): void {
-    if (!this.socket || this.state !== 'OPEN') {
-      console.warn('WebSocket is not connected');
-      return;
+  public sendAudioData(data: ArrayBuffer): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      try {
+        console.log('[STTSocket] 送信するオーディオデータサイズ:', data.byteLength, 'バイト');
+        this.ws.send(data);
+      } catch (error) {
+        console.error('[STTSocket] Failed to send audio data:', error);
+        if (this.onErrorCallback) {
+          this.onErrorCallback(error instanceof Error ? error : new Error('Failed to send audio data'));
+        }
+      }
+    } else {
+      console.warn('[STTSocket] WebSocket is not open. Cannot send audio data. State:', this.getReadyState());
     }
-
-    this.socket.send(audioChunk);
   }
 
-  /**
-   * 録音終了を通知
-   */
-  sendEndOfStream(): void {
-    if (!this.socket || this.state !== 'OPEN') {
-      console.warn('WebSocket is not connected');
-      return;
+  public sendEndOfStream(): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      try {
+        console.log('[STTSocket] EndOfStreamシグナルを送信します');
+        this.ws.send(JSON.stringify({ event: 'EOS' })); // Server should expect this format
+      } catch (error) {
+        console.error('[STTSocket] Failed to send EndOfStream:', error);
+        if (this.onErrorCallback) {
+          this.onErrorCallback(error instanceof Error ? error : new Error('Failed to send EndOfStream'));
+        }
+      }
+    } else {
+      console.warn('[STTSocket] WebSocket is not open. Cannot send EndOfStream. State:', this.getReadyState());
     }
-
-    this.socket.send(JSON.stringify({ end: true }));
   }
 
-  /**
-   * WebSocketの接続を閉じる
-   */
-  disconnect(): void {
-    if (!this.socket) {
-      return;
+  public closeConnection(code: number = 1000, reason: string = 'Normal closure'): void {
+    if (this.ws) {
+      if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
+        console.log(`[STTSocket] WebSocket接続を閉じます (コード: ${code}, 理由: ${reason})`);
+        this.state = 'CLOSING';
+        this.ws.close(code, reason);
+      } else {
+        console.warn('[STTSocket] WebSocket is not in a state that can be closed (e.g. already closed or closing). State:', this.getReadyState());
+      }
+    } else {
+        console.warn('[STTSocket] No WebSocket instance to close.');
     }
-
-    this.state = 'CLOSING';
-    this.socket.close();
   }
 
-  /**
-   * WebSocketの状態を取得
-   */
-  getState(): WebSocketState {
-    return this.state;
-  }
-
-  /**
-   * イベントハンドラを設定
-   * @param handlers イベントハンドラ
-   */
-  setHandlers(handlers: STTSocketHandlers): void {
-    this.handlers = { ...this.handlers, ...handlers };
+  public getReadyState(): WebSocketState {
+    if (!this.ws) return 'CLOSED';
+    switch (this.ws.readyState) {
+      case WebSocket.CONNECTING: return 'CONNECTING';
+      case WebSocket.OPEN: return 'OPEN';
+      case WebSocket.CLOSING: return 'CLOSING';
+      case WebSocket.CLOSED: return 'CLOSED';
+      default: return 'CLOSED'; // Should not happen
+    }
   }
 }
-
-export default STTSocket;

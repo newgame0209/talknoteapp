@@ -128,3 +128,6 @@ class CRUDTranscript(CRUDBase[Transcript, TranscriptCreate, TranscriptUpdate]):
 
 # CRUD文字起こしのインスタンス
 transcript = CRUDTranscript(Transcript)
+
+# 互換性のための別名エクスポート
+crud_transcript = transcript

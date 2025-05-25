@@ -4,34 +4,28 @@
     "slug": "talknote",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./app/assets/icon.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./app/assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.talknote.app"
+      "bundleIdentifier": "com.talknote.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "録音機能を利用するためにマイクへのアクセスを許可してください。"
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./app/assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#4F46E5"
       },
       "package": "com.talknote.app"
-    },
-    "web": {
-      "favicon": "./app/assets/favicon.png"
     },
     "plugins": [
       "expo-font",
       "expo-av",
-      "expo-file-system"
+      "expo-file-system",
+      "expo-sqlite"
     ]
   }
 }

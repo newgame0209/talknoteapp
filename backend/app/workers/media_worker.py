@@ -18,7 +18,7 @@ from app.core.settings import settings
 from app.models.media import MediaAsset, MediaType, ProcessingStatus
 from app.models.transcript import Transcript
 from app.providers.stt.google import GoogleSTTProvider
-from app.services.media import crud_media
+from app.services.media import media_asset
 from app.services.transcript import crud_transcript
 
 # Configure logging

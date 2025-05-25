@@ -81,12 +81,19 @@ description: しゃべるノート – 詳細・段階的実装計画
 | tagger | GPT ノート分類 | Cloud Scheduler daily |
 | cleanup | GCS TTL delete | Cloud Scheduler weekly |
 
-### 4.3 STT Provider 抽象化
+### 4.3 STT/TTS Provider 抽象化
 | Provider | 用途 | 実装優先度 |
 |---------|------|----------|
-| GoogleProvider | 標準 STT (70+ 言語) | Sprint 4 (高) |
+| GoogleSTTProvider | 標準 STT (70+ 言語) | Sprint 4 (高) |
+| MiniMaxTTSProvider | 高品質音声合成 | Sprint 12 (高) |
 | ParakeetProvider | オフライン英語 STT | Sprint 8 (中) |
 | LocalProvider | 将来拡張用 | 未定 (低) |
+
+**MiniMax Audio TTS 検証項目 (Sprint 10 Spike)**
+* Starterプラン(月額$5)の実用性確認（約 4.5 時間/月の生成量）
+* APIラッパー実装（キーはSecretManager管理）
+* 日本語音声品質評価（自然さ、イントネーション、レイテンシー）
+* オフライン再生用に生成音声のSQLiteキャッシュ実装
 
 **Parakeet-TDT 検証項目 (Sprint 2 Spike)**
 * GKE/L4 GPU ノードでの推論サーバー構築

@@ -23,7 +23,7 @@ app.json / eas.json
 |----------|-----------|------|
 | **録音・再生** | **expo-av** | デバイスマイクで WAV/FLAC 16 kHz をローカルにバッファし、プレビュー再生も提供 |
 | **エンコード・アップロード** | `audioHelpers.ts` + `expo-file-system` | 録音停止時にファイル保存 → `/media/upload-url` で署名 URL を取得 → PUT |
-| **文字起こし / 音声合成** | *(サーバ側)* Google Speech‑to‑Text / Text‑to‑Speech | Frontend は REST で結果取得 & 再生用 mp3 URI を受領 |
+| **文字起こし / 音声合成** | *(サーバ側)* Google Speech‑to‑Text / **MiniMax Audio TTS** | Frontend は REST で結果取得 & 再生用 mp3 URI を受領 |
 | **リアルタイムSTT (≤60 s)** | **WebSocket** (`/stt/stream`) | マイクの PCM チャンクを 250 ms ごとに送出し、変換結果を即時挿入 |
 
 > ➜ **expo-av は “ローカル録音 & 再生” のみ** に使用し、  

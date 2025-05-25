@@ -7,7 +7,7 @@
 * **プラットフォーム**: iOS / Android（React Native Expo）  
 * **リリース形態**: スマートフォン・タブレット両対応（ユニバーサルバイナリ）  
 * **バックエンド**: Google Cloud Run + Cloud SQL (PostgreSQL) + Cloud Storage  
-* **主要 API**: Google Cloud Speech‑to‑Text / Text‑to‑Speech, Cloud Vision, OpenAI GPT‑4o, Yahoo! Japan Text Analysis, Anthropic Search API 
+* **主要 API**: Google Cloud Speech‑to‑Text, **MiniMax Audio TTS**, Cloud Vision, OpenAI GPT‑4o, Yahoo! Japan Text Analysis, Anthropic Search API 
 * **目的**: “読む・書く” をマルチモーダルにサポートし、学習ストレスを軽減するノートアプリを提供する。
 
 ## 2. 課題と機会

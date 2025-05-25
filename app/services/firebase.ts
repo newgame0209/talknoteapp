@@ -20,4 +20,7 @@ const app = initializeApp(firebaseConfig);
 // 認証の初期化
 const auth = getAuth(app);
 
+// WARN: Auth state will default to memory persistence and will not persist between sessions
+// これは一時的な対応です。本番環境では永続化の設定が必要です。
+
 export { app, auth };
