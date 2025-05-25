@@ -198,6 +198,18 @@ const RecordScreen: React.FC = () => {
     // 画面を離れるときにRecordingを必ず解放
     return () => {
       audioRecorder.cancelRecording(); // pause 状態でも確実に解放
+      
+      // 音楽アプリ干渉防止のためにオーディオモードをリセット
+      Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: false,
+        staysActiveInBackground: false,
+        interruptionModeIOS: 1,
+        interruptionModeAndroid: 1,
+        shouldDuckAndroid: false,
+        playThroughEarpieceAndroid: false,
+      }).catch(err => console.log('オーディオモードリセットエラー:', err));
+      
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }

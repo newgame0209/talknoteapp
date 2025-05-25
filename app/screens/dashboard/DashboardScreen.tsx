@@ -12,8 +12,12 @@ import {
   StatusBar,
   Animated,
   Easing,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 
@@ -59,6 +63,24 @@ const DUMMY_TAGS: Tag[] = [
   { id: '4', name: '理科' },
 ];
 
+// サポートするファイル形式
+const SUPPORTED_FILE_TYPES = [
+  'application/pdf',
+  'audio/mpeg', 'audio/wav', 'audio/x-wav',
+  'image/jpeg', 'image/png'
+];
+
+// 最大ファイルサイズ (10MB)
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+// 選択されたファイルの型
+export interface SelectedFile {
+  name: string;
+  uri: string;
+  type: string;
+  size: number;
+}
+
 const DashboardScreen: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<any>>();
   const [selectedFolder, setSelectedFolder] = useState<string>('1');
@@ -66,6 +88,9 @@ const DashboardScreen: React.FC = () => {
   const [isCreateMenuVisible, setIsCreateMenuVisible] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const anim = useRef(new Animated.Value(0)).current; // 0: 閉じる, 1: 開く
+  const [isImportModalVisible, setIsImportModalVisible] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
+  const [urlInput, setUrlInput] = useState('');
 
   // greeting message variables
   const userName = 'ユーザー'; // TODO: ユーザー名を取得
@@ -178,19 +203,86 @@ const DashboardScreen: React.FC = () => {
 
   // 録音画面へ遷移
   const navigateToRecord = () => {
+    // 閉じるときにメニュー状態をリセットしてアイコン欠落バグを防止
     setIsCreateMenuVisible(false);
-    navigation.navigate('RecordScreen');
+    setMenuOpen(false);
+    anim.setValue(0); // reset anim value
+    navigation.navigate('Record');
   };
 
-  // インポート画面へ遷移
+  // インポートモーダル表示
   const navigateToImport = () => {
+    // 閉じるときにメニュー状態をリセットしてアイコン欠落バグを防止
     setIsCreateMenuVisible(false);
-    navigation.navigate('FileImportSheet');
+    setMenuOpen(false);
+    anim.setValue(0); // reset anim value
+    setIsImportModalVisible(true);
+  };
+  
+  // ファイル選択
+  const pickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: SUPPORTED_FILE_TYPES,
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      const file = result.assets[0];
+      const fileInfo = await FileSystem.getInfoAsync(file.uri, { size: true });
+
+      // ファイルサイズチェック
+      if (fileInfo.exists && fileInfo.size && fileInfo.size > MAX_FILE_SIZE) {
+        Alert.alert(
+          'ファイルサイズエラー',
+          `ファイルサイズが大きすぎます。10MB以下のファイルを選択してください。`,
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      const selectedFile = {
+        name: file.name,
+        uri: file.uri,
+        type: file.mimeType || 'application/octet-stream',
+        size: fileInfo.exists && fileInfo.size ? fileInfo.size : 0,
+      };
+
+      setSelectedFile(selectedFile);
+    } catch (error) {
+      console.error('ファイル選択エラー:', error);
+      Alert.alert('エラー', 'ファイルの選択中にエラーが発生しました。');
+    }
+  };
+  
+  // インポート実行
+  const executeImport = () => {
+    if (selectedFile) {
+      // ファイルからインポート
+      navigation.navigate('ImportProgress', { file: selectedFile });
+      setIsImportModalVisible(false);
+      setSelectedFile(null);
+      setUrlInput('');
+    } else if (urlInput.trim()) {
+      // URLからインポート
+      // TODO: URL検証とインポート処理
+      Alert.alert('URLインポート', `${urlInput} からインポートします`);
+      setIsImportModalVisible(false);
+      setUrlInput('');
+    } else {
+      Alert.alert('エラー', 'ファイルまたはURLを指定してください');
+    }
   };
 
   // スキャン画面へ遷移（未実装）
   const navigateToScan = () => {
+    // 閉じるときにメニュー状態をリセットしてアイコン欠落バグを防止
     setIsCreateMenuVisible(false);
+    setMenuOpen(false);
+    anim.setValue(0); // reset anim value
     // 未実装
     console.log('Scan feature not implemented yet');
   };
@@ -400,6 +492,72 @@ const DashboardScreen: React.FC = () => {
           </View>
         </Pressable>
       </Modal>
+
+      {/* インポートモーダル */}
+      <Modal
+        transparent={true}
+        visible={isImportModalVisible}
+        animationType="fade"
+        onRequestClose={() => setIsImportModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.importModalContainer}>
+            <View style={styles.importModalHeader}>
+              <Text style={styles.importModalTitle}>インポート</Text>
+              <TouchableOpacity 
+                onPress={() => {
+                  setIsImportModalVisible(false);
+                  setSelectedFile(null);
+                  setUrlInput('');
+                }}
+                style={styles.importModalCloseButton}
+              >
+                <Text style={styles.importModalCloseText}>キャンセル</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.importSection}>
+              <Text style={styles.importSectionTitle}>URLからインポート</Text>
+              <TextInput
+                style={styles.urlInput}
+                placeholder="https://"
+                value={urlInput}
+                onChangeText={setUrlInput}
+                autoCapitalize="none"
+                keyboardType="url"
+              />
+            </View>
+
+            <View style={styles.importDivider} />
+
+            <View style={styles.importSection}>
+              <Text style={styles.importSectionTitle}>ファイルからインポート</Text>
+              <TouchableOpacity 
+                style={styles.filePickerButton} 
+                onPress={pickDocument}
+              >
+                {selectedFile ? (
+                  <Text style={styles.selectedFileName} numberOfLines={1} ellipsizeMode="middle">
+                    {selectedFile.name}
+                  </Text>
+                ) : (
+                  <View style={styles.filePickerContent}>
+                    <MaterialCommunityIcons name="file-upload-outline" size={24} color="#589ff4" />
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity 
+              style={[styles.importButton, (!selectedFile && !urlInput.trim()) && styles.importButtonDisabled]} 
+              onPress={executeImport}
+              disabled={!selectedFile && !urlInput.trim()}
+            >
+              <Text style={styles.importButtonText}>実行する</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -430,6 +588,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12, // 余白追加
   },
   filterItem: {
     flexDirection: 'row',
@@ -483,11 +642,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#589ff4', // カラーコード変更
+    backgroundColor: '#589ff4',
     marginHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 8,
-    marginBottom: 16,
+    marginTop: 8,   // ボタン上部に余白
+    marginBottom: 24, // ボタンと最近のノート間の余白を拡大
   },
   createNoteText: {
     color: '#FFFFFF',
@@ -648,6 +808,96 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  
+  // インポートモーダルのスタイル
+  importModalContainer: {
+    width: '90%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    alignSelf: 'center',
+    marginTop: 'auto',
+    marginBottom: 'auto',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  importModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  importModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+  },
+  importModalCloseButton: {
+    padding: 4,
+  },
+  importModalCloseText: {
+    fontSize: 16,
+    color: '#6B7280',
+  },
+  importSection: {
+    marginBottom: 16,
+  },
+  importSectionTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  urlInput: {
+    height: 44,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    fontSize: 16,
+  },
+  importDivider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 16,
+  },
+  filePickerButton: {
+    height: 44,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filePickerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectedFileName: {
+    fontSize: 14,
+    color: '#1F2937',
+  },
+  importButton: {
+    backgroundColor: '#589ff4',
+    borderRadius: 8,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  importButtonDisabled: {
+    backgroundColor: '#9CA3AF',
+  },
+  importButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   searchButton: {
     display: 'none',

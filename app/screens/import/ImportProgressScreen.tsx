@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,8 +7,9 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  StatusBar,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import * as FileSystem from 'expo-file-system';
@@ -35,7 +36,10 @@ const ImportProgressScreen: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // 仮のアップロードURL（実際にはバックエンドから取得）
-  const DUMMY_UPLOAD_URL = 'https://example.com/upload';
+  const DUMMY_UPLOAD_URL = 'https://httpbin.org/put'; // テスト用のエンドポイント
+  
+  // アップロードタスクの参照
+  const uploadTaskRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!route.params?.file) {
@@ -46,12 +50,17 @@ const ImportProgressScreen: React.FC = () => {
     const file = route.params.file;
     setTotalBytes(file.size);
 
-    // 実際のアップロード処理（現在はダミー）
-    simulateUpload(file);
+    // 実際のアップロード処理
+    startUpload(file);
+    
+    // クリーンアップ関数
+    return () => {
+      // アップロードタスクのキャンセルは必要ならここに追加
+    };
   }, []);
 
-  // ダミーアップロード処理（実際にはSignedURLを使用）
-  const simulateUpload = async (file: ImportProgressParams['file']) => {
+  // 実際のアップロード処理
+  const startUpload = async (file: ImportProgressParams['file']) => {
     try {
       // 本来はここでバックエンドからSignedURLを取得
       // const response = await fetch('https://api.example.com/media/upload-url', {
@@ -60,41 +69,49 @@ const ImportProgressScreen: React.FC = () => {
       //   body: JSON.stringify({ filename: file.name, contentType: file.type })
       // });
       // const { signedUrl } = await response.json();
-
-      // 進捗を模擬
+      
+      // テスト用のダミーURL
+      const signedUrl = DUMMY_UPLOAD_URL;
+      
+      // 実際のアップロード処理
+      const uploadResult = await FileSystem.uploadAsync(signedUrl, file.uri, {
+        httpMethod: 'PUT',
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+        headers: { 'Content-Type': file.type },
+      });
+      
+      // 進捗をシミュレート（実際のアップロードは一瞬で完了するため）
       let currentProgress = 0;
       const interval = setInterval(() => {
-        currentProgress += 0.01;
+        currentProgress += 0.02;
         if (currentProgress >= 1) {
           clearInterval(interval);
-          setIsUploading(false);
           setProgress(1);
           setUploadedBytes(file.size);
+          setIsUploading(false);
           
-          // アップロード完了後、ノート作成（実際にはバックエンドAPIを呼び出す）
+          // アップロード完了後、ノート作成に遷移
           setTimeout(() => {
-            // 仮のノートID
             const noteId = 'import_' + Date.now();
             navigation.replace('CanvasEditor', { noteId });
-          }, 1000);
+          }, 1500);
         } else {
           setProgress(currentProgress);
           setUploadedBytes(Math.floor(file.size * currentProgress));
         }
       }, 100);
-
-      // 実際のアップロード処理は以下のようになる
-      // const uploadResult = await FileSystem.uploadAsync(signedUrl, file.uri, {
-      //   httpMethod: 'PUT',
-      //   uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-      //   headers: { 'Content-Type': file.type },
-      //   sessionType: FileSystem.FileSystemSessionType.BACKGROUND,
-      //   uploadTaskCallback: (data) => {
-      //     const currentProgress = data.totalBytesWritten / data.totalBytesExpectedToWrite;
-      //     setProgress(currentProgress);
-      //     setUploadedBytes(data.totalBytesWritten);
-      //   },
-      // });
+      
+      // アップロード完了
+      setIsUploading(false);
+      setProgress(1);
+      
+      // アップロード完了後、ノート作成（実際にはバックエンドAPIを呼び出す）
+      setTimeout(() => {
+        // 仮のノートID
+        const noteId = 'import_' + Date.now();
+        navigation.replace('CanvasEditor', { noteId });
+      }, 1500);
+      
     } catch (error) {
       console.error('アップロードエラー:', error);
       setErrorMessage('ファイルのアップロード中にエラーが発生しました');
@@ -115,8 +132,7 @@ const ImportProgressScreen: React.FC = () => {
         {
           text: 'はい',
           onPress: () => {
-            // 実際のキャンセル処理
-            // FileSystem.cancelUploadAsync(uploadTaskId);
+            // アップロードキャンセル処理
             navigation.goBack();
           },
         },
@@ -135,13 +151,7 @@ const ImportProgressScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#1F2937" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>ファイルインポート</Text>
-        <View style={styles.placeholder} />
-      </View>
+      <StatusBar barStyle="dark-content" />
 
       <View style={styles.content}>
         {errorMessage ? (
@@ -157,14 +167,16 @@ const ImportProgressScreen: React.FC = () => {
           </View>
         ) : (
           <>
+            <View style={styles.aiCharacterContainer}>
+              <Image 
+                source={require('../../assets/ai_assistant2.png')} 
+                style={styles.aiCharacterImage} 
+              />
+            </View>
+            
             <View style={styles.messageContainer}>
-              <View style={styles.robotIcon}>
-                <Ionicons name="happy-outline" size={32} color="#4F46E5" />
-              </View>
               <Text style={styles.messageText}>
-                {isUploading
-                  ? 'ちょっと待ってね！ファイルを処理中です♪'
-                  : 'ファイルの処理が完了しました！'}
+                ちょっと待ってね！ファイルを処理中です♪
               </Text>
             </View>
 
@@ -173,11 +185,7 @@ const ImportProgressScreen: React.FC = () => {
             </Text>
 
             <View style={styles.loaderContainer}>
-              {isUploading ? (
-                <ActivityIndicator size="large" color="#4F46E5" style={styles.loader} />
-              ) : (
-                <Ionicons name="checkmark-circle" size={48} color="#10B981" />
-              )}
+              <ActivityIndicator size="large" color="#589ff4" style={styles.loader} />
             </View>
 
             <Text style={styles.processingText}>
@@ -187,16 +195,18 @@ const ImportProgressScreen: React.FC = () => {
             {route.params?.file && (
               <View style={styles.fileInfoContainer}>
                 <View style={styles.fileInfo}>
-                  <Ionicons
+                  <MaterialCommunityIcons
                     name={
                       route.params.file.type.includes('pdf')
-                        ? 'document'
+                        ? 'file-pdf-box'
                         : route.params.file.type.includes('image')
-                        ? 'image'
-                        : 'document-text'
+                        ? 'file-image'
+                        : route.params.file.type.includes('audio')
+                        ? 'file-music'
+                        : 'file-document'
                     }
                     size={24}
-                    color="#6B7280"
+                    color="#589ff4"
                   />
                   <Text style={styles.fileName} numberOfLines={1} ellipsizeMode="middle">
                     {route.params.file.name}
@@ -206,10 +216,15 @@ const ImportProgressScreen: React.FC = () => {
                 <View style={styles.progressBarContainer}>
                   <View style={[styles.progressBar, { width: `${progress * 100}%` }]} />
                 </View>
+                
+                <View style={styles.progressInfoContainer}>
+                  <Text style={styles.progressPercentage}>{Math.round(progress * 100)}%</Text>
+                  <Text style={styles.progressText}>
+                    {formatBytes(uploadedBytes)} / {formatBytes(totalBytes)}
+                  </Text>
+                </View>
 
-                <Text style={styles.progressText}>
-                  {formatBytes(uploadedBytes)} / {formatBytes(totalBytes)}
-                </Text>
+
               </View>
             )}
 
@@ -229,27 +244,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  placeholder: {
-    width: 40,
+    paddingTop: 60, // iPhoneのステータスバー対応
   },
   content: {
     flex: 1,
@@ -258,34 +253,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   messageContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#EBF4FF',
-    borderRadius: 12,
+    backgroundColor: '#EBF5FF',
+    borderRadius: 8,
     padding: 16,
     marginBottom: 24,
-    alignItems: 'center',
     width: '100%',
-  },
-  robotIcon: {
-    width: 40,
-    height: 40,
-    marginRight: 12,
-    backgroundColor: '#EBF4FF',
-    borderRadius: 20,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   messageText: {
-    flex: 1,
     fontSize: 16,
     color: '#1F2937',
     lineHeight: 22,
+    textAlign: 'center',
   },
   statusText: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 22,
+    fontWeight: '700',
     color: '#1F2937',
     marginBottom: 24,
+    textAlign: 'center',
   },
   loaderContainer: {
     marginBottom: 24,
@@ -300,6 +286,16 @@ const styles = StyleSheet.create({
     color: '#4B5563',
     marginBottom: 32,
     textAlign: 'center',
+  },
+  aiCharacterContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  aiCharacterImage: {
+    width: 100,
+    height: 100,
+    resizeMode: 'contain',
   },
   fileInfoContainer: {
     width: '100%',
@@ -328,8 +324,18 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: '100%',
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#589ff4',
     borderRadius: 4,
+  },
+  progressInfoContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  progressPercentage: {
+    fontSize: 14,
+    color: '#1F2937',
+    fontWeight: '500',
   },
   progressText: {
     fontSize: 12,
@@ -338,14 +344,15 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    backgroundColor: '#F3F4F6',
+    marginTop: 16,
   },
   cancelButtonText: {
     fontSize: 16,
     color: '#4B5563',
+    fontWeight: '500',
   },
   errorContainer: {
     alignItems: 'center',
