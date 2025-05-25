@@ -87,9 +87,9 @@ export class STTSocket {
 
   /**
    * 音声データをサーバーに送信
-   * @param audioChunk 音声データのArrayBuffer
+   * @param audioChunk 音声データのArrayBufferLike
    */
-  sendAudioChunk(audioChunk: ArrayBuffer): void {
+  sendAudioChunk(audioChunk: ArrayBufferLike): void {
     if (!this.socket || this.state !== 'OPEN') {
       console.warn('WebSocket is not connected');
       return;

@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing, Alert, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing, Alert, Linking, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { AudioRecorder } from '../../utils/audioHelpers';
 import { Audio } from 'expo-av';
+import STTSocket from '../../services/sttSocket';
+// Firebase Auth の型エラーを回避するためにrequireを使用
+const auth = require('@react-native-firebase/auth').default;
 
 /**
  * 録音画面
@@ -18,8 +21,11 @@ const RecordScreen: React.FC = () => {
   const [recordingState, setRecordingState] = useState<'idle' | 'recording' | 'paused'>('idle');
   const [recordingTime, setRecordingTime] = useState(0);
   const [transcription, setTranscription] = useState('');
+  const [isConnecting, setIsConnecting] = useState(false);
   const audioRecorder = useRef(new AudioRecorder()).current;
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const sttSocketRef = useRef<STTSocket | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // 波形アニメーション用
   const waveAnim = useRef(new Animated.Value(0)).current;
@@ -27,10 +33,94 @@ const RecordScreen: React.FC = () => {
   // 波形の高さをランダムに生成（より自然な波に見せるため）
   const waveHeights = useRef(Array.from({ length: 40 }, () => Math.random())).current;
 
+  // WebSocket接続を初期化
+  const initializeSTTSocket = async () => {
+    try {
+      // すでに接続があれば閉じる
+      if (sttSocketRef.current) {
+        sttSocketRef.current.disconnect();
+      }
+      
+      setIsConnecting(true);
+      
+      // 新しいSTTSocketインスタンスを作成
+      sttSocketRef.current = new STTSocket({
+        onOpen: () => {
+          console.log('WebSocket接続完了');
+          setIsConnecting(false);
+        },
+        onMessage: (result) => {
+          if (result.transcript) {
+            // 文字起こし結果を表示
+            setTranscription(prev => {
+              // 最終結果の場合は改行を追加
+              if (result.isFinal) {
+                return prev + result.transcript + '\n';
+              }
+              // 途中結果の場合は最後の行を置き換え
+              const lines = prev.split('\n');
+              if (lines.length > 0 && !lines[lines.length - 1].endsWith('\n')) {
+                lines[lines.length - 1] = result.transcript;
+                return lines.join('\n');
+              }
+              return prev + result.transcript;
+            });
+            
+            // 自動スクロール
+            setTimeout(() => {
+              scrollViewRef.current?.scrollToEnd({ animated: true });
+            }, 100);
+          }
+        },
+        onError: (error) => {
+          console.error('WebSocketエラー:', error);
+          setIsConnecting(false);
+          Alert.alert('エラー', '文字起こしサーバーに接続できませんでした。');
+        },
+        onClose: () => {
+          console.log('WebSocket接続終了');
+          setIsConnecting(false);
+        }
+      });
+      
+      // Firebase IDトークンを取得
+      const currentUser = auth().currentUser;
+      if (!currentUser) {
+        throw new Error('ユーザーが認証されていません');
+      }
+      
+      const idToken = await currentUser.getIdToken();
+      
+      // WebSocket接続を開始
+      sttSocketRef.current.connect(idToken);
+      
+    } catch (error) {
+      console.error('STTSocket初期化エラー:', error);
+      setIsConnecting(false);
+      Alert.alert('エラー', '文字起こしサービスの初期化に失敗しました。');
+    }
+  };
+  
+  // オーディオデータ送信用コールバック
+  const handleAudioData = (data: ArrayBufferLike) => {
+    if (sttSocketRef.current && sttSocketRef.current.getState() === 'OPEN') {
+      sttSocketRef.current.sendAudioChunk(data);
+    }
+  };
+  
   // 録音開始
   const startRecording = async () => {
     try {
-      await audioRecorder.startRecording();
+      // 文字起こし初期化
+      setTranscription('');
+      
+      // WebSocket接続を初期化
+      await initializeSTTSocket();
+      
+      // 録音開始（オーディオデータコールバックを設定）
+      await audioRecorder.startRecording(handleAudioData);
+      audioRecorder.setDataUpdateInterval(500); // 0.5秒ごとにデータ送信
+      
       setRecordingState('recording');
       setRecordingTime(0);
       
@@ -41,13 +131,9 @@ const RecordScreen: React.FC = () => {
       
       // 波形アニメーション開始
       startWaveAnimation();
-      
-      // 仮の文字起こし（実際はWebSocketで受信）
-      setTimeout(() => {
-        setTranscription('ここに録音している自分や誰かの声が文字起こしされます。');
-      }, 2000);
     } catch (error) {
       console.error('録音開始エラー:', error);
+      Alert.alert('エラー', '録音の開始に失敗しました。');
     }
   };
 
@@ -66,11 +152,20 @@ const RecordScreen: React.FC = () => {
         
         // 波形アニメーション停止
         stopWaveAnimation();
+        
+        // WebSocketに一時停止を通知
+        if (sttSocketRef.current) {
+          sttSocketRef.current.sendEndOfStream();
+        }
       } catch (error) {
         console.error('録音一時停止エラー:', error);
       }
     } else if (recordingState === 'paused') {
       try {
+        // WebSocket再接続
+        await initializeSTTSocket();
+        
+        // 録音再開
         await audioRecorder.resumeRecording();
         setRecordingState('recording');
         
@@ -101,30 +196,34 @@ const RecordScreen: React.FC = () => {
       
       // 波形アニメーション停止
       stopWaveAnimation();
-
-      // 録音完了後に再生確認アラート
-      Alert.alert('録音完了', '録音を再生して確認しますか？', [
-        {
-          text: '再生',
-          onPress: async () => {
-            try {
-              const { sound } = await Audio.Sound.createAsync({ uri: fileUri });
-              await sound.playAsync();
-            } catch (e) {
-              console.error('再生エラー:', e);
-            } finally {
-              navigation.goBack();
-            }
-          },
-        },
-        {
-          text: '完了',
-          onPress: () => navigation.goBack(),
-          style: 'cancel',
-        },
-      ]);
+      
+      // WebSocketに終了を通知して切断
+      if (sttSocketRef.current) {
+        sttSocketRef.current.sendEndOfStream();
+        sttSocketRef.current.disconnect();
+        sttSocketRef.current = null;
+      }
+      
+      // ダッシュボードに戻り、新規ノートを作成
+      // TODO: ここで新規ノートを作成するロジックを実装
+      // 現在は仮実装としてダッシュボードに戻るだけ
+      navigation.goBack();
+      
+      // 録音データとテキストを保存
+      const recordingData = {
+        audioUri: fileUri,
+        text: transcription,
+        duration: recordingTime,
+        createdAt: new Date().toISOString(),
+      };
+      
+      console.log('録音データ:', recordingData);
+      
+      // TODO: ローカルDBに保存するロジックを実装
+      
     } catch (error) {
       console.error('録音停止エラー:', error);
+      Alert.alert('エラー', '録音の停止に失敗しました。');
     }
   };
 
@@ -196,25 +295,31 @@ const RecordScreen: React.FC = () => {
     setupAudio();
 
     // 画面を離れるときにRecordingを必ず解放
-    return () => {
-      audioRecorder.cancelRecording(); // pause 状態でも確実に解放
-      
-      // 音楽アプリ干渉防止のためにオーディオモードをリセット
-      Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: false,
-        staysActiveInBackground: false,
-        interruptionModeIOS: 1,
-        interruptionModeAndroid: 1,
-        shouldDuckAndroid: false,
-        playThroughEarpieceAndroid: false,
-      }).catch(err => console.log('オーディオモードリセットエラー:', err));
-      
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-      stopWaveAnimation();
-    };
+  return () => {
+    audioRecorder.cancelRecording(); // pause 状態でも確実に解放
+    
+    // WebSocket接続を閉じる
+    if (sttSocketRef.current) {
+      sttSocketRef.current.disconnect();
+      sttSocketRef.current = null;
+    }
+    
+    // 音楽アプリ干渉防止のためにオーディオモードをリセット
+    Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: false,
+      staysActiveInBackground: false,
+      interruptionModeIOS: 1,
+      interruptionModeAndroid: 1,
+      shouldDuckAndroid: false,
+      playThroughEarpieceAndroid: false,
+    }).catch(err => console.log('オーディオモードリセットエラー:', err));
+    
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    stopWaveAnimation();
+  };
   }, []);
 
   // 録音時間のフォーマット (MM:SS)
@@ -283,9 +388,20 @@ const RecordScreen: React.FC = () => {
               </View>
             </>
           ) : (
-            <Text style={styles.transcriptionText}>
-              {transcription || 'ここに録音している自分や誰かの声が文字起こしされます。'}
-            </Text>
+            <>
+              {isConnecting && (
+                <Text style={styles.connectingText}>文字起こしサーバーに接続中...</Text>
+              )}
+              <ScrollView 
+                ref={scrollViewRef}
+                style={styles.transcriptionScrollView}
+                contentContainerStyle={styles.transcriptionContainer}
+              >
+                <Text style={styles.transcriptionText}>
+                  {transcription || '話し始めると、ここに文字起こし結果が表示されます...'}
+                </Text>
+              </ScrollView>
+            </>
           )}
         </View>
       </View>
@@ -468,10 +584,16 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#374151',
   },
-  transcriptionContainer: {
-    padding: 12,
+  // transcriptionContainerは下に新しい定義があるのでここでは削除
+  transcriptionScrollView: {
+    maxHeight: 300,
     backgroundColor: '#FFFFFF',
-    minHeight: 60,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  transcriptionContainer: {
+    padding: 16,
+    minHeight: 150,
   },
   transcriptionText: {
     fontSize: 18, // ディスレクシアの方にも読みやすいサイズ
@@ -479,6 +601,13 @@ const styles = StyleSheet.create({
     lineHeight: 28, // 行間を広げて読みやすく
     fontWeight: '400',
     letterSpacing: 0.5, // 文字間隔を広げて読みやすく
+  },
+  connectingText: {
+    fontSize: 14,
+    color: '#4F46E5',
+    textAlign: 'center',
+    marginBottom: 8,
+    fontStyle: 'italic',
   },
   // 録音前のガイダンステキスト
   guidanceText: {

@@ -2,6 +2,9 @@ import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
 
+// オーディオデータのコールバック型
+type AudioDataCallback = (data: ArrayBufferLike) => void;
+
 // 録音設定
 const RECORDING_OPTIONS = {
   android: {
@@ -35,12 +38,16 @@ export class AudioRecorder {
   private uri: string | null = null;
   private duration: number = 0;
   private startTime: number = 0;
+  private audioDataCallback: AudioDataCallback | null = null;
+  private dataUpdateInterval: NodeJS.Timeout | null = null;
+  private dataUpdateIntervalMs: number = 1000; // 1秒ごとにデータ更新
 
   /**
    * 録音を開始
+   * @param callback オーディオデータを受け取るコールバック関数（オプション）
    * @returns 録音オブジェクト
    */
-  async startRecording(): Promise<void> {
+  async startRecording(callback?: AudioDataCallback): Promise<void> {
     try {
       // マイクへのアクセス許可を取得
       const permission = await Audio.requestPermissionsAsync();
@@ -69,6 +76,12 @@ export class AudioRecorder {
       await this.recording.startAsync();
       this.status = 'recording';
       
+      // コールバックが指定されていれば設定
+      if (callback) {
+        this.audioDataCallback = callback;
+        this.startDataUpdateInterval();
+      }
+      
       console.log('録音開始');
     } catch (error) {
       console.error('録音の開始に失敗しました:', error);
@@ -88,6 +101,10 @@ export class AudioRecorder {
       await this.recording.pauseAsync();
       this.status = 'paused';
       this.duration += (Date.now() - this.startTime) / 1000;
+      
+      // データ更新インターバルを停止
+      this.stopDataUpdateInterval();
+      
       console.log('録音一時停止');
     } catch (error) {
       console.error('録音の一時停止に失敗しました:', error);
@@ -107,6 +124,12 @@ export class AudioRecorder {
       this.startTime = Date.now();
       await this.recording.startAsync();
       this.status = 'recording';
+      
+      // コールバックが設定されていればデータ更新インターバルを再開
+      if (this.audioDataCallback) {
+        this.startDataUpdateInterval();
+      }
+      
       console.log('録音再開');
     } catch (error) {
       console.error('録音の再開に失敗しました:', error);
@@ -124,6 +147,9 @@ export class AudioRecorder {
     }
 
     try {
+      // データ更新インターバルを停止
+      this.stopDataUpdateInterval();
+      
       // 録音停止
       await this.recording.stopAndUnloadAsync();
       
@@ -147,6 +173,7 @@ export class AudioRecorder {
       throw error;
     } finally {
       this.recording = null;
+      this.audioDataCallback = null;
     }
   }
 
@@ -159,6 +186,9 @@ export class AudioRecorder {
     }
 
     try {
+      // データ更新インターバルを停止
+      this.stopDataUpdateInterval();
+      
       await this.recording.stopAndUnloadAsync();
       const uri = this.recording.getURI();
       
@@ -175,6 +205,7 @@ export class AudioRecorder {
       console.error('録音のキャンセルに失敗しました:', error);
     } finally {
       this.recording = null;
+      this.audioDataCallback = null;
     }
   }
 
@@ -269,6 +300,71 @@ export class AudioRecorder {
    */
   getUri(): string | null {
     return this.uri;
+  }
+  
+  /**
+   * データ更新インターバルを開始
+   * 定期的に録音データを取得してコールバックに渡す
+   */
+  private startDataUpdateInterval(): void {
+    // 既存のインターバルがあれば停止
+    this.stopDataUpdateInterval();
+    
+    // 新しいインターバルを開始
+    this.dataUpdateInterval = setInterval(async () => {
+      if (this.status !== 'recording' || !this.recording || !this.audioDataCallback) {
+        return;
+      }
+      
+      try {
+        // 現在の録音データを取得
+        const uri = this.recording.getURI();
+        if (!uri) return;
+        
+        // ファイル情報を取得
+        const fileInfo = await FileSystem.getInfoAsync(uri);
+        if (!fileInfo.exists || fileInfo.size === 0) return;
+        
+        // 最新のチャンクを読み込む（最大16KBのデータ）
+        const base64 = await FileSystem.readAsStringAsync(uri, {
+          encoding: FileSystem.EncodingType.Base64,
+          position: Math.max(0, fileInfo.size - 16 * 1024),
+          length: 16 * 1024
+        });
+        
+        // Base64をバイナリに変換
+        const binary = this.base64ToBinary(base64);
+        
+        // コールバックに渡す
+        this.audioDataCallback(binary.buffer);
+      } catch (error) {
+        console.error('録音データの取得に失敗しました:', error);
+      }
+    }, this.dataUpdateIntervalMs);
+  }
+  
+  /**
+   * データ更新インターバルを停止
+   */
+  private stopDataUpdateInterval(): void {
+    if (this.dataUpdateInterval) {
+      clearInterval(this.dataUpdateInterval);
+      this.dataUpdateInterval = null;
+    }
+  }
+  
+  /**
+   * データ更新間隔を設定（ミリ秒）
+   * @param intervalMs 更新間隔（ミリ秒）
+   */
+  setDataUpdateInterval(intervalMs: number): void {
+    this.dataUpdateIntervalMs = intervalMs;
+    
+    // 既に録音中で、コールバックが設定されている場合は
+    // インターバルを再設定
+    if (this.status === 'recording' && this.audioDataCallback) {
+      this.startDataUpdateInterval();
+    }
   }
 }
 
