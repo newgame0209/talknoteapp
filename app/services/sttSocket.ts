@@ -102,9 +102,18 @@ export class STTSocket {
     this.ws.onmessage = (event: MessageEvent) => {
       try {
         console.log('[STTSocket] Raw event.data:', event.data); // For debugging
-        const parsedData: STTResult = JSON.parse(String(event.data));
-        console.log('[STTSocket] Parsed data (object):', parsedData); // For debugging
-        console.log('[STTSocket] Parsed data.text:', parsedData.text); // For debugging
+        const rawData = JSON.parse(String(event.data));
+        console.log('[STTSocket] Parsed data (object):', rawData); // For debugging
+        
+        // サーバーからのデータをSTTResult型に変換
+        const parsedData: STTResult = {
+          text: rawData.text || '',
+          isFinal: rawData.is_final || false,
+          confidence: rawData.confidence,
+          language: rawData.language_code || 'ja-JP'
+        };
+        
+        console.log('[STTSocket] Converted data:', parsedData); // For debugging
         if (this.onMessageCallback) {
           this.onMessageCallback(parsedData);
         }

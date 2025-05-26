@@ -1,6 +1,7 @@
 // データベース機能を一時的に無効化し、モック実装に置き換え
 // これはデザイン確認用の一時的な対応です
 import { Platform } from 'react-native';
+import * as SQLite from 'expo-sqlite';
 
 
 /**
@@ -67,47 +68,41 @@ export const initDatabase = async (): Promise<void> => {
     const db = getDatabase();
     
     // 録音データテーブル
-    await db.execAsync([{
-      sql: `CREATE TABLE IF NOT EXISTS recordings (
-        id TEXT PRIMARY KEY,
-        title TEXT NOT NULL,
-        duration INTEGER NOT NULL,
-        file_path TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        uploaded INTEGER DEFAULT 0,
-        media_id TEXT,
-        transcription TEXT
-      );`
-    }]);
+    await db.execAsync(`CREATE TABLE IF NOT EXISTS recordings (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      duration INTEGER NOT NULL,
+      file_path TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      uploaded INTEGER DEFAULT 0,
+      media_id TEXT,
+      transcription TEXT
+    );`);
     console.log('Recordings table created successfully');
     
     // インポートファイルテーブル
-    await db.execAsync([{
-      sql: `CREATE TABLE IF NOT EXISTS imports (
-        id TEXT PRIMARY KEY,
-        title TEXT NOT NULL,
-        file_path TEXT NOT NULL,
-        file_type TEXT NOT NULL,
-        file_size INTEGER NOT NULL,
-        created_at INTEGER NOT NULL,
-        uploaded INTEGER DEFAULT 0,
-        media_id TEXT
-      );`
-    }]);
+    await db.execAsync(`CREATE TABLE IF NOT EXISTS imports (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      file_path TEXT NOT NULL,
+      file_type TEXT NOT NULL,
+      file_size INTEGER NOT NULL,
+      created_at INTEGER NOT NULL,
+      uploaded INTEGER DEFAULT 0,
+      media_id TEXT
+    );`);
     console.log('Imports table created successfully');
     
     // アップロードキューテーブル
-    await db.execAsync([{
-      sql: `CREATE TABLE IF NOT EXISTS upload_queue (
-        id TEXT PRIMARY KEY,
-        type TEXT NOT NULL,
-        item_id TEXT NOT NULL,
-        status TEXT NOT NULL,
-        attempts INTEGER DEFAULT 0,
-        last_attempt INTEGER,
-        created_at INTEGER NOT NULL
-      );`
-    }]);
+    await db.execAsync(`CREATE TABLE IF NOT EXISTS upload_queue (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      item_id TEXT NOT NULL,
+      status TEXT NOT NULL,
+      attempts INTEGER DEFAULT 0,
+      last_attempt INTEGER,
+      created_at INTEGER NOT NULL
+    );`);
     console.log('Upload queue table created successfully');
     
     console.log('Database initialized successfully');
@@ -131,11 +126,11 @@ export const saveRecording = async (
     const db = getDatabase();
     const now = Date.now();
     
-    await db.execAsync([{
-      sql: `INSERT INTO recordings (id, title, duration, file_path, created_at, transcription)
-            VALUES (?, ?, ?, ?, ?, ?);`,
-      args: [id, title, duration, filePath, now, transcription || null]
-    }]);
+    await db.runAsync(
+      `INSERT INTO recordings (id, title, duration, file_path, created_at, transcription)
+       VALUES (?, ?, ?, ?, ?, ?);`,
+      [id, title, duration, filePath, now, transcription || null]
+    );
     
     console.log('Recording saved successfully');
     return Promise.resolve();
@@ -158,11 +153,11 @@ export const saveImport = async (
     const db = getDatabase();
     const now = Date.now();
     
-    await db.execAsync([{
-      sql: `INSERT INTO imports (id, title, file_path, file_type, file_size, created_at)
-           VALUES (?, ?, ?, ?, ?, ?);`,
-      args: [id, title, filePath, fileType, fileSize, now]
-    }]);
+    await db.runAsync(
+      `INSERT INTO imports (id, title, file_path, file_type, file_size, created_at)
+       VALUES (?, ?, ?, ?, ?, ?);`,
+      [id, title, filePath, fileType, fileSize, now]
+    );
     
     console.log('Import saved successfully');
     return Promise.resolve();
@@ -183,11 +178,11 @@ export const addToUploadQueue = async (
     const db = getDatabase();
     const now = Date.now();
     
-    await db.execAsync([{
-      sql: `INSERT INTO upload_queue (id, type, item_id, status, created_at)
-           VALUES (?, ?, ?, ?, ?);`,
-      args: [id, type, itemId, 'pending', now]
-    }]);
+    await db.runAsync(
+      `INSERT INTO upload_queue (id, type, item_id, status, created_at)
+       VALUES (?, ?, ?, ?, ?);`,
+      [id, type, itemId, 'pending', now]
+    );
     
     console.log('Item added to upload queue');
     return Promise.resolve();
@@ -203,20 +198,11 @@ export const getRecordings = async (): Promise<Recording[]> => {
   try {
     const db = getDatabase();
     
-    const result = await db.execAsync([
-      { sql: 'SELECT * FROM recordings ORDER BY created_at DESC;' }
-    ]);
+    const result = await db.getAllAsync<Recording>(
+      'SELECT * FROM recordings ORDER BY created_at DESC;'
+    );
     
-    const recordings: Recording[] = [];
-    // execAsyncは各SQL文の結果を配列で返す
-    if (result && result.length > 0 && result[0].rows) {
-      const rows = result[0].rows;
-      for (let i = 0; i < rows.length; i++) {
-        recordings.push(rows.item(i) as Recording);
-      }
-    }
-    
-    return recordings;
+    return result || [];
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Error getting recordings:', errorMessage);
@@ -229,19 +215,11 @@ export const getImports = async (): Promise<ImportFile[]> => {
   try {
     const db = getDatabase();
     
-    const result = await db.execAsync([
-      { sql: 'SELECT * FROM imports ORDER BY created_at DESC;' }
-    ]);
+    const result = await db.getAllAsync<ImportFile>(
+      'SELECT * FROM imports ORDER BY created_at DESC;'
+    );
     
-    const imports: ImportFile[] = [];
-    if (result && result.length > 0 && result[0].rows) {
-      const rows = result[0].rows;
-      for (let i = 0; i < rows.length; i++) {
-        imports.push(rows.item(i) as ImportFile);
-      }
-    }
-    
-    return imports;
+    return result || [];
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Error getting imports:', errorMessage);
@@ -255,7 +233,7 @@ export const getUploadQueue = async (status?: string): Promise<UploadQueueItem[]
     const db = getDatabase();
     
     let query = 'SELECT * FROM upload_queue';
-    const params: (string)[] = [];
+    const params: string[] = [];
     
     if (status) {
       query += ' WHERE status = ?';
@@ -264,22 +242,9 @@ export const getUploadQueue = async (status?: string): Promise<UploadQueueItem[]
     
     query += ' ORDER BY created_at ASC;';
     
-    const result = await db.execAsync([
-      { 
-        sql: query,
-        args: params
-      }
-    ]);
+    const result = await db.getAllAsync<UploadQueueItem>(query, params);
     
-    const items: UploadQueueItem[] = [];
-    if (result && result.length > 0 && result[0].rows) {
-      const rows = result[0].rows;
-      for (let i = 0; i < rows.length; i++) {
-        items.push(rows.item(i) as UploadQueueItem);
-      }
-    }
-    
-    return items;
+    return result || [];
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Error getting upload queue:', errorMessage);
@@ -298,38 +263,31 @@ export const updateUploadStatus = async (
     const now = Date.now();
     
     // アップロードキューのステータスを更新
-    await db.execAsync([
-      {
-        sql: `UPDATE upload_queue 
-             SET status = ?, last_attempt = ?, attempts = attempts + 1
-             WHERE id = ?;`,
-        args: [status, now, id]
-      }
-    ]);
+    await db.runAsync(
+      `UPDATE upload_queue 
+       SET status = ?, last_attempt = ?, attempts = attempts + 1
+       WHERE id = ?;`,
+      [status, now, id]
+    );
     
     if (mediaId) {
       // アップロード成功時、元のアイテムのメディアIDを更新
       // まずキューアイテムの情報を取得
-      const queueResult = await db.execAsync([
-        {
-          sql: `SELECT type, item_id FROM upload_queue WHERE id = ?;`,
-          args: [id]
-        }
-      ]);
+      const queueResult = await db.getFirstAsync<{type: string, item_id: string}>(
+        `SELECT type, item_id FROM upload_queue WHERE id = ?;`,
+        [id]
+      );
       
-      if (queueResult && queueResult.length > 0 && queueResult[0].rows.length > 0) {
-        const item = queueResult[0].rows.item(0);
-        const { type, item_id } = item;
+      if (queueResult) {
+        const { type, item_id } = queueResult;
         const table = type === 'recording' ? 'recordings' : 'imports';
         
         // 元のレコーディングかインポートアイテムを更新
         try {
-          await db.execAsync([
-            {
-              sql: `UPDATE ${table} SET uploaded = 1, media_id = ? WHERE id = ?;`,
-              args: [mediaId, item_id]
-            }
-          ]);
+          await db.runAsync(
+            `UPDATE ${table} SET uploaded = 1, media_id = ? WHERE id = ?;`,
+            [mediaId, item_id]
+          );
           console.log(`Updated ${type} with media ID:`, mediaId);
         } catch (updateError: unknown) {
           const errorMessage = updateError instanceof Error ? updateError.message : String(updateError);
@@ -357,44 +315,9 @@ interface DatabaseExport {
 
 export const exportDatabase = async (): Promise<DatabaseExport> => {
   try {
-    const db = getDatabase();
-    
-    // 全テーブルのデータを取得
-    const recordingsResult = await db.execAsync([
-      { sql: 'SELECT * FROM recordings ORDER BY created_at DESC;' }
-    ]);
-    
-    const recordings: Recording[] = [];
-    if (recordingsResult && recordingsResult.length > 0 && recordingsResult[0].rows) {
-      const rows = recordingsResult[0].rows;
-      for (let i = 0; i < rows.length; i++) {
-        recordings.push(rows.item(i) as Recording);
-      }
-    }
-    
-    const importsResult = await db.execAsync([
-      { sql: 'SELECT * FROM imports ORDER BY created_at DESC;' }
-    ]);
-    
-    const imports: ImportFile[] = [];
-    if (importsResult && importsResult.length > 0 && importsResult[0].rows) {
-      const rows = importsResult[0].rows;
-      for (let i = 0; i < rows.length; i++) {
-        imports.push(rows.item(i) as ImportFile);
-      }
-    }
-    
-    const queueResult = await db.execAsync([
-      { sql: 'SELECT * FROM upload_queue ORDER BY created_at ASC;' }
-    ]);
-    
-    const queue: UploadQueueItem[] = [];
-    if (queueResult && queueResult.length > 0 && queueResult[0].rows) {
-      const rows = queueResult[0].rows;
-      for (let i = 0; i < rows.length; i++) {
-        queue.push(rows.item(i) as UploadQueueItem);
-      }
-    }
+    const recordings = await getRecordings();
+    const imports = await getImports();
+    const queue = await getUploadQueue();
     
     return { recordings, imports, queue };
   } catch (error: unknown) {

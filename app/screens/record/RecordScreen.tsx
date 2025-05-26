@@ -9,6 +9,8 @@ import { Audio } from 'expo-av';
 import { getWsUrl } from '../../config/env';
 import { STTSocket, STTResult } from '../../services/sttSocket'; // Ensure named import
 import { auth } from '../../services/firebase';
+import { saveRecording } from '../../services/database';
+import * as Crypto from 'expo-crypto';
 
 /**
  * 録音画面
@@ -21,6 +23,7 @@ const RecordScreen: React.FC = () => {
   const [recordingState, setRecordingState] = useState<'idle' | 'recording' | 'paused'>('idle');
   const [recordingTime, setRecordingTime] = useState(0);
   const [transcription, setTranscription] = useState('');
+  const [interimTranscription, setInterimTranscription] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
   const audioRecorder = useRef(new AudioRecorder()).current;
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -61,7 +64,7 @@ const RecordScreen: React.FC = () => {
         sample_rate_hertz: 16000, // 適切なサンプルレートに設定
         language_code: 'ja-JP',
         enable_automatic_punctuation: true,
-        interim_results: true,
+        interim_results: true, // 中間結果を有効化（リアルタイム表示のため）
       };
 
       // 新しいSTTSocket接続を作成
@@ -76,16 +79,30 @@ const RecordScreen: React.FC = () => {
           setIsConnecting(false);
         },
         (result) => { // onMessage
-          console.log('[RecordScreen] 文字起こし結果を受信:', result.text);
+          console.log('[RecordScreen] 文字起こし結果を受信:', result);
+          
           if (result.text) {
-            setTranscription(prev => {
-              const newText = result.text.trim();
-              if (prev.length > 0 && !/[。、！？]$/.test(prev) && newText.length > 0) {
-                return prev + ' ' + newText;
-              } else {
-                return prev + newText;
-              }
-            });
+            if (result.isFinal) {
+              // 最終結果の場合、確定テキストに追加して中間結果をクリア
+              console.log('[RecordScreen] 最終結果を追加:', result.text);
+              setTranscription(prev => {
+                const newText = result.text.trim();
+                // 前のテキストがある場合はスペースで区切る
+                if (prev.length > 0) {
+                  return prev + ' ' + newText;
+                } else {
+                  return newText;
+                }
+              });
+              // 中間結果をクリア
+              setInterimTranscription('');
+            } else {
+              // 中間結果の場合、中間結果を更新
+              console.log('[RecordScreen] 中間結果を更新:', result.text);
+              setInterimTranscription(result.text);
+            }
+            
+            // スクロールを最下部に
             setTimeout(() => {
               scrollViewRef.current?.scrollToEnd({ animated: true });
             }, 100);
@@ -124,7 +141,7 @@ const RecordScreen: React.FC = () => {
     console.log(`[RecordScreen] オーディオデータ受信: ${data.byteLength} バイト`);
     if (sttSocketRef.current) {
       console.log('[RecordScreen] WebSocketでオーディオデータを送信');
-      sttSocketRef.current.sendAudioChunk(data);
+      sttSocketRef.current.sendAudioData(data);
     } else {
       console.warn('[RecordScreen] STT WebSocketが存在しないためデータ送信をスキップ');
     }
@@ -136,6 +153,7 @@ const RecordScreen: React.FC = () => {
       console.log('[RecordScreen] 録音開始処理を開始');
       // 文字起こし初期化
       setTranscription('');
+      setInterimTranscription('');
       
       // マイク権限の確認
       console.log('[RecordScreen] マイク権限をリクエスト中...');
@@ -162,7 +180,7 @@ const RecordScreen: React.FC = () => {
       // 録音開始（オーディオデータコールバックを設定）
       console.log('[RecordScreen] 録音を開始中...');
       await audioRecorder.startRecording(handleAudioData);
-      audioRecorder.setDataUpdateInterval(500); // 0.5秒ごとにデータ送信
+      audioRecorder.setDataUpdateInterval(250); // 500ms → 250ms に変更（よりリアルタイムに）
       console.log('[RecordScreen] 録音開始完了');
       
       setRecordingState('recording');
@@ -236,26 +254,34 @@ const RecordScreen: React.FC = () => {
       // WebSocketに終了を通知して切断
       if (sttSocketRef.current) {
         sttSocketRef.current.sendEndOfStream();
-        sttSocketRef.current.disconnect();
+        sttSocketRef.current.closeConnection();
         sttSocketRef.current = null;
       }
       
-      // ダッシュボードに戻り、新規ノートを作成
-      // TODO: ここで新規ノートを作成するロジックを実装
-      // 現在は仮実装としてダッシュボードに戻るだけ
-      navigation.goBack();
+      // 録音データをデータベースに保存
+      const recordingId = Crypto.randomUUID();
+      const finalTranscription = transcription + (interimTranscription ? ' ' + interimTranscription : '');
+      const title = finalTranscription.slice(0, 50) || `録音 ${new Date().toLocaleString('ja-JP')}`;
       
-      // 録音データとテキストを保存
-      const recordingData = {
-        audioUri: fileUri,
-        text: transcription,
-        duration: recordingTime,
-        createdAt: new Date().toISOString(),
-      };
-      
-      console.log('録音データ:', recordingData);
-      
-      // TODO: ローカルDBに保存するロジックを実装
+      try {
+        await saveRecording(
+          recordingId,
+          title,
+          recordingTime,
+          fileUri,
+          finalTranscription
+        );
+        console.log('録音データをデータベースに保存しました');
+        
+        // ダッシュボードに戻る
+        navigation.goBack();
+        
+        // 成功メッセージを表示（オプション）
+        // Alert.alert('保存完了', 'ノートが作成されました');
+      } catch (dbError) {
+        console.error('データベース保存エラー:', dbError);
+        Alert.alert('エラー', '録音データの保存に失敗しました。');
+      }
       
     } catch (error) {
       console.error('録音停止エラー:', error);
@@ -318,31 +344,31 @@ const RecordScreen: React.FC = () => {
     setupAudio();
 
     // 画面を離れるときにRecordingを必ず解放
-  return () => {
-    audioRecorder.cancelRecording(); // pause 状態でも確実に解放
-    
-    // WebSocket接続を閉じる
-    if (sttSocketRef.current) {
-      sttSocketRef.current.disconnect();
-      sttSocketRef.current = null;
-    }
-    
-    // 音楽アプリ干渉防止のためにオーディオモードをリセット
-    Audio.setAudioModeAsync({
-      allowsRecordingIOS: false,
-      playsInSilentModeIOS: false,
-      staysActiveInBackground: false,
-      interruptionModeIOS: 1,
-      interruptionModeAndroid: 1,
-      shouldDuckAndroid: false,
-      playThroughEarpieceAndroid: false,
-    }).catch(err => console.log('オーディオモードリセットエラー:', err));
-    
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
-    stopWaveAnimation();
-  };
+    return () => {
+      audioRecorder.cancelRecording(); // pause 状態でも確実に解放
+      
+      // WebSocket接続を閉じる
+      if (sttSocketRef.current) {
+        sttSocketRef.current.closeConnection();
+        sttSocketRef.current = null;
+      }
+      
+      // 音楽アプリ干渉防止のためにオーディオモードをリセット
+      Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: false,
+        staysActiveInBackground: false,
+        interruptionModeIOS: 1,
+        interruptionModeAndroid: 1,
+        shouldDuckAndroid: false,
+        playThroughEarpieceAndroid: false,
+      }).catch(err => console.log('オーディオモードリセットエラー:', err));
+      
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      stopWaveAnimation();
+    };
   }, []);
 
   // 録音時間のフォーマット (MM:SS)
@@ -422,6 +448,9 @@ const RecordScreen: React.FC = () => {
               >
                 <Text style={styles.transcriptionText}>
                   {transcription || '話し始めると、ここに文字起こし結果が表示されます...'}
+                  {interimTranscription && (
+                    <Text style={styles.interimText}> {interimTranscription}</Text>
+                  )}
                 </Text>
               </ScrollView>
             </>
@@ -607,7 +636,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#374151',
   },
-  // transcriptionContainerは下に新しい定義があるのでここでは削除
   transcriptionScrollView: {
     maxHeight: 300,
     backgroundColor: '#FFFFFF',
@@ -619,11 +647,11 @@ const styles = StyleSheet.create({
     minHeight: 150,
   },
   transcriptionText: {
-    fontSize: 18, // ディスレクシアの方にも読みやすいサイズ
-    color: '#111827', // コントラストを高めるために色を濃く
-    lineHeight: 28, // 行間を広げて読みやすく
+    fontSize: 18,
+    color: '#111827',
+    lineHeight: 28,
     fontWeight: '400',
-    letterSpacing: 0.5, // 文字間隔を広げて読みやすく
+    letterSpacing: 0.5,
   },
   connectingText: {
     fontSize: 14,
@@ -632,7 +660,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontStyle: 'italic',
   },
-  // 録音前のガイダンステキスト
   guidanceText: {
     fontSize: 18,
     color: '#111827',
@@ -643,14 +670,12 @@ const styles = StyleSheet.create({
     marginTop: 30,
     marginBottom: 20,
   },
-  // イラストのコンテナ
   illustrationContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 10,
     marginBottom: 20,
   },
-  // 波形表示スタイル - Figmaデザインに合わせて青色の波形を表示
   waveformContainer: {
     height: 40,
     flexDirection: 'row',
@@ -662,11 +687,10 @@ const styles = StyleSheet.create({
   },
   waveBar: {
     width: 3,
-    backgroundColor: '#3B82F6', // 青色
+    backgroundColor: '#3B82F6',
     borderRadius: 1.5,
     marginHorizontal: 2,
   },
-  // コントロールコンテナ
   controlsContainer: {
     paddingBottom: 20,
     paddingHorizontal: 16,
@@ -674,11 +698,10 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
   },
-  // 録音ボタン　- Figmaデザインに合わせて青色円形ボタン
   recordButton: {
     width: 72,
     height: 72,
-    backgroundColor: '#3B82F6', // 青色
+    backgroundColor: '#3B82F6',
     borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
@@ -690,7 +713,6 @@ const styles = StyleSheet.create({
     elevation: 4,
     marginVertical: 16,
   },
-  // 録音中コントロール
   activeControls: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -702,11 +724,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '33%',
   },
-  // 停止ボタン - 赤色の四角ボタン（添付画像に合わせて）
   stopButton: {
     width: 64,
     height: 64,
-    backgroundColor: '#EF4444', // 赤色
+    backgroundColor: '#EF4444',
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -722,11 +743,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 2,
   },
-  // 一時停止/再開ボタン - 青色の円形ボタン（添付画像に合わせて）
   pauseButton: {
     width: 64,
     height: 64,
-    backgroundColor: '#3B82F6', // 青色
+    backgroundColor: '#3B82F6',
     borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
@@ -736,18 +756,16 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  // 時間表示ラベル - Figmaデザインに合わせてボタン下に表示
   controlTimeLabel: {
     fontSize: 14,
     fontWeight: '600',
     color: '#374151',
     marginTop: 8,
   },
-  // 設定ボタン - 青色の円形ボタン（添付画像に合わせて）
   settingsButton: {
     width: 64,
     height: 64,
-    backgroundColor: '#3B82F6', // 青色
+    backgroundColor: '#3B82F6',
     borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
@@ -757,12 +775,15 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  // コントロールラベル - 添付画像に合わせてボタン下に表示
   controlLabel: {
     fontSize: 12,
     color: '#374151',
     fontWeight: '600',
     marginTop: 8,
+  },
+  interimText: {
+    color: '#9CA3AF',
+    fontStyle: 'italic',
   },
 });
 

@@ -20,6 +20,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { getRecordings, Recording, initDatabase } from '../../services/database';
 
 // 仮のデータ型定義
 interface Note {
@@ -91,13 +92,58 @@ const DashboardScreen: React.FC = () => {
   const [isImportModalVisible, setIsImportModalVisible] = useState(false);
   const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
   const [urlInput, setUrlInput] = useState('');
+  const [recordings, setRecordings] = useState<Recording[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   // greeting message variables
   const userName = 'ユーザー'; // TODO: ユーザー名を取得
   const hours = new Date().getHours();
   const greeting = hours < 18 ? 'こんにちは' : 'こんばんは';
 
-  useEffect(() => {}, []);
+  // データベースの初期化と録音データの取得
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        // データベースを初期化
+        await initDatabase();
+        
+        // 録音データを取得
+        const recordingData = await getRecordings();
+        setRecordings(recordingData);
+      } catch (error) {
+        console.error('データ読み込みエラー:', error);
+        Alert.alert('エラー', 'データの読み込みに失敗しました');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  // 画面がフォーカスされたときにデータを再読み込み
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', async () => {
+      try {
+        const recordingData = await getRecordings();
+        setRecordings(recordingData);
+      } catch (error) {
+        console.error('データ再読み込みエラー:', error);
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
+  // 録音データをNote形式に変換
+  const convertRecordingToNote = (recording: Recording): Note => {
+    return {
+      id: recording.id,
+      title: recording.title,
+      date: new Date(recording.created_at).toLocaleDateString('ja-JP'),
+      type: 'audio',
+    };
+  };
 
   // ノートアイテムのレンダリング
   const renderNoteItem = (item: Note) => {
@@ -108,11 +154,15 @@ const DashboardScreen: React.FC = () => {
         onPress={() => navigation.navigate('CanvasEditor', { noteId: item.id })}
       >
         <View style={styles.noteItemContent}>
-          <MaterialCommunityIcons
-            name="file-document-outline"
-            size={24}
-            color="#4F46E5"
-          />
+          {item.type === 'audio' ? (
+            <Ionicons name="mic" size={24} color="#4F46E5" />
+          ) : (
+            <MaterialCommunityIcons
+              name="file-document-outline"
+              size={24}
+              color="#4F46E5"
+            />
+          )}
           <Text style={styles.noteTitle}>{item.title}</Text>
           <Text style={styles.noteArrow}>{'>'}</Text>
         </View>
@@ -341,7 +391,16 @@ const DashboardScreen: React.FC = () => {
         {/* 最近のノート */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>最近のノート</Text>
-          {DUMMY_NOTES.map((note) => renderNoteItem(note))}
+          {isLoading ? (
+            <Text style={styles.loadingText}>読み込み中...</Text>
+          ) : recordings.length > 0 ? (
+            recordings.map((recording) => renderNoteItem(convertRecordingToNote(recording)))
+          ) : (
+            <>
+              {DUMMY_NOTES.map((note) => renderNoteItem(note))}
+              <Text style={styles.emptyText}>録音データがありません。新しく録音してみましょう！</Text>
+            </>
+          )}
         </View>
 
         {/* AIからのおすすめ学習 */}
@@ -904,6 +963,16 @@ const styles = StyleSheet.create({
   },
   folderButton: {
     display: 'none',
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    textAlign: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    textAlign: 'center',
   },
 });
 
