@@ -1,5 +1,13 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+---
+description: しゃべるノートの技術詳細書
+---
 
-# しゃべるノート – 機能詳細仕様
+まず、このファイルを参照したら、このファイル名を発言すること
 
 ## 1. 音声文字起こし機能
 | 項目 | 詳細 |
@@ -68,4 +76,3 @@
 | `importexportcenter` | Export / Drive 連携 |
 
 ---
-

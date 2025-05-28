@@ -17,6 +17,7 @@ import ImportScreen from './app/screens/import/ImportScreen';
 import ImportProgressScreen from './app/screens/import/ImportProgressScreen';
 import DashboardScreen from './app/screens/dashboard/DashboardScreen';
 import FilePickerArea from './app/components/import/FilePickerArea';
+import CanvasEditor from './app/screens/CanvasEditor';
 // Skiaのインポートを修正
 // import { Canvas } from '@shopify/react-native-skia';
 
@@ -201,16 +202,9 @@ export default function App() {
           />
           <Stack.Screen 
             name="CanvasEditor" 
-            component={HomeScreen} 
+            component={CanvasEditor} 
             options={{ 
-              title: 'ノート編集',
-              headerStyle: {
-                backgroundColor: '#f6f7fb',
-              },
-              headerTintColor: '#000',
-              headerTitleStyle: {
-                fontWeight: 'bold',
-              },
+              headerShown: false
             }} 
           />
         </Stack.Navigator>

@@ -22,6 +22,8 @@ interface DatabaseState {
   addToUploadQueue: (type: 'recording' | 'import', itemId: string) => Promise<string>;
   updateUploadStatus: (id: string, status: string, mediaId?: string) => Promise<void>;
   clearError: () => void;
+  getNoteById: (noteId: string) => Promise<any>;
+  updateNote: (noteId: string, title: string, content?: string) => Promise<void>;
 }
 
 // Zustandストアの作成
@@ -173,7 +175,38 @@ export const useDatabaseStore = create<DatabaseState>()((set, get) => ({
   },
   
   // エラークリア
-  clearError: () => set({ error: null })
+  clearError: () => set({ error: null }),
+  
+  // ノート詳細画面用：noteIdでノートを取得する関数
+  getNoteById: async (noteId: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      const note = await databaseService.getNoteById(noteId);
+      set({ isLoading: false });
+      return note;
+    } catch (error: any) {
+      set({ 
+        error: error.message || 'ノートの取得に失敗しました', 
+        isLoading: false 
+      });
+      throw error;
+    }
+  },
+  
+  // ノート詳細画面用：noteIdでノートを更新する関数
+  updateNote: async (noteId: string, title: string, content?: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      await databaseService.updateNote(noteId, title, content);
+      set({ isLoading: false });
+    } catch (error: any) {
+      set({ 
+        error: error.message || 'ノートの更新に失敗しました', 
+        isLoading: false 
+      });
+      throw error;
+    }
+  }
 }));
 
 export default useDatabaseStore;

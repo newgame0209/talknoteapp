@@ -85,15 +85,15 @@ const RecordScreen: React.FC = () => {
             if (result.isFinal) {
               // 最終結果の場合、確定テキストに追加して中間結果をクリア
               console.log('[RecordScreen] 最終結果を追加:', result.text);
-              setTranscription(prev => {
-                const newText = result.text.trim();
+            setTranscription(prev => {
+              const newText = result.text.trim();
                 // 前のテキストがある場合はスペースで区切る
                 if (prev.length > 0) {
-                  return prev + ' ' + newText;
-                } else {
+                return prev + ' ' + newText;
+              } else {
                   return newText;
-                }
-              });
+              }
+            });
               // 中間結果をクリア
               setInterimTranscription('');
             } else {
@@ -275,7 +275,7 @@ const RecordScreen: React.FC = () => {
         
         // ダッシュボードに戻る
         navigation.goBack();
-        
+      
         // 成功メッセージを表示（オプション）
         // Alert.alert('保存完了', 'ノートが作成されました');
       } catch (dbError) {
@@ -344,31 +344,31 @@ const RecordScreen: React.FC = () => {
     setupAudio();
 
     // 画面を離れるときにRecordingを必ず解放
-    return () => {
-      audioRecorder.cancelRecording(); // pause 状態でも確実に解放
-      
-      // WebSocket接続を閉じる
-      if (sttSocketRef.current) {
+  return () => {
+    audioRecorder.cancelRecording(); // pause 状態でも確実に解放
+    
+    // WebSocket接続を閉じる
+    if (sttSocketRef.current) {
         sttSocketRef.current.closeConnection();
-        sttSocketRef.current = null;
-      }
-      
-      // 音楽アプリ干渉防止のためにオーディオモードをリセット
-      Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: false,
-        staysActiveInBackground: false,
-        interruptionModeIOS: 1,
-        interruptionModeAndroid: 1,
-        shouldDuckAndroid: false,
-        playThroughEarpieceAndroid: false,
-      }).catch(err => console.log('オーディオモードリセットエラー:', err));
-      
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-      stopWaveAnimation();
-    };
+      sttSocketRef.current = null;
+    }
+    
+    // 音楽アプリ干渉防止のためにオーディオモードをリセット
+    Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: false,
+      staysActiveInBackground: false,
+      interruptionModeIOS: 1,
+      interruptionModeAndroid: 1,
+      shouldDuckAndroid: false,
+      playThroughEarpieceAndroid: false,
+    }).catch(err => console.log('オーディオモードリセットエラー:', err));
+    
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    stopWaveAnimation();
+  };
   }, []);
 
   // 録音時間のフォーマット (MM:SS)

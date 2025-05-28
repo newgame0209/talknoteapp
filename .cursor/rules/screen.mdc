@@ -1,4 +1,13 @@
-# スクリーンリスト - しゃべるノート
+---
+description: 
+globs: 
+alwaysApply: true
+---
+---
+description: しゃべるノート – スクリーンの詳細リスト
+---
+
+まず、このファイルを参照したら、このファイル名を発言すること
 
 1.**WelcomeLogin** | ログイン / 新規登録 | SSO ボタン / EmailForm |
 （iosはApple IDでログイン、Androidはgooglでログイン）
@@ -155,27 +164,3 @@ PDF / Word / Cloud Drive 連携、フォーマット選択
 
 14.**LegalTerms** | 
 プライバシー・利用規約の画面
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

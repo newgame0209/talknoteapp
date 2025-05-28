@@ -1,4 +1,13 @@
-# テスト実行ガイド
+---
+description: 
+globs: 
+alwaysApply: true
+---
+---
+description: しゃべるノート – テスト実行ガイド
+---
+
+まず、このファイルを参照したら、このファイル名を発言すること
 
 ## 1. 前提条件
 - Python 3.9+

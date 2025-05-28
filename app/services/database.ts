@@ -69,39 +69,39 @@ export const initDatabase = async (): Promise<void> => {
     
     // 録音データテーブル
     await db.execAsync(`CREATE TABLE IF NOT EXISTS recordings (
-      id TEXT PRIMARY KEY,
-      title TEXT NOT NULL,
-      duration INTEGER NOT NULL,
-      file_path TEXT NOT NULL,
-      created_at INTEGER NOT NULL,
-      uploaded INTEGER DEFAULT 0,
-      media_id TEXT,
-      transcription TEXT
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        duration INTEGER NOT NULL,
+        file_path TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        uploaded INTEGER DEFAULT 0,
+        media_id TEXT,
+        transcription TEXT
     );`);
     console.log('Recordings table created successfully');
     
     // インポートファイルテーブル
     await db.execAsync(`CREATE TABLE IF NOT EXISTS imports (
-      id TEXT PRIMARY KEY,
-      title TEXT NOT NULL,
-      file_path TEXT NOT NULL,
-      file_type TEXT NOT NULL,
-      file_size INTEGER NOT NULL,
-      created_at INTEGER NOT NULL,
-      uploaded INTEGER DEFAULT 0,
-      media_id TEXT
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        file_path TEXT NOT NULL,
+        file_type TEXT NOT NULL,
+        file_size INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        uploaded INTEGER DEFAULT 0,
+        media_id TEXT
     );`);
     console.log('Imports table created successfully');
     
     // アップロードキューテーブル
     await db.execAsync(`CREATE TABLE IF NOT EXISTS upload_queue (
-      id TEXT PRIMARY KEY,
-      type TEXT NOT NULL,
-      item_id TEXT NOT NULL,
-      status TEXT NOT NULL,
-      attempts INTEGER DEFAULT 0,
-      last_attempt INTEGER,
-      created_at INTEGER NOT NULL
+        id TEXT PRIMARY KEY,
+        type TEXT NOT NULL,
+        item_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        attempts INTEGER DEFAULT 0,
+        last_attempt INTEGER,
+        created_at INTEGER NOT NULL
     );`);
     console.log('Upload queue table created successfully');
     
@@ -128,7 +128,7 @@ export const saveRecording = async (
     
     await db.runAsync(
       `INSERT INTO recordings (id, title, duration, file_path, created_at, transcription)
-       VALUES (?, ?, ?, ?, ?, ?);`,
+            VALUES (?, ?, ?, ?, ?, ?);`,
       [id, title, duration, filePath, now, transcription || null]
     );
     
@@ -155,7 +155,7 @@ export const saveImport = async (
     
     await db.runAsync(
       `INSERT INTO imports (id, title, file_path, file_type, file_size, created_at)
-       VALUES (?, ?, ?, ?, ?, ?);`,
+           VALUES (?, ?, ?, ?, ?, ?);`,
       [id, title, filePath, fileType, fileSize, now]
     );
     
@@ -180,7 +180,7 @@ export const addToUploadQueue = async (
     
     await db.runAsync(
       `INSERT INTO upload_queue (id, type, item_id, status, created_at)
-       VALUES (?, ?, ?, ?, ?);`,
+           VALUES (?, ?, ?, ?, ?);`,
       [id, type, itemId, 'pending', now]
     );
     
@@ -265,8 +265,8 @@ export const updateUploadStatus = async (
     // アップロードキューのステータスを更新
     await db.runAsync(
       `UPDATE upload_queue 
-       SET status = ?, last_attempt = ?, attempts = attempts + 1
-       WHERE id = ?;`,
+             SET status = ?, last_attempt = ?, attempts = attempts + 1
+             WHERE id = ?;`,
       [status, now, id]
     );
     
@@ -327,6 +327,69 @@ export const exportDatabase = async (): Promise<DatabaseExport> => {
   }
 };
 
+// ノート詳細画面用：noteIdでノートを取得する関数
+export const getNoteById = async (noteId: string): Promise<Recording | ImportFile | null> => {
+  try {
+    const db = getDatabase();
+    // 録音データテーブルから検索
+    const recordingResult = await db.getFirstAsync<Recording>(
+      'SELECT * FROM recordings WHERE id = ?;',
+      [noteId]
+    );
+    if (recordingResult) {
+      return recordingResult;
+    }
+    // インポートファイルテーブルから検索
+    const importResult = await db.getFirstAsync<ImportFile>(
+      'SELECT * FROM imports WHERE id = ?;',
+      [noteId]
+    );
+    return importResult || null;
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Error getting note by id:', errorMessage);
+    return Promise.reject(error);
+  }
+};
+
+// ノート詳細画面用：noteIdでノートを更新する関数
+export const updateNote = async (noteId: string, title: string, content?: string): Promise<void> => {
+  try {
+    const db = getDatabase();
+    // 録音データテーブルから検索
+    const recordingResult = await db.getFirstAsync<Recording>(
+      'SELECT * FROM recordings WHERE id = ?;',
+      [noteId]
+    );
+    if (recordingResult) {
+      await db.runAsync(
+        'UPDATE recordings SET title = ?, transcription = ? WHERE id = ?;',
+        [title, content || null, noteId]
+      );
+      console.log('Recording updated successfully');
+      return Promise.resolve();
+    }
+    // インポートファイルテーブルから検索
+    const importResult = await db.getFirstAsync<ImportFile>(
+      'SELECT * FROM imports WHERE id = ?;',
+      [noteId]
+    );
+    if (importResult) {
+      await db.runAsync(
+        'UPDATE imports SET title = ? WHERE id = ?;',
+        [title, noteId]
+      );
+      console.log('Import updated successfully');
+      return Promise.resolve();
+    }
+    throw new Error('Note not found');
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Error updating note:', errorMessage);
+    return Promise.reject(error);
+  }
+};
+
 export default {
   initDatabase,
   saveRecording,
@@ -336,5 +399,7 @@ export default {
   getImports,
   getUploadQueue,
   updateUploadStatus,
-  exportDatabase
+  exportDatabase,
+  getNoteById,
+  updateNote
 };
