@@ -20,7 +20,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { getRecordings, Recording, initDatabase } from '../../services/database';
+import { getRecordings, Recording, initDatabase, deleteNote } from '../../services/database';
 
 // 仮のデータ型定義
 interface Note {
@@ -95,29 +95,40 @@ const DashboardScreen: React.FC = () => {
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // 新しいステート：削除・編集機能用
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedNotes, setSelectedNotes] = useState<Set<string>>(new Set());
+  const [isActionModalVisible, setIsActionModalVisible] = useState(false);
+  const [isDeleteDialogVisible, setIsDeleteDialogVisible] = useState(false);
+  const [isRenameDialogVisible, setIsRenameDialogVisible] = useState(false);
+  const [isMoveDialogVisible, setIsMoveDialogVisible] = useState(false);
+  const [renameText, setRenameText] = useState('');
+  const [currentEditingNote, setCurrentEditingNote] = useState<Note | null>(null);
+
   // greeting message variables
   const userName = 'ユーザー'; // TODO: ユーザー名を取得
   const hours = new Date().getHours();
   const greeting = hours < 18 ? 'こんにちは' : 'こんばんは';
 
   // データベースの初期化と録音データの取得
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        // データベースを初期化
-        await initDatabase();
-        
-        // 録音データを取得
-        const recordingData = await getRecordings();
-        setRecordings(recordingData);
-      } catch (error) {
-        console.error('データ読み込みエラー:', error);
-        Alert.alert('エラー', 'データの読み込みに失敗しました');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      // データベースを初期化
+      await initDatabase();
+      
+      // 録音データを取得
+      const recordingData = await getRecordings();
+      setRecordings(recordingData);
+    } catch (error) {
+      console.error('データ読み込みエラー:', error);
+      Alert.alert('エラー', 'データの読み込みに失敗しました');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  useEffect(() => {
     loadData();
   }, []);
 
@@ -147,13 +158,39 @@ const DashboardScreen: React.FC = () => {
 
   // ノートアイテムのレンダリング
   const renderNoteItem = (item: Note) => {
+    const isSelected = selectedNotes.has(item.id);
+    
     return (
       <TouchableOpacity
         key={item.id}
-        style={styles.noteItem}
-        onPress={() => navigation.navigate('CanvasEditor', { noteId: item.id })}
+        style={[styles.noteItem, isSelected && styles.noteItemSelected]}
+        onPress={() => {
+          if (isSelectionMode) {
+            // 選択モード時はチェックボックスの切り替え
+            toggleNoteSelection(item.id);
+          } else {
+            // 通常モード時はノート編集画面へ遷移
+            navigation.navigate('CanvasEditor', { noteId: item.id });
+          }
+        }}
+        onLongPress={() => {
+          // 長押しで選択モードに入る
+          enterSelectionMode(item.id);
+        }}
       >
         <View style={styles.noteItemContent}>
+          {isSelectionMode && (
+            <TouchableOpacity
+              style={styles.checkbox}
+              onPress={() => toggleNoteSelection(item.id)}
+            >
+              <Ionicons
+                name={isSelected ? "checkmark-circle" : "ellipse-outline"}
+                size={24}
+                color={isSelected ? "#589ff4" : "#9CA3AF"}
+              />
+            </TouchableOpacity>
+          )}
           {item.type === 'audio' ? (
             <Ionicons name="mic" size={24} color="#4F46E5" />
           ) : (
@@ -164,11 +201,74 @@ const DashboardScreen: React.FC = () => {
             />
           )}
           <Text style={styles.noteTitle}>{item.title}</Text>
-          <Text style={styles.noteArrow}>{'>'}</Text>
+          {!isSelectionMode && <Text style={styles.noteArrow}>{'>'}</Text>}
         </View>
         <Text style={styles.noteDate}>{item.date}</Text>
       </TouchableOpacity>
     );
+  };
+
+  // 選択モードに入る関数
+  const enterSelectionMode = (noteId?: string) => {
+    setIsSelectionMode(true);
+    if (noteId) {
+      setSelectedNotes(new Set([noteId]));
+    }
+  };
+
+  // 選択モードを終了する関数
+  const exitSelectionMode = () => {
+    setIsSelectionMode(false);
+    setSelectedNotes(new Set());
+  };
+
+  // ノートの選択切り替え関数
+  const toggleNoteSelection = (noteId: string) => {
+    const newSelected = new Set(selectedNotes);
+    if (newSelected.has(noteId)) {
+      newSelected.delete(noteId);
+    } else {
+      newSelected.add(noteId);
+    }
+    setSelectedNotes(newSelected);
+  };
+
+  // 削除確認ダイアログ表示
+  const showDeleteDialog = () => {
+    if (selectedNotes.size === 0) return;
+    setIsDeleteDialogVisible(true);
+  };
+
+  // ノート削除実行
+  const executeDelete = async () => {
+    try {
+      setIsLoading(true);
+      
+      // 選択されたノートを削除
+      for (const noteId of selectedNotes) {
+        await deleteNote(noteId);
+      }
+      
+      // データを再読み込み
+      await loadData();
+      
+      // 選択モードを終了
+      exitSelectionMode();
+      setIsDeleteDialogVisible(false);
+      
+      Alert.alert('削除完了', `${selectedNotes.size}件のノートを削除しました。`);
+    } catch (error) {
+      console.error('削除エラー:', error);
+      Alert.alert('エラー', 'ノートの削除中にエラーが発生しました。');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // アクションモーダル表示
+  const showActionModal = () => {
+    if (selectedNotes.size === 0) return;
+    setIsActionModalVisible(true);
   };
 
   // 推薦アイテムのレンダリング
@@ -617,6 +717,84 @@ const DashboardScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+
+      {/* アクションモーダル */}
+      {isSelectionMode && selectedNotes.size > 0 && (
+        <View style={styles.actionBarContainer}>
+          <View style={styles.actionBar}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => {
+                // AI名前変更機能（今後実装）
+                Alert.alert('AI名前変更', '今後実装予定の機能です');
+              }}
+            >
+              <Ionicons name="sparkles" size={20} color="#589ff4" />
+              <Text style={styles.actionButtonText}>AI名前変更</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => {
+                // 移動機能（今後実装）
+                Alert.alert('移動', '今後実装予定の機能です');
+              }}
+            >
+              <Ionicons name="folder-open" size={20} color="#589ff4" />
+              <Text style={styles.actionButtonText}>移動</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={showDeleteDialog}
+            >
+              <Ionicons name="trash" size={20} color="#EF4444" />
+              <Text style={[styles.actionButtonText, { color: '#EF4444' }]}>削除</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={exitSelectionMode}
+          >
+            <Text style={styles.cancelButtonText}>キャンセル</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* 削除確認ダイアログ */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={isDeleteDialogVisible}
+        onRequestClose={() => setIsDeleteDialogVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.deleteDialog}>
+            <Text style={styles.deleteDialogTitle}>ノートを削除</Text>
+            <Text style={styles.deleteDialogMessage}>
+              選択した{selectedNotes.size}件のノートを削除しますか？
+              {'\n'}この操作は取り消せません。
+            </Text>
+            
+            <View style={styles.deleteDialogButtons}>
+              <TouchableOpacity
+                style={styles.deleteDialogCancelButton}
+                onPress={() => setIsDeleteDialogVisible(false)}
+              >
+                <Text style={styles.deleteDialogCancelText}>キャンセル</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.deleteDialogDeleteButton}
+                onPress={executeDelete}
+              >
+                <Text style={styles.deleteDialogDeleteText}>削除</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -735,6 +913,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
+  noteItemSelected: {
+    backgroundColor: '#EBF4FF',
+    borderColor: '#589ff4',
+  },
   noteItemContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -822,8 +1004,10 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
   },
   createMenuContainer: {
     alignItems: 'center',
@@ -973,6 +1157,91 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9CA3AF',
     textAlign: 'center',
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderWidth: 1,
+    borderColor: '#9CA3AF',
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  actionBarContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+  },
+  actionBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+  },
+  actionButtonText: {
+    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  cancelButton: {
+    padding: 8,
+    backgroundColor: '#589ff4',
+    borderRadius: 8,
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  deleteDialog: {
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 12,
+    width: '100%',
+  },
+  deleteDialogTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  deleteDialogMessage: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 16,
+  },
+  deleteDialogButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  deleteDialogCancelButton: {
+    padding: 8,
+    backgroundColor: '#589ff4',
+    borderRadius: 8,
+  },
+  deleteDialogCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  deleteDialogDeleteButton: {
+    padding: 8,
+    backgroundColor: '#EF4444',
+    borderRadius: 8,
+  },
+  deleteDialogDeleteText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
 

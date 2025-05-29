@@ -390,6 +390,73 @@ export const updateNote = async (noteId: string, title: string, content?: string
   }
 };
 
+// 録音データを削除する関数
+export const deleteRecording = async (recordingId: string): Promise<void> => {
+  try {
+    const db = getDatabase();
+    await db.runAsync(
+      'DELETE FROM recordings WHERE id = ?;',
+      [recordingId]
+    );
+    console.log('Recording deleted successfully');
+    return Promise.resolve();
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Error deleting recording:', errorMessage);
+    return Promise.reject(error);
+  }
+};
+
+// インポートファイルを削除する関数
+export const deleteImport = async (importId: string): Promise<void> => {
+  try {
+    const db = getDatabase();
+    await db.runAsync(
+      'DELETE FROM imports WHERE id = ?;',
+      [importId]
+    );
+    console.log('Import deleted successfully');
+    return Promise.resolve();
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Error deleting import:', errorMessage);
+    return Promise.reject(error);
+  }
+};
+
+// ノートを削除する統合関数（Recording または ImportFile）
+export const deleteNote = async (noteId: string): Promise<void> => {
+  try {
+    const db = getDatabase();
+    
+    // 録音データテーブルから検索
+    const recordingResult = await db.getFirstAsync<Recording>(
+      'SELECT * FROM recordings WHERE id = ?;',
+      [noteId]
+    );
+    if (recordingResult) {
+      await deleteRecording(noteId);
+      return Promise.resolve();
+    }
+    
+    // インポートファイルテーブルから検索
+    const importResult = await db.getFirstAsync<ImportFile>(
+      'SELECT * FROM imports WHERE id = ?;',
+      [noteId]
+    );
+    if (importResult) {
+      await deleteImport(noteId);
+      return Promise.resolve();
+    }
+    
+    throw new Error('Note not found');
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Error deleting note:', errorMessage);
+    return Promise.reject(error);
+  }
+};
+
 export default {
   initDatabase,
   saveRecording,
@@ -401,5 +468,8 @@ export default {
   updateUploadStatus,
   exportDatabase,
   getNoteById,
-  updateNote
+  updateNote,
+  deleteRecording,
+  deleteImport,
+  deleteNote
 };
