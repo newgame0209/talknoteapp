@@ -12,9 +12,9 @@ import 'nativewind';
 
 // 一時的なプレースホルダー画面
 const PlaceholderScreen = () => (
-  <View className="flex-1 items-center justify-center bg-white">
-    <Text className="text-2xl font-bold text-primary-500">しゃべるノート</Text>
-    <Text className="text-lg text-gray-600 mt-2">開発中...</Text>
+  <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'white' }}>
+    <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#4F46E5' }}>しゃべるノート</Text>
+    <Text style={{ fontSize: 16, color: '#6B7280', marginTop: 8 }}>開発中...</Text>
     <StatusBar style="auto" />
   </View>
 );

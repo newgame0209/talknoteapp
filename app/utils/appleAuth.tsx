@@ -1,6 +1,7 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 import { useAuthStore } from '../store/authStore';
+import React, { FC } from 'react';
 
 /**
  * Apple認証のヘルパー関数
@@ -70,12 +71,18 @@ export const signInWithApple = async (): Promise<void> => {
  * Apple Sign-Inのボタンコンポーネント
  * 使用例: <AppleAuthButton onSuccess={() => navigation.navigate('Home')} />
  */
-export const AppleAuthButton: React.FC<{
+export const AppleAuthButton: FC<{
   onSuccess?: () => void;
   onError?: (error: Error) => void;
 }> = ({ onSuccess, onError }) => {
+  const [isAvailable, setIsAvailable] = React.useState<boolean>(false);
+
+  React.useEffect(() => {
+    AppleAuthentication.isAvailableAsync().then(setIsAvailable);
+  }, []);
+
   // デバイスがApple認証をサポートしていない場合は何も表示しない
-  if (!AppleAuthentication.isAvailableAsync()) {
+  if (!isAvailable) {
     return null;
   }
 
@@ -97,10 +104,4 @@ export const AppleAuthButton: React.FC<{
       onPress={handlePress}
     />
   );
-};
-
-export default {
-  isAppleAuthAvailable,
-  signInWithApple,
-  AppleAuthButton,
 };
