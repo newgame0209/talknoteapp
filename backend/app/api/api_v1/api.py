@@ -6,7 +6,7 @@ from fastapi import APIRouter
 
 # 各エンドポイント用のルーター
 from app.api.api_v1.endpoints import notebooks, pages, media, transcripts, stt, pubsub, health
-from app.api.api_v1.endpoints.ai import router as ai_router
+from app.api.api_v1.endpoints.ai.router import router as ai_router
 
 api_router = APIRouter()
 

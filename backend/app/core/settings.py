@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     
     # 開発環境用設定
     BYPASS_AUTH: bool = False  # ローカル開発環境での認証バイパス
+    TEST_USER_EMAIL: str = "test@example.com"  # テスト用ユーザーメール
 
     # サーバー設定
     HOST: str = "0.0.0.0"

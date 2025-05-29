@@ -129,40 +129,58 @@ class MockSTTProvider(BaseSTTProvider):
         """
         logger.info(f"Mock transcribe_stream called with language: {language_code}")
         
-        # モックの中間結果を生成
-        mock_responses = [
-            "こ",
-            "これ",
+        # モックの文字起こし結果（段階的に構築）
+        mock_phrases = [
             "これは",
-            "これはモ",
-            "これはモック",
-            "これはモックの",
-            "これはモックの文字",
-            "これはモックの文字起こし",
-            "これはモックの文字起こし結果",
-            "これはモックの文字起こし結果です"
+            "テストです",
+            "音声認識が",
+            "正常に",
+            "動作しています"
         ]
         
+        chunk_count = 0
+        current_phrase_index = 0
+        accumulated_text = ""
+        
         try:
-            # 音声ストリームからデータを受信（実際には使用しない）
-            async for _ in audio_stream:
-                pass
+            # 音声ストリームからデータを受信しながら処理
+            async for audio_chunk in audio_stream:
+                chunk_count += 1
+                logger.info(f"Mock STT: Received audio chunk {chunk_count}, size: {len(audio_chunk)} bytes")
                 
-            # モックの結果を順番に返す
-            for i, text in enumerate(mock_responses):
-                is_final = i == len(mock_responses) - 1
+                # 3チャンクごとに新しいフレーズを追加（リアルタイム感を演出）
+                if chunk_count % 3 == 0 and current_phrase_index < len(mock_phrases):
+                    if accumulated_text:
+                        accumulated_text += " "
+                    accumulated_text += mock_phrases[current_phrase_index]
+                    
+                    # 中間結果を送信
+                    if interim_results:
+                        yield TranscriptionResult(
+                            text=accumulated_text,
+                            confidence=0.8,
+                            status=TranscriptionStatus.IN_PROGRESS,
+                            is_final=False,
+                            language_code=language_code,
+                            duration_seconds=chunk_count * 0.25
+                        )
+                    
+                    current_phrase_index += 1
+                    
+                    # 最後のフレーズの場合は最終結果として送信
+                    if current_phrase_index >= len(mock_phrases):
+                        yield TranscriptionResult(
+                            text=accumulated_text + "。",
+                            confidence=0.95,
+                            status=TranscriptionStatus.COMPLETED,
+                            is_final=True,
+                            language_code=language_code,
+                            duration_seconds=chunk_count * 0.25
+                        )
+                        break
                 
-                yield TranscriptionResult(
-                    text=text,
-                    confidence=0.8 if not is_final else 0.95,
-                    status=TranscriptionStatus.IN_PROGRESS if not is_final else TranscriptionStatus.COMPLETED,
-                    is_final=is_final,
-                    language_code=language_code,
-                    duration_seconds=(i + 1) * 0.5
-                )
-                
-                # 少し待機して、リアルタイム処理をシミュレート
-                await asyncio.sleep(0.5)
+                # 少し待機してリアルタイム処理をシミュレート
+                await asyncio.sleep(0.1)
                 
         except Exception as e:
             logger.error(f"Error in mock transcribe_stream: {e}")

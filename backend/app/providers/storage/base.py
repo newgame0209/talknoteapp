@@ -159,3 +159,17 @@ class StorageProvider(ABC):
             bool: 削除成功の場合True
         """
         pass
+
+    @abstractmethod
+    async def upload_file(
+        self,
+        media_id: str,
+        file: BinaryIO,
+        filename: str,
+        content_type: str,
+        user_id: str
+    ) -> dict:
+        """
+        FormDataで受け取ったファイルを保存
+        """
+        pass

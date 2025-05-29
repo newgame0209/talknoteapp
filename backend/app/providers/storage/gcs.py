@@ -459,3 +459,29 @@ class GCSStorageProvider(StorageProvider):
         }
         
         return mimetype_map.get(mimetype.lower(), "bin")
+
+    async def upload_file(self, media_id: str, file: BinaryIO, filename: str, content_type: str, user_id: str) -> dict:
+        """
+        FormDataで受け取ったファイルをGCSに保存
+        """
+        # ファイル拡張子の取得
+        ext = self._get_extension_from_mimetype(content_type)
+        blob_path = self._get_blob_path(user_id, media_id, ext)
+        blob = self.bucket.blob(blob_path)
+        # GCSにアップロード
+        blob.upload_from_file(file, content_type=content_type)
+        # メタデータの作成
+        metadata = {
+            "media_id": media_id,
+            "user_id": user_id,
+            "file_type": content_type,
+            "status": "processing",
+            "progress": 0.0,
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+            "blob_path": blob_path
+        }
+        await self._save_metadata_to_gcs(user_id, media_id, metadata)
+        # 非同期で処理を開始（ここではシミュレーション）
+        asyncio.create_task(self._process_media(user_id, media_id))
+        return {"status": "success", "media_id": media_id, "blob_path": blob_path}

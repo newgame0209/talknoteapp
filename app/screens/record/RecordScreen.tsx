@@ -10,7 +10,9 @@ import { getWsUrl } from '../../config/env';
 import { STTSocket, STTResult } from '../../services/sttSocket'; // Ensure named import
 import { auth } from '../../services/firebase';
 import { saveRecording } from '../../services/database';
+import { mediaApi } from '../../services/api';
 import * as Crypto from 'expo-crypto';
+import * as FileSystem from 'expo-file-system';
 
 /**
  * 録音画面
@@ -273,6 +275,9 @@ const RecordScreen: React.FC = () => {
         );
         console.log('録音データをデータベースに保存しました');
         
+        // Cloud Storageへのアップロード処理を開始
+        uploadToCloudStorage(fileUri, title, recordingId);
+        
         // ダッシュボードに戻る
         navigation.goBack();
       
@@ -286,6 +291,68 @@ const RecordScreen: React.FC = () => {
     } catch (error) {
       console.error('録音停止エラー:', error);
       Alert.alert('エラー', '録音の停止に失敗しました。');
+    }
+  };
+
+  // Cloud Storageへのアップロード処理
+  const uploadToCloudStorage = async (fileUri: string, title: string, recordingId: string) => {
+    try {
+      console.log('Cloud Storageへのアップロードを開始:', fileUri);
+      // ファイル情報を取得
+      const fileInfo = await FileSystem.getInfoAsync(fileUri);
+      if (!fileInfo.exists) {
+        throw new Error('録音ファイルが見つかりません');
+      }
+      const fileType = 'audio/wav';
+      // Expo Go対応: FormDataでアップロード
+      const uploadResult = await mediaApi.uploadFile(fileUri, fileType);
+      console.log('アップロード結果:', uploadResult);
+      // STT処理の開始（バックグラウンドで実行）
+      // 必要に応じてpollMediaStatusなどを呼び出す
+    } catch (error) {
+      console.error('Cloud Storageアップロードエラー:', error);
+      // エラーはログに記録するが、ユーザーには通知しない（ローカル保存は成功しているため）
+    }
+  };
+
+  // メディア処理状況のポーリング
+  const pollMediaStatus = async (mediaId: string, recordingId: string) => {
+    try {
+      const maxAttempts = 30; // 最大5分間（10秒間隔）
+      let attempts = 0;
+      
+      const checkStatus = async () => {
+        try {
+          attempts++;
+          const statusResponse = await mediaApi.getStatus(mediaId);
+          
+          console.log(`STT処理状況 (${attempts}/${maxAttempts}):`, statusResponse.status);
+          
+          if (statusResponse.status === 'completed') {
+            console.log('STT処理完了:', statusResponse.result);
+            // 必要に応じてローカルデータベースを更新
+            // await updateRecordingTranscription(recordingId, statusResponse.result.transcript);
+          } else if (statusResponse.status === 'error') {
+            console.error('STT処理エラー:', statusResponse.error);
+          } else if (attempts < maxAttempts) {
+            // まだ処理中の場合は10秒後に再チェック
+            setTimeout(checkStatus, 10000);
+          } else {
+            console.warn('STT処理のタイムアウト');
+          }
+        } catch (error) {
+          console.error('ステータスチェックエラー:', error);
+          if (attempts < maxAttempts) {
+            setTimeout(checkStatus, 10000);
+          }
+        }
+      };
+      
+      // 初回チェックは5秒後に実行
+      setTimeout(checkStatus, 5000);
+      
+    } catch (error) {
+      console.error('ポーリング開始エラー:', error);
     }
   };
 
@@ -427,11 +494,7 @@ const RecordScreen: React.FC = () => {
           {/* 文字起こしエリア - 録音前はガイダンスとイラスト、録音中は文字起こしを表示 */}
           {recordingState === 'idle' ? (
             <>
-              {/* ガイダンステキストを背景なしでそのまま表示 */}
-              <Text style={styles.guidanceText}>
-                高品質な文字起こし結果を得るために、静かな環境でマイクに向かってはっきりと話してください。
-              </Text>
-              {/* マイクのイラストのみ表示 */}
+              {/* ガイダンステキスト削除済み */}
               <View style={styles.illustrationContainer}>
                 <FontAwesome5 name="microphone-alt" size={50} color="#4F46E5" />
               </View>

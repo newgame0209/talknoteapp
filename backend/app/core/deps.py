@@ -19,7 +19,7 @@ from app.services.user import user as user_service
 logger = logging.getLogger(__name__)
 
 # セキュリティスキーム
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 # Firebase Admin SDK初期化
 # 開発環境では認証をバイパスする場合は初期化しない

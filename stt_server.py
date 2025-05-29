@@ -10,7 +10,7 @@ from typing import Dict, List, Optional
 
 from dotenv import load_dotenv
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
 from starlette.websockets import WebSocketState
 from pydantic import BaseModel
 
@@ -79,7 +79,10 @@ async def mock_recognize_stream(websocket: WebSocket):
 
 
 @app.websocket("/api/v1/stt/stream")
-async def stt_websocket(websocket: WebSocket):
+async def stt_websocket(
+    websocket: WebSocket,
+    token: Optional[str] = Query(None)
+):
     """
     WebSocket endpoint for real-time speech-to-text.
     
@@ -89,6 +92,13 @@ async def stt_websocket(websocket: WebSocket):
     3. Then send binary audio data in chunks
     4. Receive JSON transcription results
     """
+    # 認証トークンの検証
+    if not token or token == 'demo_token_for_development':
+        logger.info("Using demo token for development")
+    else:
+        # TODO: 本番環境ではFirebase Admin SDKでトークンを検証
+        logger.info(f"Received token: {token[:10]}...")
+    
     await websocket.accept()
     logger.info("WebSocket connection accepted")
     

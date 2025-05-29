@@ -394,3 +394,27 @@ class LocalStorageProvider(StorageProvider):
         }
         
         return mimetype_map.get(mimetype.lower(), "bin")
+
+    async def upload_file(self, media_id: str, file: BinaryIO, filename: str, content_type: str, user_id: str) -> dict:
+        """
+        FormDataで受け取ったファイルをローカルに保存
+        """
+        ext = self._get_extension_from_mimetype(content_type)
+        user_dir = self._get_user_dir(user_id)
+        save_path = user_dir / f"{media_id}.{ext}"
+        with open(save_path, 'wb') as out_file:
+            import shutil
+            shutil.copyfileobj(file, out_file)
+        metadata = {
+            "media_id": media_id,
+            "user_id": user_id,
+            "file_type": content_type,
+            "status": "processing",
+            "progress": 0.0,
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+            "file_path": str(save_path)
+        }
+        self._save_metadata(user_id, media_id, metadata)
+        asyncio.create_task(self._process_media(user_id, media_id))
+        return {"status": "success", "media_id": media_id, "file_path": str(save_path)}

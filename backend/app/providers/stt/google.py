@@ -164,18 +164,42 @@ class GoogleSTTProvider(BaseSTTProvider):
         if "phrases" in kwargs and kwargs["phrases"]:
             config.config.speech_contexts = [SpeechContext(phrases=kwargs["phrases"])]
         
-        # Create a generator that yields audio chunks
-        async def audio_generator():
-            async for chunk in audio_stream:
+        # 音声データを処理するためのキュー
+        audio_queue = asyncio.Queue()
+        
+        # 音声ストリームからデータを読み込むタスク
+        async def read_audio_stream():
+            try:
+                async for chunk in audio_stream:
+                    await audio_queue.put(chunk)
+            except Exception as e:
+                print(f"Error reading audio stream: {e}")
+            finally:
+                await audio_queue.put(None)  # 終了信号
+        
+        # 音声データを読み込むタスクを開始
+        read_task = asyncio.create_task(read_audio_stream())
+        
+        # リクエストイテレータ
+        def request_iterator():
+            # 最初のリクエストは設定のみ
+            yield speech.StreamingRecognizeRequest(streaming_config=config)
+            
+            # 以降のリクエストは音声データ
+            while True:
+                chunk = asyncio.run_coroutine_threadsafe(audio_queue.get(), asyncio.get_event_loop()).result()
+                if chunk is None:  # 終了信号
+                    break
                 yield speech.StreamingRecognizeRequest(audio_content=chunk)
         
-        # Process streaming responses
-        streaming_recognize = self.client.streaming_recognize(
-            config=config,
-            requests=audio_generator()
-        )
-        
         try:
+            # ストリーミング認識を開始
+            streaming_recognize = self.client.streaming_recognize(
+                config=config,
+                requests=request_iterator()
+            )
+            
+            # レスポンスを処理
             async for response in streaming_recognize:
                 if not response.results:
                     continue
@@ -187,7 +211,7 @@ class GoogleSTTProvider(BaseSTTProvider):
                     alternative = result.alternatives[0]
                     is_final = result.is_final
                     
-                    # Extract word-level timing information if available
+                    # 単語レベルのタイミング情報を抽出
                     segments = []
                     if hasattr(alternative, "words") and alternative.words:
                         for word in alternative.words:
@@ -210,7 +234,6 @@ class GoogleSTTProvider(BaseSTTProvider):
                         }
                     )
         except GoogleAPIError as e:
-            # Log the error and yield an error result
             print(f"Google STT streaming API error: {str(e)}")
             yield TranscriptionResult(
                 text="",
@@ -218,6 +241,13 @@ class GoogleSTTProvider(BaseSTTProvider):
                 language_code=language_code,
                 metadata={"error": str(e), "provider": "google"}
             )
+        finally:
+            # 読み込みタスクをキャンセル
+            read_task.cancel()
+            try:
+                await read_task
+            except asyncio.CancelledError:
+                pass
     
     async def get_supported_languages(self) -> List[Dict[str, str]]:
         """

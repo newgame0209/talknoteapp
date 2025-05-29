@@ -1,5 +1,10 @@
 // app/services/sttSocket.ts
 
+// WebSocketの設定
+const WS_BASE_URL = __DEV__ 
+  ? 'ws://192.168.0.46:8002'  // 開発環境（実機用IPアドレス）
+  : 'wss://api.talknote.app';  // 本番環境
+
 // WebSocketの状態を表す型
 type WebSocketState = 'CONNECTING' | 'OPEN' | 'CLOSING' | 'CLOSED';
 

@@ -401,3 +401,29 @@ async def test_upload(
     background_tasks.add_task(process_file)
     
     return {"status": "success", "message": "File uploaded successfully", "media_id": media_id}
+
+
+@router.post("/upload-file")
+async def upload_file(
+    file: UploadFile = File(...),
+    background_tasks: BackgroundTasks = None,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """
+    Expo Go対応: FormDataでファイルを受け取り、GCSへ転送するエンドポイント
+    - file: アップロードする音声ファイル
+    """
+    storage_provider = get_storage_provider()
+    user_id = current_user["uid"] if current_user else "test-user-id"
+    # 一意なmedia_idを生成
+    media_id = str(uuid4())
+    # GCSに保存
+    result = await storage_provider.upload_file(
+        media_id=media_id,
+        file=file.file,
+        filename=file.filename,
+        content_type=file.content_type,
+        user_id=user_id
+    )
+    # 必要に応じてDB登録やPub/Sub発行もここで行う
+    return {"status": "success", "media_id": media_id, "gcs_result": result}
