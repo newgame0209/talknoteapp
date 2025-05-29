@@ -17,6 +17,11 @@ alwaysApply: false
   - スワイプ削除を廃止し、長押しで選択モード＋アクションメニュー削除に統一
   - アクションメニューのUIは変更なし
   - 初回長押し時のヒント表示は今後追加予定
+- [x] ダッシュボード画面のScrollView排除・FlatList単体化
+  - VirtualizedListエラーを完全解消
+  - ヘッダー・フッターをListHeaderComponent/ListFooterComponentで実装
+  - 英語ノート・しゃべるノートマニュアルを削除
+  - スクロール体験は維持
 
 ### 最優先タスク（🔴 緊急）
 - チャンク分割アップロード機能の本番実装

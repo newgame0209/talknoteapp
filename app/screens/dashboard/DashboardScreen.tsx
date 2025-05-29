@@ -43,10 +43,7 @@ interface Folder {
 }
 
 // 仮のデータ
-const DUMMY_NOTES: Note[] = [
-  { id: '1', title: 'しゃべるノートの使い方マニュアル', date: '2025/05/06', type: 'document' },
-  { id: '2', title: '英語の授業ノート', date: '2025/05/05', type: 'document' },
-];
+const DUMMY_NOTES: Note[] = [];
 
 const DUMMY_RECOMMENDATIONS: Note[] = [
   { id: '3', title: '復習の候補1', date: '2025/05/06', type: 'document' },
@@ -157,6 +154,80 @@ const DashboardScreen: React.FC = () => {
       type: 'audio',
     };
   };
+
+  // FlatListのヘッダー
+  const renderListHeader = () => (
+    <>
+      {/* 学習応援メッセージ */}
+      <View style={styles.encouragementContainer}>
+        <Text style={styles.encouragementText}>
+          {`${greeting} ${userName}さん\n昨日より5分多く学習しました！\n今日も1日頑張りましょう👍`}
+        </Text>
+      </View>
+      {/* フィルターエリア */}
+      <View style={styles.filterContainer}>
+        <View style={styles.filterRow}>
+          <TouchableOpacity
+            style={[styles.filterItem, styles.filterItemSelected]}
+            onPress={() => {}}
+          >
+            <Text style={[styles.filterText, { color: '#FFFFFF' }]}>フォルダ</Text>
+            <Ionicons name="chevron-down" size={16} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View style={styles.filterDivider} />
+          <TouchableOpacity
+            style={[styles.filterItem, styles.filterItemSelected]}
+            onPress={() => {}}
+          >
+            <Text style={[styles.filterText, { color: '#FFFFFF' }]}>AIが付けたタグ</Text>
+            <Ionicons name="chevron-down" size={16} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.headerActionContainer}>
+          <TouchableOpacity style={styles.headerActionButton}>
+            <Ionicons name="search" size={20} color="#6B7280" />
+          </TouchableOpacity>
+          <View style={styles.actionDivider} />
+          <TouchableOpacity style={styles.headerActionButton}>
+            <MaterialCommunityIcons name="folder-plus-outline" size={20} color="#6B7280" />
+          </TouchableOpacity>
+        </View>
+      </View>
+      {/* 新規ノート作成ボタン */}
+      <TouchableOpacity style={styles.createNoteButton} onPress={() => navigation.navigate('CanvasEditor')}>
+        <Ionicons name="add" size={24} color="#FFFFFF" />
+        <Text style={styles.createNoteText}>新しいノート</Text>
+      </TouchableOpacity>
+      {/* 最近のノートタイトル */}
+      <View style={styles.sectionContainer}>
+        <Text style={styles.sectionTitle}>最近のノート</Text>
+      </View>
+    </>
+  );
+
+  // FlatListのフッター
+  const renderListFooter = () => (
+    <View style={styles.sectionContainer}>
+      <Text style={styles.sectionTitle}>AIからのおすすめ学習</Text>
+      {DUMMY_RECOMMENDATIONS.map((note) => (
+        <View key={note.id} style={styles.noteItem}>
+          <View style={styles.noteItemContent} pointerEvents="box-none">
+            <View style={styles.aiIconContainer}>
+              <Image
+                source={require('../../assets/ai_recommendation.png')}
+                style={styles.aiRecommendationIcon}
+              />
+            </View>
+            <Text style={styles.noteTitle} numberOfLines={1}>{note.title}</Text>
+            <Text style={styles.noteArrow}>{'>'}</Text>
+          </View>
+          <Text style={styles.noteDate}>{note.date}</Text>
+        </View>
+      ))}
+      {/* 下部余白 */}
+      <View style={{ height: 120 }} />
+    </View>
+  );
 
   // ノートアイテムのレンダリング
   const renderNoteItem = (item: Note) => {
@@ -468,132 +539,62 @@ const DashboardScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      
-      <ScrollView 
-        style={styles.scrollContainer} 
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-        scrollEnabled={true}
-        bounces={true}
-      >
-        {/* 学習応援メッセージ */}
-        <View style={styles.encouragementContainer}>
-          <Text style={styles.encouragementText}>
-            {`${greeting} ${userName}さん\n昨日より5分多く学習しました！\n今日も1日頑張りましょう👍`}
-          </Text>
-        </View>
-
-        {/* フィルターエリア */}
-        <View style={styles.filterContainer}>
-          <View style={styles.filterRow}>
-            <TouchableOpacity
-              style={[styles.filterItem, styles.filterItemSelected]}
-              onPress={() => {}}
-            >
-              <Text style={[styles.filterText, { color: '#FFFFFF' }]}>フォルダ</Text>
-              <Ionicons name="chevron-down" size={16} color="#FFFFFF" />
-            </TouchableOpacity>
-            <View style={styles.filterDivider} />
-            <TouchableOpacity
-              style={[styles.filterItem, styles.filterItemSelected]}
-              onPress={() => {}}
-            >
-              <Text style={[styles.filterText, { color: '#FFFFFF' }]}>AIが付けたタグ</Text>
-              <Ionicons name="chevron-down" size={16} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.headerActionContainer}>
-            <TouchableOpacity style={styles.headerActionButton}>
-              <Ionicons name="search" size={20} color="#6B7280" />
-            </TouchableOpacity>
-            <View style={styles.actionDivider} />
-            <TouchableOpacity style={styles.headerActionButton}>
-              <MaterialCommunityIcons name="folder-plus-outline" size={20} color="#6B7280" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* 新規ノート作成ボタン */}
-        <TouchableOpacity style={styles.createNoteButton} onPress={() => navigation.navigate('CanvasEditor')}>
-          <Ionicons name="add" size={24} color="#FFFFFF" />
-          <Text style={styles.createNoteText}>新しいノート</Text>
-        </TouchableOpacity>
-
-        {/* 最近のノート */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>最近のノート</Text>
-          {isLoading ? (
-            <Text style={styles.loadingText}>読み込み中...</Text>
-          ) : (
-            <FlatList
-              data={recordings.length > 0 ? recordings.map(convertRecordingToNote) : DUMMY_NOTES}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
+      <FlatList
+        data={recordings.length > 0 ? recordings.map(convertRecordingToNote) : []}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            style={[styles.noteItem, selectedNotes.has(item.id) && styles.noteItemSelected]}
+            activeOpacity={0.7}
+            onPress={() => {
+              if (isSelectionMode) {
+                toggleNoteSelection(item.id);
+              } else {
+                navigation.navigate('CanvasEditor', { noteId: item.id });
+              }
+            }}
+            onLongPress={() => {
+              if (!isSelectionMode) {
+                setIsSelectionMode(true);
+                setSelectedNotes(new Set([item.id]));
+                // 初回のみヒント表示（例: ToastやAlert）
+                // Alert.alert('ヒント', '長押しで複数選択できます');
+              }
+            }}
+          >
+            <View style={styles.noteItemContent} pointerEvents="box-none">
+              {isSelectionMode && (
                 <TouchableOpacity
-                  style={[styles.noteItem, selectedNotes.has(item.id) && styles.noteItemSelected]}
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    if (isSelectionMode) {
-                      toggleNoteSelection(item.id);
-                    } else {
-                      navigation.navigate('CanvasEditor', { noteId: item.id });
-                    }
-                  }}
-                  onLongPress={() => {
-                    if (!isSelectionMode) {
-                      setIsSelectionMode(true);
-                      setSelectedNotes(new Set([item.id]));
-                      // 初回のみヒント表示（例: ToastやAlert）
-                      // Alert.alert('ヒント', '長押しで複数選択できます');
-                    }
-                  }}
+                  style={styles.checkbox}
+                  onPress={() => toggleNoteSelection(item.id)}
                 >
-                  <View style={styles.noteItemContent} pointerEvents="box-none">
-                    {isSelectionMode && (
-                      <TouchableOpacity
-                        style={styles.checkbox}
-                        onPress={() => toggleNoteSelection(item.id)}
-                      >
-                        <Ionicons
-                          name={selectedNotes.has(item.id) ? "checkmark-circle" : "ellipse-outline"}
-                          size={24}
-                          color={selectedNotes.has(item.id) ? "#589ff4" : "#9CA3AF"}
-                        />
-                      </TouchableOpacity>
-                    )}
-                    {item.type === 'audio' ? (
-                      <Ionicons name="mic" size={24} color="#4F46E5" />
-                    ) : (
-                      <MaterialCommunityIcons
-                        name="file-document-outline"
-                        size={24}
-                        color="#4F46E5"
-                      />
-                    )}
-                    <Text style={styles.noteTitle} numberOfLines={1}>{item.title}</Text>
-                    {!isSelectionMode && <Text style={styles.noteArrow}>{'>'}</Text>}
-                  </View>
-                  <Text style={styles.noteDate}>{item.date}</Text>
+                  <Ionicons
+                    name={selectedNotes.has(item.id) ? "checkmark-circle" : "ellipse-outline"}
+                    size={24}
+                    color={selectedNotes.has(item.id) ? "#589ff4" : "#9CA3AF"}
+                  />
                 </TouchableOpacity>
               )}
-              ListEmptyComponent={<Text style={styles.emptyText}>録音データがありません。新しく録音してみましょう！</Text>}
-            />
-          )}
-        </View>
-
-        {/* AIからのおすすめ学習 */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>AIからのおすすめ学習</Text>
-          {DUMMY_RECOMMENDATIONS.map((note) => (
-            <React.Fragment key={note.id}>{renderRecommendationItem(note)}</React.Fragment>
-          ))}
-        </View>
-        
-        {/* 下部の余白を追加してスクロール範囲を拡大 */}
-        <View style={{ height: 120 }} />
-      </ScrollView>
-
+              {item.type === 'audio' ? (
+                <Ionicons name="mic" size={24} color="#4F46E5" />
+              ) : (
+                <MaterialCommunityIcons
+                  name="file-document-outline"
+                  size={24}
+                  color="#4F46E5"
+                />
+              )}
+              <Text style={styles.noteTitle} numberOfLines={1}>{item.title}</Text>
+              {!isSelectionMode && <Text style={styles.noteArrow}>{'>'}</Text>}
+            </View>
+            <Text style={styles.noteDate}>{item.date}</Text>
+          </TouchableOpacity>
+        )}
+        ListHeaderComponent={renderListHeader}
+        ListFooterComponent={renderListFooter}
+        ListEmptyComponent={<Text style={styles.emptyText}>録音データがありません。新しく録音してみましょう！</Text>}
+        contentContainerStyle={styles.scrollContent}
+      />
       {/* 下部タブバー */}
       <View style={styles.tabBar}>
         <TouchableOpacity style={styles.tabItem}>
