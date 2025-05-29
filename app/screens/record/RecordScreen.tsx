@@ -494,7 +494,11 @@ const RecordScreen: React.FC = () => {
           {/* 文字起こしエリア - 録音前はガイダンスとイラスト、録音中は文字起こしを表示 */}
           {recordingState === 'idle' ? (
             <>
-              {/* ガイダンステキスト削除済み */}
+              {/* ガイダンステキスト */}
+              <Text style={styles.guidanceText}>
+                静かな環境でマイクに向かってはっきりと話してください。{'\n'}
+                そうすると、高品質な文字起こしが表示されます！
+              </Text>
               <View style={styles.illustrationContainer}>
                 <FontAwesome5 name="microphone-alt" size={50} color="#4F46E5" />
               </View>
@@ -510,7 +514,7 @@ const RecordScreen: React.FC = () => {
                 contentContainerStyle={styles.transcriptionContainer}
               >
                 <Text style={styles.transcriptionText}>
-                  {transcription || '話し始めると、ここに文字起こし結果が表示されます...'}
+                  {transcription}
                   {interimTranscription && (
                     <Text style={styles.interimText}> {interimTranscription}</Text>
                   )}

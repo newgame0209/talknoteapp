@@ -18,8 +18,10 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
+import * as Haptics from 'expo-haptics';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import { getRecordings, Recording, initDatabase, deleteNote } from '../../services/database';
 
 // 仮のデータ型定義
@@ -159,52 +161,63 @@ const DashboardScreen: React.FC = () => {
   // ノートアイテムのレンダリング
   const renderNoteItem = (item: Note) => {
     const isSelected = selectedNotes.has(item.id);
-    
+
+    // スワイプジェスチャーのハンドラー
+    const onSwipeGesture = (event: any) => {
+      if (event.nativeEvent.state === State.END) {
+        const { translationX } = event.nativeEvent;
+        // 左方向に50px以上スワイプした場合
+        if (translationX < -50) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          setIsSelectionMode(true);
+          setSelectedNotes(new Set([item.id]));
+        }
+      }
+    };
+
     return (
-      <TouchableOpacity
-        key={item.id}
-        style={[styles.noteItem, isSelected && styles.noteItemSelected]}
-        onPress={() => {
-          if (isSelectionMode) {
-            // 選択モード時はチェックボックスの切り替え
-            toggleNoteSelection(item.id);
-          } else {
-            // 通常モード時はノート編集画面へ遷移
-            navigation.navigate('CanvasEditor', { noteId: item.id });
-          }
-        }}
-        onLongPress={() => {
-          // 長押しで選択モードに入る
-          enterSelectionMode(item.id);
-        }}
-      >
-        <View style={styles.noteItemContent}>
-          {isSelectionMode && (
-            <TouchableOpacity
-              style={styles.checkbox}
-              onPress={() => toggleNoteSelection(item.id)}
-            >
-              <Ionicons
-                name={isSelected ? "checkmark-circle" : "ellipse-outline"}
-                size={24}
-                color={isSelected ? "#589ff4" : "#9CA3AF"}
-              />
-            </TouchableOpacity>
-          )}
-          {item.type === 'audio' ? (
-            <Ionicons name="mic" size={24} color="#4F46E5" />
-          ) : (
-            <MaterialCommunityIcons
-              name="file-document-outline"
-              size={24}
-              color="#4F46E5"
-            />
-          )}
-          <Text style={styles.noteTitle}>{item.title}</Text>
-          {!isSelectionMode && <Text style={styles.noteArrow}>{'>'}</Text>}
-        </View>
-        <Text style={styles.noteDate}>{item.date}</Text>
-      </TouchableOpacity>
+      <PanGestureHandler onHandlerStateChange={onSwipeGesture}>
+        <Animated.View>
+          <TouchableOpacity
+            style={[styles.noteItem, isSelected && styles.noteItemSelected]}
+            activeOpacity={1}
+            onPress={() => {
+              if (isSelectionMode) {
+                toggleNoteSelection(item.id);
+              } else {
+                navigation.navigate('CanvasEditor', { noteId: item.id });
+              }
+            }}
+          >
+            <View style={styles.noteItemContent} pointerEvents="box-none">
+              {isSelectionMode && (
+                <TouchableOpacity
+                  style={styles.checkbox}
+                  onPress={() => toggleNoteSelection(item.id)}
+                >
+                  <Ionicons
+                    name={isSelected ? "checkmark-circle" : "ellipse-outline"}
+                    size={24}
+                    color={isSelected ? "#589ff4" : "#9CA3AF"}
+                  />
+                </TouchableOpacity>
+              )}
+              {item.type === 'audio' ? (
+                <Ionicons name="mic" size={24} color="#4F46E5" />
+              ) : (
+                <MaterialCommunityIcons
+                  name="file-document-outline"
+                  size={24}
+                  color="#4F46E5"
+                />
+              )}
+              <Text style={styles.noteTitle} numberOfLines={1}>{item.title}</Text>
+              {!isSelectionMode && <Text style={styles.noteArrow}>{'>'}</Text>}
+            </View>
+            <Text style={styles.noteDate}>{item.date}</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </PanGestureHandler>
     );
   };
 
@@ -273,24 +286,39 @@ const DashboardScreen: React.FC = () => {
 
   // 推薦アイテムのレンダリング
   const renderRecommendationItem = (item: Note) => {
+    const onSwipeGesture = (event: any) => {
+      if (event.nativeEvent.state === State.END) {
+        const { translationX } = event.nativeEvent;
+        if (translationX < -50) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          setIsSelectionMode(true);
+          setSelectedNotes(new Set([item.id]));
+        }
+      }
+    };
+
     return (
-      <TouchableOpacity
-        key={item.id}
-        style={styles.noteItem}
-        onPress={() => navigation.navigate('CanvasEditor', { noteId: item.id })}
-      >
-        <View style={styles.noteItemContent}>
-          <View style={styles.aiIconContainer}>
-            <Image
-              source={require('../../assets/ai_recommendation.png')}
-              style={styles.aiRecommendationIcon}
-            />
-          </View>
-          <Text style={styles.noteTitle}>{item.title}</Text>
-          <Text style={styles.noteArrow}>{'>'}</Text>
-        </View>
-        <Text style={styles.noteDate}>{item.date}</Text>
-      </TouchableOpacity>
+      <PanGestureHandler onHandlerStateChange={onSwipeGesture}>
+        <Animated.View>
+          <TouchableOpacity
+            style={styles.noteItem}
+            activeOpacity={1}
+            onPress={() => navigation.navigate('CanvasEditor', { noteId: item.id })}
+          >
+            <View style={styles.noteItemContent} pointerEvents="box-none">
+              <View style={styles.aiIconContainer}>
+                <Image
+                  source={require('../../assets/ai_recommendation.png')}
+                  style={styles.aiRecommendationIcon}
+                />
+              </View>
+              <Text style={styles.noteTitle} numberOfLines={1}>{item.title}</Text>
+              <Text style={styles.noteArrow}>{'>'}</Text>
+            </View>
+            <Text style={styles.noteDate}>{item.date}</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </PanGestureHandler>
     );
   };
 
@@ -441,34 +469,40 @@ const DashboardScreen: React.FC = () => {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
       
-      {/* 学習応援メッセージ */}
-      <View style={styles.encouragementContainer}>
-        <Text style={styles.encouragementText}>
-          {`${greeting} ${userName}さん\n昨日より5分多く学習しました！\n今日も1日頑張りましょう👍`}
-        </Text>
-      </View>
+      <ScrollView 
+        style={styles.scrollContainer} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        scrollEnabled={true}
+        bounces={true}
+      >
+        {/* 学習応援メッセージ */}
+        <View style={styles.encouragementContainer}>
+          <Text style={styles.encouragementText}>
+            {`${greeting} ${userName}さん\n昨日より5分多く学習しました！\n今日も1日頑張りましょう👍`}
+          </Text>
+        </View>
 
-      {/* フィルターエリア */}
-      <View style={styles.filterContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <TouchableOpacity
-            style={[styles.filterItem, styles.filterItemSelected]}
-            onPress={() => {}}
-          >
-            <Text style={[styles.filterText, { color: '#FFFFFF' }]}>フォルダ</Text>
-            <Ionicons name="chevron-down" size={16} color="#FFFFFF" />
-          </TouchableOpacity>
-          <View style={styles.filterDivider} />
-          <TouchableOpacity
-            style={[styles.filterItem, styles.filterItemSelected]}
-            onPress={() => {}}
-          >
-            <Text style={[styles.filterText, { color: '#FFFFFF' }]}>AIが付けたタグ</Text>
-            <Ionicons name="chevron-down" size={16} color="#FFFFFF" />
-          </TouchableOpacity>
-        </ScrollView>
-        
-        <View style={styles.searchContainer}>
+        {/* フィルターエリア */}
+        <View style={styles.filterContainer}>
+          <View style={styles.filterRow}>
+            <TouchableOpacity
+              style={[styles.filterItem, styles.filterItemSelected]}
+              onPress={() => {}}
+            >
+              <Text style={[styles.filterText, { color: '#FFFFFF' }]}>フォルダ</Text>
+              <Ionicons name="chevron-down" size={16} color="#FFFFFF" />
+            </TouchableOpacity>
+            <View style={styles.filterDivider} />
+            <TouchableOpacity
+              style={[styles.filterItem, styles.filterItemSelected]}
+              onPress={() => {}}
+            >
+              <Text style={[styles.filterText, { color: '#FFFFFF' }]}>AIが付けたタグ</Text>
+              <Ionicons name="chevron-down" size={16} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+          
           <View style={styles.headerActionContainer}>
             <TouchableOpacity style={styles.headerActionButton}>
               <Ionicons name="search" size={20} color="#6B7280" />
@@ -479,35 +513,85 @@ const DashboardScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </View>
-      </View>
 
-      {/* 新規ノート作成ボタン */}
-      <TouchableOpacity style={styles.createNoteButton} onPress={() => navigation.navigate('CanvasEditor')}>
-        <Ionicons name="add" size={24} color="#FFFFFF" />
-        <Text style={styles.createNoteText}>新しいノート</Text>
-      </TouchableOpacity>
+        {/* 新規ノート作成ボタン */}
+        <TouchableOpacity style={styles.createNoteButton} onPress={() => navigation.navigate('CanvasEditor')}>
+          <Ionicons name="add" size={24} color="#FFFFFF" />
+          <Text style={styles.createNoteText}>新しいノート</Text>
+        </TouchableOpacity>
 
-      <ScrollView style={styles.contentContainer}>
         {/* 最近のノート */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>最近のノート</Text>
           {isLoading ? (
             <Text style={styles.loadingText}>読み込み中...</Text>
-          ) : recordings.length > 0 ? (
-            recordings.map((recording) => renderNoteItem(convertRecordingToNote(recording)))
           ) : (
-            <>
-              {DUMMY_NOTES.map((note) => renderNoteItem(note))}
-              <Text style={styles.emptyText}>録音データがありません。新しく録音してみましょう！</Text>
-            </>
+            <FlatList
+              data={recordings.length > 0 ? recordings.map(convertRecordingToNote) : DUMMY_NOTES}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[styles.noteItem, selectedNotes.has(item.id) && styles.noteItemSelected]}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    if (isSelectionMode) {
+                      toggleNoteSelection(item.id);
+                    } else {
+                      navigation.navigate('CanvasEditor', { noteId: item.id });
+                    }
+                  }}
+                  onLongPress={() => {
+                    if (!isSelectionMode) {
+                      setIsSelectionMode(true);
+                      setSelectedNotes(new Set([item.id]));
+                      // 初回のみヒント表示（例: ToastやAlert）
+                      // Alert.alert('ヒント', '長押しで複数選択できます');
+                    }
+                  }}
+                >
+                  <View style={styles.noteItemContent} pointerEvents="box-none">
+                    {isSelectionMode && (
+                      <TouchableOpacity
+                        style={styles.checkbox}
+                        onPress={() => toggleNoteSelection(item.id)}
+                      >
+                        <Ionicons
+                          name={selectedNotes.has(item.id) ? "checkmark-circle" : "ellipse-outline"}
+                          size={24}
+                          color={selectedNotes.has(item.id) ? "#589ff4" : "#9CA3AF"}
+                        />
+                      </TouchableOpacity>
+                    )}
+                    {item.type === 'audio' ? (
+                      <Ionicons name="mic" size={24} color="#4F46E5" />
+                    ) : (
+                      <MaterialCommunityIcons
+                        name="file-document-outline"
+                        size={24}
+                        color="#4F46E5"
+                      />
+                    )}
+                    <Text style={styles.noteTitle} numberOfLines={1}>{item.title}</Text>
+                    {!isSelectionMode && <Text style={styles.noteArrow}>{'>'}</Text>}
+                  </View>
+                  <Text style={styles.noteDate}>{item.date}</Text>
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={<Text style={styles.emptyText}>録音データがありません。新しく録音してみましょう！</Text>}
+            />
           )}
         </View>
 
         {/* AIからのおすすめ学習 */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>AIからのおすすめ学習</Text>
-          {DUMMY_RECOMMENDATIONS.map((note) => renderRecommendationItem(note))}
+          {DUMMY_RECOMMENDATIONS.map((note) => (
+            <React.Fragment key={note.id}>{renderRecommendationItem(note)}</React.Fragment>
+          ))}
         </View>
+        
+        {/* 下部の余白を追加してスクロール範囲を拡大 */}
+        <View style={{ height: 120 }} />
       </ScrollView>
 
       {/* 下部タブバー */}
@@ -554,7 +638,7 @@ const DashboardScreen: React.FC = () => {
               style={[styles.actionWrapper, {
                 transform: [
                   { translateX: anim.interpolate({ inputRange: [0, 1], outputRange: [0, -100] }) },
-                  { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [0, -100] }) },
+                  { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [0, -120] }) },
                   { scale: anim }
                 ],
                 opacity: anim
@@ -609,7 +693,7 @@ const DashboardScreen: React.FC = () => {
               style={[styles.actionWrapper, {
                 transform: [
                   { translateX: anim.interpolate({ inputRange: [0, 1], outputRange: [0, 100] }) },
-                  { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [0, -100] }) },
+                  { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [0, -120] }) },
                   { scale: anim }
                 ],
                 opacity: anim
@@ -725,12 +809,12 @@ const DashboardScreen: React.FC = () => {
             <TouchableOpacity
               style={styles.actionButton}
               onPress={() => {
-                // AI名前変更機能（今後実装）
-                Alert.alert('AI名前変更', '今後実装予定の機能です');
+                // 名前変更機能（今後実装）
+                Alert.alert('名前変更', '今後実装予定の機能です');
               }}
             >
-              <Ionicons name="sparkles" size={20} color="#589ff4" />
-              <Text style={styles.actionButtonText}>AI名前変更</Text>
+              <Ionicons name="create-outline" size={20} color="#1F2937" />
+              <Text style={styles.actionButtonText}>名前変更</Text>
             </TouchableOpacity>
             
             <TouchableOpacity
@@ -740,7 +824,7 @@ const DashboardScreen: React.FC = () => {
                 Alert.alert('移動', '今後実装予定の機能です');
               }}
             >
-              <Ionicons name="folder-open" size={20} color="#589ff4" />
+              <Ionicons name="folder-outline" size={20} color="#1F2937" />
               <Text style={styles.actionButtonText}>移動</Text>
             </TouchableOpacity>
             
@@ -748,7 +832,7 @@ const DashboardScreen: React.FC = () => {
               style={styles.actionButton}
               onPress={showDeleteDialog}
             >
-              <Ionicons name="trash" size={20} color="#EF4444" />
+              <Ionicons name="trash-outline" size={20} color="#EF4444" />
               <Text style={[styles.actionButtonText, { color: '#EF4444' }]}>削除</Text>
             </TouchableOpacity>
           </View>
@@ -769,22 +853,21 @@ const DashboardScreen: React.FC = () => {
         visible={isDeleteDialogVisible}
         onRequestClose={() => setIsDeleteDialogVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View style={styles.deleteModalOverlay}>
           <View style={styles.deleteDialog}>
-            <Text style={styles.deleteDialogTitle}>ノートを削除</Text>
+            <Text style={styles.deleteDialogTitle}>このノートを削除しますか？</Text>
             <Text style={styles.deleteDialogMessage}>
-              選択した{selectedNotes.size}件のノートを削除しますか？
-              {'\n'}この操作は取り消せません。
+              ゴミ箱に移動されたノートは30日後に{'\n'}完全に削除されます。
             </Text>
             
-            <View style={styles.deleteDialogButtons}>
-              <TouchableOpacity
-                style={styles.deleteDialogCancelButton}
-                onPress={() => setIsDeleteDialogVisible(false)}
-              >
-                <Text style={styles.deleteDialogCancelText}>キャンセル</Text>
+            <View style={styles.checkboxContainer}>
+              <TouchableOpacity style={styles.checkboxTouchable}>
+                <View style={styles.checkboxSquare} />
+                <Text style={styles.checkboxText}>今後表示しない</Text>
               </TouchableOpacity>
-              
+            </View>
+            
+            <View style={styles.deleteDialogButtons}>
               <TouchableOpacity
                 style={styles.deleteDialogDeleteButton}
                 onPress={executeDelete}
@@ -792,6 +875,19 @@ const DashboardScreen: React.FC = () => {
                 <Text style={styles.deleteDialogDeleteText}>削除</Text>
               </TouchableOpacity>
             </View>
+            
+            <TouchableOpacity
+              style={styles.deleteDialogCancelButton}
+              onPress={() => {
+                setIsDeleteDialogVisible(false);
+                if (selectedNotes.size === 1) {
+                  // スワイプ削除の場合は選択状態をクリア
+                  setSelectedNotes(new Set());
+                }
+              }}
+            >
+              <Text style={styles.deleteDialogCancelText}>キャンセル</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -803,6 +899,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 150, // 下部タブバー分の余白を追加
+    flexGrow: 1,
   },
   encouragementContainer: {
     backgroundColor: '#EBF5FF',
@@ -825,7 +929,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12, // 余白追加
+  },
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
   },
   filterItem: {
     flexDirection: 'row',
@@ -835,12 +944,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    marginRight: 8,
     backgroundColor: '#FFFFFF',
   },
   filterItemSelected: {
-    backgroundColor: '#589ff4', // カラーコード変更
-    borderColor: '#589ff4', // カラーコード変更
+    backgroundColor: '#589ff4',
+    borderColor: '#589ff4',
   },
   filterText: {
     fontSize: 14,
@@ -853,10 +961,6 @@ const styles = StyleSheet.create({
   filterDivider: {
     width: 8,
   },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   headerActionContainer: {
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
@@ -865,15 +969,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   headerActionButton: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
   actionDivider: {
     width: 1,
-    height: 24,
+    height: 20,
     backgroundColor: '#E5E7EB',
+    alignSelf: 'center',
   },
   createNoteButton: {
     flexDirection: 'row',
@@ -891,10 +996,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
-  },
-  contentContainer: {
-    flex: 1,
-    paddingHorizontal: 16,
   },
   sectionContainer: {
     marginBottom: 24,
@@ -964,6 +1065,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#E5E7EB',
     justifyContent: 'space-around',
     alignItems: 'center',
+    paddingBottom: 20, // iPhoneの横スクロールバーと被らないように上に移動
   },
   tabItem: {
     alignItems: 'center',
@@ -1004,7 +1106,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
@@ -1012,6 +1114,10 @@ const styles = StyleSheet.create({
   createMenuContainer: {
     alignItems: 'center',
     paddingBottom: 24,
+    position: 'absolute',
+    bottom: 70, // 下部タブバーの上に配置
+    left: 0,
+    right: 0,
   },
   createMenuItems: {
     position: 'absolute',
@@ -1047,7 +1153,7 @@ const styles = StyleSheet.create({
   },
   actionWrapper: {
     position: 'absolute',
-    bottom: 90,
+    bottom: 20, // さらに下部に配置
     alignSelf: 'center',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1175,73 +1281,140 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: '#FFFFFF',
     padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
   },
   actionBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
   },
   actionButton: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
-    padding: 8,
+    padding: 12,
+    marginHorizontal: 16,
+    minWidth: 60,
   },
   actionButtonText: {
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: '600',
+    marginTop: 4,
+    fontSize: 12,
+    fontWeight: '500',
     color: '#1F2937',
+    textAlign: 'center',
   },
   cancelButton: {
-    padding: 8,
+    padding: 12,
     backgroundColor: '#589ff4',
     borderRadius: 8,
+    width: '100%',
+    alignItems: 'center',
   },
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
   },
+  deleteModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+    paddingTop: 100, // 位置を上に移動
+  },
   deleteDialog: {
     backgroundColor: '#FFFFFF',
-    padding: 16,
+    padding: 24,
     borderRadius: 12,
     width: '100%',
+    maxWidth: 320,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
   },
   deleteDialogTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#1F2937',
-    marginBottom: 8,
+    marginBottom: 12,
+    textAlign: 'center',
   },
   deleteDialogMessage: {
     fontSize: 14,
     color: '#6B7280',
-    marginBottom: 16,
+    marginBottom: 20,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+    justifyContent: 'center',
+  },
+  checkboxTouchable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkboxSquare: {
+    width: 20,
+    height: 20,
+    borderWidth: 1,
+    borderColor: '#9CA3AF',
+    marginRight: 8,
+    borderRadius: 2,
+  },
+  checkboxText: {
+    fontSize: 14,
+    color: '#6B7280',
   },
   deleteDialogButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  deleteDialogCancelButton: {
-    padding: 8,
-    backgroundColor: '#589ff4',
-    borderRadius: 8,
-  },
-  deleteDialogCancelText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    width: '100%',
+    marginBottom: 12,
   },
   deleteDialogDeleteButton: {
-    padding: 8,
+    padding: 14,
     backgroundColor: '#EF4444',
     borderRadius: 8,
+    width: '100%',
+    alignItems: 'center',
   },
   deleteDialogDeleteText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  deleteDialogCancelButton: {
+    padding: 14,
+    backgroundColor: 'transparent',
+    borderRadius: 8,
+    width: '100%',
+    alignItems: 'center',
+  },
+  deleteDialogCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#589ff4',
+  },
+  swipeDeleteButton: {
+    width: 80,
+    height: '100%',
+    backgroundColor: '#EF4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
   },
 });
 

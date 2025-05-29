@@ -1,3 +1,4 @@
+import 'react-native-gesture-handler';
 import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -6,6 +7,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { styled } from 'nativewind';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 
 // ストアのインポート
@@ -109,106 +111,112 @@ export default function App() {
   // データベース初期化中はローディング表示
   if (!isDbReady && !dbError) {
     return (
-      <SafeAreaProvider>
-        <StyledView className="flex-1 items-center justify-center bg-white">
-          <ActivityIndicator size="large" color="#4F46E5" />
-          <StyledText className="mt-4 text-gray-600">初期化中...</StyledText>
-        </StyledView>
-      </SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <StyledView className="flex-1 items-center justify-center bg-white">
+            <ActivityIndicator size="large" color="#4F46E5" />
+            <StyledText className="mt-4 text-gray-600">初期化中...</StyledText>
+          </StyledView>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
     );
   }
   
   // データベースエラー時はエラー表示
   if (dbError) {
     return (
-      <SafeAreaProvider>
-        <StyledView className="flex-1 items-center justify-center bg-white">
-          <FontAwesome5 name="exclamation-circle" size={50} color="#EF4444" />
-          <StyledText className="mt-4 text-xl font-bold text-red-500">エラーが発生しました</StyledText>
-          <StyledText className="mt-2 text-center px-6 text-gray-600">{dbError}</StyledText>
-        </StyledView>
-      </SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <StyledView className="flex-1 items-center justify-center bg-white">
+            <FontAwesome5 name="exclamation-circle" size={50} color="#EF4444" />
+            <StyledText className="mt-4 text-xl font-bold text-red-500">エラーが発生しました</StyledText>
+            <StyledText className="mt-2 text-center px-6 text-gray-600">{dbError}</StyledText>
+          </StyledView>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
     );
   }
   
   // データベース初期化完了後、アプリを表示
   return (
-    <SafeAreaProvider>
-      <NavigationContainer>
-        <Stack.Navigator initialRouteName="Dashboard">
-          <Stack.Screen 
-            name="Home" 
-            component={HomeScreen} 
-            options={{ 
-              title: 'しゃべるノート',
-              headerStyle: {
-                backgroundColor: '#f6f7fb',
-              },
-              headerTintColor: '#000',
-              headerTitleStyle: {
-                fontWeight: 'bold',
-              },
-            }} 
-          />
-          <Stack.Screen 
-            name="Dashboard" 
-            component={DashboardScreen} 
-            options={{ 
-              headerShown: false,
-            }} 
-          />
-          <Stack.Screen 
-            name="Record" 
-            component={RecordScreen} 
-            options={{ 
-              headerShown: false,
-            }} 
-          />
-          <Stack.Screen 
-            name="Import" 
-            component={ImportScreen} 
-            options={{ 
-              title: 'ファイルインポート',
-              headerStyle: {
-                backgroundColor: '#4F46E5',
-              },
-              headerTintColor: '#fff',
-              headerTitleStyle: {
-                fontWeight: 'bold',
-              },
-            }} 
-          />
-          <Stack.Screen 
-            name="ImportProgress" 
-            component={ImportProgressScreen} 
-            options={{ 
-              headerShown: false,
-            }} 
-          />
-          <Stack.Screen 
-            name="FileImportSheet" 
-            component={FilePickerArea} 
-            options={{ 
-              presentation: 'modal',
-              title: 'ファイルインポート',
-              headerStyle: {
-                backgroundColor: '#4F46E5',
-              },
-              headerTintColor: '#fff',
-              headerTitleStyle: {
-                fontWeight: 'bold',
-              },
-            }} 
-          />
-          <Stack.Screen 
-            name="CanvasEditor" 
-            component={CanvasEditor} 
-            options={{ 
-              headerShown: false
-            }} 
-          />
-        </Stack.Navigator>
-      </NavigationContainer>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <NavigationContainer>
+          <Stack.Navigator initialRouteName="Dashboard">
+            <Stack.Screen 
+              name="Home" 
+              component={HomeScreen} 
+              options={{ 
+                title: 'しゃべるノート',
+                headerStyle: {
+                  backgroundColor: '#f6f7fb',
+                },
+                headerTintColor: '#000',
+                headerTitleStyle: {
+                  fontWeight: 'bold',
+                },
+              }} 
+            />
+            <Stack.Screen 
+              name="Dashboard" 
+              component={DashboardScreen} 
+              options={{ 
+                headerShown: false,
+              }} 
+            />
+            <Stack.Screen 
+              name="Record" 
+              component={RecordScreen} 
+              options={{ 
+                headerShown: false,
+              }} 
+            />
+            <Stack.Screen 
+              name="Import" 
+              component={ImportScreen} 
+              options={{ 
+                title: 'ファイルインポート',
+                headerStyle: {
+                  backgroundColor: '#4F46E5',
+                },
+                headerTintColor: '#fff',
+                headerTitleStyle: {
+                  fontWeight: 'bold',
+                },
+              }} 
+            />
+            <Stack.Screen 
+              name="ImportProgress" 
+              component={ImportProgressScreen} 
+              options={{ 
+                headerShown: false,
+              }} 
+            />
+            <Stack.Screen 
+              name="FileImportSheet" 
+              component={FilePickerArea} 
+              options={{ 
+                presentation: 'modal',
+                title: 'ファイルインポート',
+                headerStyle: {
+                  backgroundColor: '#4F46E5',
+                },
+                headerTintColor: '#fff',
+                headerTitleStyle: {
+                  fontWeight: 'bold',
+                },
+              }} 
+            />
+            <Stack.Screen 
+              name="CanvasEditor" 
+              component={CanvasEditor} 
+              options={{ 
+                headerShown: false
+              }} 
+            />
+          </Stack.Navigator>
+        </NavigationContainer>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
