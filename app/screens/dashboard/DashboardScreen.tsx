@@ -14,6 +14,9 @@ import {
   Easing,
   TextInput,
   Alert,
+  RefreshControl,
+  ActivityIndicator,
+  PanResponder,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
@@ -109,23 +112,33 @@ const DashboardScreen: React.FC = () => {
   const hours = new Date().getHours();
   const greeting = hours < 18 ? 'こんにちは' : 'こんばんは';
 
+  // 新しいステート：プル・トゥ・リフレッシュ機能用
+  const [refreshing, setRefreshing] = useState(false);
+
   // データベースの初期化と録音データの取得
   const loadData = async () => {
     try {
+      console.log('[Dashboard] loadData 開始');
       setIsLoading(true);
+      
       // データベースを初期化
+      console.log('[Dashboard] データベース初期化中...');
       await initDatabase();
+      console.log('[Dashboard] データベース初期化完了');
       
       // 録音データを取得
+      console.log('[Dashboard] 録音データ取得中...');
       const recordingData = await getRecordings();
+      console.log('[Dashboard] 録音データ取得完了:', recordingData.length, '件');
       setRecordings(recordingData);
 
-      console.log('[Dashboard] データ読み込み完了');
+      console.log('[Dashboard] loadData 完了');
     } catch (error) {
-      console.error('データ読み込みエラー:', error);
+      console.error('[Dashboard] loadData エラー:', error);
       Alert.alert('エラー', 'データの読み込みに失敗しました');
     } finally {
       setIsLoading(false);
+      console.log('[Dashboard] isLoading = false に設定');
     }
   };
 
@@ -162,6 +175,11 @@ const DashboardScreen: React.FC = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  // refreshing状態の変化を監視
+  useEffect(() => {
+    console.log('[Dashboard] refreshing状態変化:', refreshing);
+  }, [refreshing]);
 
   // 画面がフォーカスされたときにデータを再読み込み + タイトル生成監視開始
   useEffect(() => {
@@ -235,7 +253,11 @@ const DashboardScreen: React.FC = () => {
         </View>
       </View>
       {/* 新規ノート作成ボタン */}
-      <TouchableOpacity style={styles.createNoteButton} onPress={() => navigation.navigate('CanvasEditor')}>
+      <TouchableOpacity 
+        style={[styles.createNoteButton, refreshing && styles.createNoteButtonDisabled]} 
+        onPress={() => navigation.navigate('CanvasEditor')}
+        disabled={refreshing}
+      >
         <Ionicons name="add" size={24} color="#FFFFFF" />
         <Text style={styles.createNoteText}>新しいノート</Text>
       </TouchableOpacity>
@@ -311,6 +333,7 @@ const DashboardScreen: React.FC = () => {
                 setSelectedNotes(new Set([item.id]));
               }
             }}
+            disabled={refreshing}
           >
             <View style={styles.noteItemContent} pointerEvents="box-none">
               {isSelectionMode && (
@@ -596,31 +619,84 @@ const DashboardScreen: React.FC = () => {
     console.log('Scan feature not implemented yet');
   };
 
+  // プル・トゥ・リフレッシュ機能の実装
+  const onRefresh = async () => {
+    console.log('[Dashboard] ★★★ onRefresh が呼ばれました！ ★★★');
+    setRefreshing(true);
+    
+    try {
+      // 最低表示時間を確保（1.5秒）
+      const minDisplayTime = new Promise(resolve => {
+        setTimeout(() => {
+          console.log('[Dashboard] 最低表示時間完了');
+          resolve(undefined);
+        }, 1500);
+      });
+      
+      // データ読み込み開始
+      console.log('[Dashboard] データ読み込み開始');
+      const dataLoadPromise = loadData();
+      
+      // データ読み込みとミニマム表示時間を並行実行
+      await Promise.all([dataLoadPromise, minDisplayTime]);
+      
+      console.log('[Dashboard] ★★★ プル・トゥ・リフレッシュ完了 - データ更新済み ★★★');
+    } catch (error) {
+      console.error('[Dashboard] プル・トゥ・リフレッシュエラー:', error);
+      Alert.alert('更新エラー', 'データの更新に失敗しました');
+    } finally {
+      console.log('[Dashboard] ★★★ スピナーを消します ★★★');
+      setRefreshing(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
+      
       <FlatList
+        style={{ flex: 1 }}
         data={recordings.length > 0 ? recordings.map(convertRecordingToNote) : []}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => renderNoteItem(item)}
         ListHeaderComponent={renderListHeader}
         ListFooterComponent={renderListFooter}
         ListEmptyComponent={<Text style={styles.emptyText}>まだノートがありません。新しく作成してみましょう！</Text>}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={{ 
+          paddingHorizontal: 16, 
+          paddingBottom: 150,
+          flexGrow: 1
+        }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#589ff4']}
+            tintColor="#589ff4"
+            title="更新中..."
+            titleColor="#589ff4"
+            progressViewOffset={60}
+          />
+        }
       />
       {/* 下部タブバー */}
       <View style={styles.tabBar}>
-        <TouchableOpacity style={styles.tabItem}>
+        <TouchableOpacity style={styles.tabItem} disabled={refreshing}>
           <Ionicons name="mic" size={32} color="#589ff4" />
           <Text style={styles.tabText}>AI音声入力</Text>
         </TouchableOpacity>
 
         {/* 作成ボタン */}
-        <TouchableOpacity style={styles.createButton} onPress={toggleCreateMenu}>
+        <TouchableOpacity 
+          style={styles.createButton} 
+          onPress={toggleCreateMenu}
+          disabled={refreshing}
+        >
           <Ionicons name="add" size={36} color="#FFFFFF" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.tabItem}>
+        <TouchableOpacity style={styles.tabItem} disabled={refreshing}>
           <View style={styles.notificationBadge} />
           <Ionicons name="person" size={32} color="#589ff4" />
           <Text style={styles.tabText}>設定</Text>
@@ -948,12 +1024,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    marginRight: 8,
+    marginRight: 16,
   },
   filterItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 6,
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
@@ -1439,6 +1515,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 8,
+  },
+  createNoteButtonDisabled: {
+    backgroundColor: '#9CA3AF',
   },
 });
 
