@@ -66,3 +66,17 @@ class BaseAIProvider(ABC):
             AIの応答
         """
         pass
+
+    @abstractmethod
+    async def generate_title(self, text: str, max_length: Optional[int] = None) -> str:
+        """
+        テキストからタイトルを生成する
+        
+        Args:
+            text: タイトル生成元のテキスト
+            max_length: タイトルの最大長（文字数）
+            
+        Returns:
+            生成されたタイトル
+        """
+        pass

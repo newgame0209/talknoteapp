@@ -46,6 +46,23 @@ class AIService:
             logger.error(f"Error in summarize: {e}")
             return f"要約中にエラーが発生しました: {str(e)}"
     
+    async def generate_title(self, text: str, max_length: Optional[int] = None) -> str:
+        """
+        テキストからタイトルを生成する
+        
+        Args:
+            text: タイトル生成元のテキスト
+            max_length: タイトルの最大長（文字数）
+            
+        Returns:
+            生成されたタイトル
+        """
+        try:
+            return await self.provider.generate_title(text, max_length)
+        except Exception as e:
+            logger.error(f"Error in generate_title: {e}")
+            return f"タイトル生成中にエラーが発生しました: {str(e)}"
+    
     async def proofread(self, text: str) -> Dict[str, Any]:
         """
         テキストを校正する

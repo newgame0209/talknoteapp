@@ -9,7 +9,7 @@ import { Audio } from 'expo-av';
 import { getWsUrl } from '../../config/env';
 import { STTSocket, STTResult } from '../../services/sttSocket'; // Ensure named import
 import { auth } from '../../services/firebase';
-import { saveRecording } from '../../services/database';
+import { saveRecording, generateAITitle } from '../../services/database';
 import { mediaApi } from '../../services/api';
 import * as Crypto from 'expo-crypto';
 import * as FileSystem from 'expo-file-system';
@@ -263,7 +263,8 @@ const RecordScreen: React.FC = () => {
       // 録音データをデータベースに保存
       const recordingId = Crypto.randomUUID();
       const finalTranscription = transcription + (interimTranscription ? ' ' + interimTranscription : '');
-      const title = finalTranscription.slice(0, 50) || `録音 ${new Date().toLocaleString('ja-JP')}`;
+      // AIタイトル生成のために仮タイトルをセット
+      const title = finalTranscription.length > 0 ? "AIがタイトルを生成中…" : `録音 ${new Date().toLocaleString('ja-JP')}`;
       
       try {
         await saveRecording(
@@ -274,6 +275,15 @@ const RecordScreen: React.FC = () => {
           finalTranscription
         );
         console.log('録音データをデータベースに保存しました');
+        
+        // 文字起こしがある場合は即座にAIタイトル生成を開始
+        if (finalTranscription.length > 0) {
+          console.log('[Record] 録音完了後のAIタイトル生成開始');
+          // 非同期でAIタイトル生成を実行（UIをブロックしない）
+          generateAITitle(recordingId, finalTranscription).catch((error) => {
+            console.error('[Record] AIタイトル生成エラー:', error);
+          });
+        }
         
         // Cloud Storageへのアップロード処理を開始
         uploadToCloudStorage(fileUri, title, recordingId);

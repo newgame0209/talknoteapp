@@ -2,6 +2,7 @@
 // これはデザイン確認用の一時的な対応です
 import { Platform } from 'react-native';
 import * as SQLite from 'expo-sqlite';
+import { aiApi } from './api';
 
 
 /**
@@ -117,7 +118,7 @@ export const initDatabase = async (): Promise<void> => {
 // 録音データの保存
 export const saveRecording = async (
   id: string,
-  title: string,
+  title: string = "AIがタイトルを生成中…", // デフォルトで仮タイトルを設定
   duration: number,
   filePath: string,
   transcription?: string
@@ -137,6 +138,31 @@ export const saveRecording = async (
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Error saving recording:', errorMessage);
+    return Promise.reject(error);
+  }
+};
+
+// AIタイトル生成
+export const generateAITitle = async (noteId: string, transcription: string): Promise<void> => {
+  try {
+    console.log('[generateAITitle] 開始 - noteId:', noteId, 'transcription長:', transcription.length);
+    
+    // AI APIでタイトル生成
+    console.log('[generateAITitle] AI APIを呼び出し中...');
+    const response = await aiApi.generateTitle(transcription, 15); // 最大15文字
+    console.log('[generateAITitle] AI APIレスポンス:', response);
+    
+    const generatedTitle = response.title;
+    console.log('[generateAITitle] 生成されたタイトル:', generatedTitle);
+
+    // ノートのタイトルのみを更新（文字起こし内容は保持）
+    console.log('[generateAITitle] データベース更新中...');
+    await updateNoteTitle(noteId, generatedTitle);
+    console.log('[generateAITitle] AI title generated and updated successfully');
+    return Promise.resolve();
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[generateAITitle] Error generating AI title:', errorMessage);
     return Promise.reject(error);
   }
 };
@@ -352,8 +378,8 @@ export const getNoteById = async (noteId: string): Promise<Recording | ImportFil
   }
 };
 
-// ノート詳細画面用：noteIdでノートを更新する関数
-export const updateNote = async (noteId: string, title: string, content?: string): Promise<void> => {
+// ノート詳細画面用：noteIdでノートのタイトルのみを更新する関数
+export const updateNoteTitle = async (noteId: string, title: string): Promise<void> => {
   try {
     const db = getDatabase();
     // 録音データテーブルから検索
@@ -363,9 +389,55 @@ export const updateNote = async (noteId: string, title: string, content?: string
     );
     if (recordingResult) {
       await db.runAsync(
-        'UPDATE recordings SET title = ?, transcription = ? WHERE id = ?;',
-        [title, content || null, noteId]
+        'UPDATE recordings SET title = ? WHERE id = ?;',
+        [title, noteId]
       );
+      console.log('Recording title updated successfully');
+      return Promise.resolve();
+    }
+    // インポートファイルテーブルから検索
+    const importResult = await db.getFirstAsync<ImportFile>(
+      'SELECT * FROM imports WHERE id = ?;',
+      [noteId]
+    );
+    if (importResult) {
+      await db.runAsync(
+        'UPDATE imports SET title = ? WHERE id = ?;',
+        [title, noteId]
+      );
+      console.log('Import title updated successfully');
+      return Promise.resolve();
+    }
+    throw new Error('Note not found');
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Error updating note title:', errorMessage);
+    return Promise.reject(error);
+  }
+};
+
+// ノート詳細画面用：noteIdでノートを更新する関数（後方互換性のため残す）
+export const updateNote = async (noteId: string, title: string, content?: string): Promise<void> => {
+  try {
+    const db = getDatabase();
+    // 録音データテーブルから検索
+    const recordingResult = await db.getFirstAsync<Recording>(
+      'SELECT * FROM recordings WHERE id = ?;',
+      [noteId]
+    );
+    if (recordingResult) {
+      // contentが指定されていない場合は、transcriptionを更新しない
+      if (content !== undefined) {
+        await db.runAsync(
+          'UPDATE recordings SET title = ?, transcription = ? WHERE id = ?;',
+          [title, content, noteId]
+        );
+      } else {
+        await db.runAsync(
+          'UPDATE recordings SET title = ? WHERE id = ?;',
+          [title, noteId]
+        );
+      }
       console.log('Recording updated successfully');
       return Promise.resolve();
     }
@@ -460,6 +532,7 @@ export const deleteNote = async (noteId: string): Promise<void> => {
 export default {
   initDatabase,
   saveRecording,
+  generateAITitle,
   saveImport,
   addToUploadQueue,
   getRecordings,
@@ -469,6 +542,7 @@ export default {
   exportDatabase,
   getNoteById,
   updateNote,
+  updateNoteTitle,
   deleteRecording,
   deleteImport,
   deleteNote

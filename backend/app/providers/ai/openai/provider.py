@@ -68,6 +68,58 @@ class OpenAIProvider(BaseAIProvider):
         except Exception as e:
             logger.error(f"Error in OpenAI summarize: {e}")
             return f"要約中にエラーが発生しました: {str(e)}"
+
+    async def generate_title(self, text: str, max_length: Optional[int] = None) -> str:
+        """
+        テキストからタイトルを生成する
+        
+        Args:
+            text: タイトル生成元のテキスト
+            max_length: タイトルの最大長（文字数）
+            
+        Returns:
+            生成されたタイトル
+        """
+        if not self.api_key:
+            return "APIキーが設定されていないため、タイトルを生成できません。"
+        
+        try:
+            # タイトル生成用のプロンプト作成
+            system_prompt = """
+            あなたは優れたタイトル生成AIです。
+            与えられたテキストの内容を理解し、その内容を端的に表現するタイトルを生成してください。
+            タイトルは簡潔で、内容を正確に表現するものにしてください。
+            必ず日本語で生成してください。
+            """
+            
+            # プロンプトを作成
+            user_content = f"以下のテキストの内容を端的に表現するタイトルを生成してください：\n{text}"
+            if max_length:
+                user_content += f"\nタイトルは{max_length}文字以内にしてください。"
+            
+            # OpenAI APIを呼び出し
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_content}
+                ],
+                temperature=0.3,  # タイトル生成は創造性より正確さを重視
+                max_tokens=100,  # タイトルなので短めに
+            )
+            
+            # レスポンスからタイトルを取得
+            title = response.choices[0].message.content.strip()
+            
+            # 余分な説明やマークダウンを削除
+            title = title.replace("タイトル：", "").replace("タイトル:", "").strip()
+            title = title.replace('"', '').replace('"', '').strip()
+            
+            return title
+            
+        except Exception as e:
+            logger.error(f"Error in OpenAI generate_title: {e}")
+            return f"タイトル生成中にエラーが発生しました: {str(e)}"
     
     async def proofread(self, text: str) -> Dict[str, Any]:
         """

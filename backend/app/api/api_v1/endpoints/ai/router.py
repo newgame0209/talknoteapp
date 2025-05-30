@@ -130,6 +130,17 @@ class DictionaryResponse(BaseModel):
     error: Optional[str] = Field(None, description="エラーメッセージ（存在する場合）")
 
 
+class GenerateTitleRequest(BaseModel):
+    """タイトル生成リクエスト"""
+    text: str = Field(..., description="タイトル生成元のテキスト")
+    max_length: Optional[int] = Field(None, description="タイトルの最大長（文字数）")
+
+
+class GenerateTitleResponse(BaseModel):
+    """タイトル生成レスポンス"""
+    title: str = Field(..., description="生成されたタイトル")
+
+
 # エンドポイント
 @router.post("/summarize", response_model=SummarizeResponse, tags=["ai"])
 async def summarize(
@@ -153,6 +164,30 @@ async def summarize(
     except Exception as e:
         logger.error(f"Error in summarize endpoint: {e}")
         raise HTTPException(status_code=500, detail=f"要約中にエラーが発生しました: {str(e)}")
+
+
+@router.post("/generate-title", response_model=GenerateTitleResponse, tags=["ai"])
+async def generate_title(
+    request: GenerateTitleRequest,
+    current_user: Dict = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    テキストからタイトルを生成する
+    
+    Args:
+        request: タイトル生成リクエスト
+        current_user: 現在のユーザー情報
+        
+    Returns:
+        タイトル生成レスポンス
+    """
+    try:
+        ai_service = AIService()
+        title = await ai_service.generate_title(request.text, request.max_length)
+        return {"title": title}
+    except Exception as e:
+        logger.error(f"Error in generate_title endpoint: {e}")
+        raise HTTPException(status_code=500, detail=f"タイトル生成中にエラーが発生しました: {str(e)}")
 
 
 @router.post("/proofread", response_model=ProofreadResponse, tags=["ai"])

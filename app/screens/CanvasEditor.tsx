@@ -178,7 +178,6 @@ const CanvasEditor: React.FC = () => {
                 ) : (
                   <TouchableOpacity style={styles.titleDisplay} onPress={() => setIsEditingTitle(true)}>
                     <Text style={styles.titleText}>{title || 'ノート'}</Text>
-                    <Text style={styles.titleDate}>2025-05-04</Text>
                     <MaterialIcons name="edit" size={16} color="#B0B0B0" style={{ marginLeft: 4 }} />
                   </TouchableOpacity>
                 )}
@@ -328,11 +327,6 @@ const styles = StyleSheet.create({
     color: '#B0B0B0',
     fontSize: 18,
     fontWeight: '500',
-    marginRight: 4,
-  },
-  titleDate: {
-    color: '#B0B0B0',
-    fontSize: 16,
     marginRight: 4,
   },
   titleInput: {

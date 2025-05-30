@@ -22,7 +22,7 @@ import * as Haptics from 'expo-haptics';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
-import { getRecordings, Recording, initDatabase, deleteNote } from '../../services/database';
+import { getRecordings, Recording, initDatabase, deleteNote, updateNoteTitle } from '../../services/database';
 
 // 仮のデータ型定義
 interface Note {
@@ -119,6 +119,8 @@ const DashboardScreen: React.FC = () => {
       // 録音データを取得
       const recordingData = await getRecordings();
       setRecordings(recordingData);
+
+      console.log('[Dashboard] データ読み込み完了');
     } catch (error) {
       console.error('データ読み込みエラー:', error);
       Alert.alert('エラー', 'データの読み込みに失敗しました');
@@ -127,16 +129,55 @@ const DashboardScreen: React.FC = () => {
     }
   };
 
+  // リアルタイムでタイトル生成状況を監視
+  const startTitleGenerationMonitoring = () => {
+    const intervalId = setInterval(async () => {
+      try {
+        const currentRecordings = await getRecordings();
+        const hasGeneratingTitle = currentRecordings.some(recording => 
+          recording.title === "AIがタイトルを生成中…"
+        );
+        
+        // 前回と異なる場合のみ更新
+        const recordingsChanged = JSON.stringify(currentRecordings) !== JSON.stringify(recordings);
+        if (recordingsChanged) {
+          console.log('[Dashboard] タイトル生成監視: データが更新されました');
+          setRecordings(currentRecordings);
+        }
+        
+        // 生成中のタイトルがなくなったら監視を停止
+        if (!hasGeneratingTitle) {
+          console.log('[Dashboard] タイトル生成監視: 完了');
+          clearInterval(intervalId);
+        }
+      } catch (error) {
+        console.error('[Dashboard] タイトル生成監視エラー:', error);
+        clearInterval(intervalId);
+      }
+    }, 1000); // 1秒ごとに監視
+
+    return intervalId;
+  };
+
   useEffect(() => {
     loadData();
   }, []);
 
-  // 画面がフォーカスされたときにデータを再読み込み
+  // 画面がフォーカスされたときにデータを再読み込み + タイトル生成監視開始
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', async () => {
       try {
         const recordingData = await getRecordings();
         setRecordings(recordingData);
+        
+        // タイトル生成中のノートがある場合、監視を開始
+        const hasGeneratingTitle = recordingData.some(recording => 
+          recording.title === "AIがタイトルを生成中…"
+        );
+        if (hasGeneratingTitle) {
+          console.log('[Dashboard] タイトル生成監視を開始');
+          startTitleGenerationMonitoring();
+        }
       } catch (error) {
         console.error('データ再読み込みエラー:', error);
       }
@@ -208,7 +249,7 @@ const DashboardScreen: React.FC = () => {
   // FlatListのフッター
   const renderListFooter = () => (
     <View style={styles.sectionContainer}>
-      <Text style={styles.sectionTitle}>AIからのおすすめ学習</Text>
+      <Text style={[styles.sectionTitle, { marginTop: 24 }]}>AIからのおすすめ学習</Text>
       {DUMMY_RECOMMENDATIONS.map((note) => (
         <View key={note.id} style={styles.noteItem}>
           <View style={styles.noteItemContent} pointerEvents="box-none">
@@ -232,6 +273,7 @@ const DashboardScreen: React.FC = () => {
   // ノートアイテムのレンダリング
   const renderNoteItem = (item: Note) => {
     const isSelected = selectedNotes.has(item.id);
+    const isGeneratingTitle = item.title === "AIがタイトルを生成中…";
 
     // スワイプジェスチャーのハンドラー
     const onSwipeGesture = (event: any) => {
@@ -250,13 +292,23 @@ const DashboardScreen: React.FC = () => {
       <PanGestureHandler onHandlerStateChange={onSwipeGesture}>
         <Animated.View>
           <TouchableOpacity
-            style={[styles.noteItem, isSelected && styles.noteItemSelected]}
-            activeOpacity={1}
+            style={[
+              styles.noteItem, 
+              isSelected && styles.noteItemSelected,
+              isGeneratingTitle && styles.noteItemGenerating
+            ]}
+            activeOpacity={0.7}
             onPress={() => {
               if (isSelectionMode) {
                 toggleNoteSelection(item.id);
               } else {
                 navigation.navigate('CanvasEditor', { noteId: item.id });
+              }
+            }}
+            onLongPress={() => {
+              if (!isSelectionMode) {
+                setIsSelectionMode(true);
+                setSelectedNotes(new Set([item.id]));
               }
             }}
           >
@@ -282,7 +334,15 @@ const DashboardScreen: React.FC = () => {
                   color="#4F46E5"
                 />
               )}
-              <Text style={styles.noteTitle} numberOfLines={1}>{item.title}</Text>
+              <Text 
+                style={[
+                  styles.noteTitle, 
+                  isGeneratingTitle && styles.noteTitleGenerating
+                ]} 
+                numberOfLines={1}
+              >
+                {item.title}
+              </Text>
               {!isSelectionMode && <Text style={styles.noteArrow}>{'>'}</Text>}
             </View>
             <Text style={styles.noteDate}>{item.date}</Text>
@@ -542,57 +602,10 @@ const DashboardScreen: React.FC = () => {
       <FlatList
         data={recordings.length > 0 ? recordings.map(convertRecordingToNote) : []}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[styles.noteItem, selectedNotes.has(item.id) && styles.noteItemSelected]}
-            activeOpacity={0.7}
-            onPress={() => {
-              if (isSelectionMode) {
-                toggleNoteSelection(item.id);
-              } else {
-                navigation.navigate('CanvasEditor', { noteId: item.id });
-              }
-            }}
-            onLongPress={() => {
-              if (!isSelectionMode) {
-                setIsSelectionMode(true);
-                setSelectedNotes(new Set([item.id]));
-                // 初回のみヒント表示（例: ToastやAlert）
-                // Alert.alert('ヒント', '長押しで複数選択できます');
-              }
-            }}
-          >
-            <View style={styles.noteItemContent} pointerEvents="box-none">
-              {isSelectionMode && (
-                <TouchableOpacity
-                  style={styles.checkbox}
-                  onPress={() => toggleNoteSelection(item.id)}
-                >
-                  <Ionicons
-                    name={selectedNotes.has(item.id) ? "checkmark-circle" : "ellipse-outline"}
-                    size={24}
-                    color={selectedNotes.has(item.id) ? "#589ff4" : "#9CA3AF"}
-                  />
-                </TouchableOpacity>
-              )}
-              {item.type === 'audio' ? (
-                <Ionicons name="mic" size={24} color="#4F46E5" />
-              ) : (
-                <MaterialCommunityIcons
-                  name="file-document-outline"
-                  size={24}
-                  color="#4F46E5"
-                />
-              )}
-              <Text style={styles.noteTitle} numberOfLines={1}>{item.title}</Text>
-              {!isSelectionMode && <Text style={styles.noteArrow}>{'>'}</Text>}
-            </View>
-            <Text style={styles.noteDate}>{item.date}</Text>
-          </TouchableOpacity>
-        )}
+        renderItem={({ item }) => renderNoteItem(item)}
         ListHeaderComponent={renderListHeader}
         ListFooterComponent={renderListFooter}
-        ListEmptyComponent={<Text style={styles.emptyText}>録音データがありません。新しく録音してみましょう！</Text>}
+        ListEmptyComponent={<Text style={styles.emptyText}>まだノートがありません。新しく作成してみましょう！</Text>}
         contentContainerStyle={styles.scrollContent}
       />
       {/* 下部タブバー */}
@@ -1019,6 +1032,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#EBF4FF',
     borderColor: '#589ff4',
   },
+  noteItemGenerating: {
+    backgroundColor: '#F3F4F6',
+    borderColor: '#E5E7EB',
+    borderWidth: 2,
+    borderStyle: 'dashed',
+  },
   noteItemContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1029,6 +1048,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#000000', // 黒色に変更
     marginLeft: 8,
+  },
+  noteTitleGenerating: {
+    color: '#9CA3AF',
+    fontStyle: 'italic',
   },
   noteArrow: {
     fontSize: 16,

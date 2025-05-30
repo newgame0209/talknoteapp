@@ -476,3 +476,82 @@ class AnthropicProvider(BaseAIProvider):
         except Exception as e:
             logger.error(f"Error in Anthropic chat: {e}")
             return f"チャット中にエラーが発生しました: {str(e)}"
+
+    async def generate_title(self, text: str, max_length: Optional[int] = None) -> str:
+        """
+        テキストからタイトルを生成する
+        
+        Args:
+            text: タイトル生成元のテキスト
+            max_length: タイトルの最大長（文字数）
+            
+        Returns:
+            生成されたタイトル
+        """
+        if not self.api_key:
+            return "APIキーが設定されていないため、タイトルを生成できません。"
+        
+        try:
+            system_prompt = """
+            あなたは優れたタイトル生成AIです。
+            与えられたテキストの内容を理解し、その内容を端的に表現するタイトルを生成してください。
+            タイトルは簡潔で、内容を正確に表現するものにしてください。
+            必ず日本語で生成してください。
+            """
+            
+            # 最大長の指定があれば追加
+            user_content = f"以下のテキストの内容を端的に表現するタイトルを生成してください：\n{text}"
+            if max_length:
+                user_content += f"\nタイトルは{max_length}文字以内にしてください。"
+            
+            try:
+                # Messages APIを使用してタイトル生成を実行
+                message = await self.client.messages.create(
+                    model=self.model,
+                    system=system_prompt,
+                    messages=[
+                        {"role": "user", "content": user_content}
+                    ],
+                    temperature=0.3,  # タイトル生成は創造性より正確さを重視
+                    max_tokens=100,  # タイトルなので短めに
+                )
+                
+                # レスポンスからタイトルを取得
+                title = message.content[0].text.strip()
+                
+                # 余分な説明やマークダウンを削除
+                title = title.replace("タイトル：", "").replace("タイトル:", "").strip()
+                title = title.replace('"', '').replace('"', '').strip()
+                
+                return title
+                
+            except Exception as e:
+                # Messages APIが失敗した場合、Completions APIにフォールバック
+                logger.warning(f"Messages API failed, falling back to Completions API: {e}")
+                
+                # プロンプトを作成
+                prompt = f"{anthropic.HUMAN_PROMPT} 以下のテキストの内容を端的に表現するタイトルを生成してください：\n{text}"
+                if max_length:
+                    prompt += f"\nタイトルは{max_length}文字以内にしてください。"
+                prompt += f" {anthropic.AI_PROMPT}"
+                
+                # Completions APIを使用
+                completion = await self.client.completions.create(
+                    model=self.fallback_model,
+                    prompt=prompt,
+                    temperature=0.3,  # タイトル生成は創造性より正確さを重視
+                    max_tokens_to_sample=100,  # タイトルなので短めに
+                )
+                
+                # レスポンスからタイトルを取得
+                title = completion.completion.strip()
+                
+                # 余分な説明やマークダウンを削除
+                title = title.replace("タイトル：", "").replace("タイトル:", "").strip()
+                title = title.replace('"', '').replace('"', '').strip()
+                
+                return title
+            
+        except Exception as e:
+            logger.error(f"Error in Anthropic generate_title: {e}")
+            return f"タイトル生成中にエラーが発生しました: {str(e)}"

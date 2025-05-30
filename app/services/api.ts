@@ -162,4 +162,32 @@ export const mediaApi = {
   },
 };
 
+// AI関連のAPI
+export const aiApi = {
+  // テキストの要約
+  summarize: async (text: string, maxLength?: number) => {
+    const response = await api.post('/api/v1/ai/summarize', {
+      text,
+      max_length: maxLength
+    });
+    return response.data;
+  },
+
+  // テキストからタイトルを生成
+  generateTitle: async (text: string, maxLength?: number) => {
+    console.log('[aiApi.generateTitle] 開始 - text長:', text.length, 'maxLength:', maxLength);
+    try {
+      const response = await api.post('/api/v1/ai/generate-title', {
+        text,
+        max_length: maxLength
+      });
+      console.log('[aiApi.generateTitle] 成功 - response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('[aiApi.generateTitle] エラー:', error);
+      throw error;
+    }
+  },
+};
+
 export default api;
