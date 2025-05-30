@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, Alert, SafeAreaView, Platform, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, Alert, SafeAreaView, Platform, TouchableWithoutFeedback, ScrollView } from 'react-native';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons, FontAwesome } from '@expo/vector-icons';
@@ -16,6 +16,9 @@ type CanvasEditorNavigationProp = StackNavigationProp<RootStackParamList, 'Canva
 // ツールの種類定義
 type ToolType = 'pen' | 'keyboard' | 'voice' | null;
 type PenToolType = 'pen' | 'pencil' | 'eraser' | 'marker' | null;
+// キーボードツール用の型定義を追加
+type KeyboardToolType = 'textType' | 'font' | 'size' | 'color' | 'bold' | 'spacing' | null;
+type TextType = 'heading1' | 'heading2' | 'heading3' | 'body';
 
 const CanvasEditor: React.FC = () => {
   const route = useRoute<CanvasEditorRouteProp>();
@@ -33,6 +36,21 @@ const CanvasEditor: React.FC = () => {
   const [selectedTool, setSelectedTool] = useState<ToolType>(null);
   // ペンツール内の選択状態管理
   const [selectedPenTool, setSelectedPenTool] = useState<PenToolType>(null);
+  // キーボードツール内の選択状態管理
+  const [selectedKeyboardTool, setSelectedKeyboardTool] = useState<KeyboardToolType>(null);
+  // テキストタイプの状態管理
+  const [selectedTextType, setSelectedTextType] = useState<TextType>('body');
+  // フォントタイプの状態管理
+  const [selectedFont, setSelectedFont] = useState<'standard' | 'dyslexia'>('standard');
+  // テキストサイズ設定
+  const [fontSize, setFontSize] = useState<number>(16);
+  // テキストカラー設定
+  const [textColor, setTextColor] = useState<string>('#000000');
+  // 太字設定
+  const [isBold, setIsBold] = useState<boolean>(false);
+  // 行間・文字間隔設定
+  const [lineSpacing, setLineSpacing] = useState<number>(1.2);
+  const [letterSpacing, setLetterSpacing] = useState<number>(0);
   // 選択された色
   const [selectedColor, setSelectedColor] = useState<string>('#000000');
 
@@ -142,13 +160,40 @@ const CanvasEditor: React.FC = () => {
 
   // キーボードツール選択ハンドラ
   const handleKeyboardToolPress = () => {
-    setSelectedTool(selectedTool === 'keyboard' ? null : 'keyboard');
+    const newSelectedTool = selectedTool === 'keyboard' ? null : 'keyboard';
+    setSelectedTool(newSelectedTool);
+    
+    // キーボードツールを解除した場合、サブツールもリセット
+    if (newSelectedTool === null) {
+      setSelectedKeyboardTool(null);
+    }
+    
     // TextInputのフォーカスを強制的に解除
     titleInputRef.current?.blur();
     contentInputRef.current?.blur();
     setIsEditing(false);
     setIsEditingTitle(false);
     setIsCanvasIconsVisible(false);
+  };
+
+  // キーボードツール内の選択ハンドラ
+  const handleKeyboardToolSelect = (tool: KeyboardToolType) => {
+    setSelectedKeyboardTool(selectedKeyboardTool === tool ? null : tool);
+  };
+
+  // テキストタイプ選択ハンドラ
+  const handleTextTypeSelect = (type: TextType) => {
+    setSelectedTextType(type);
+  };
+
+  // フォント選択ハンドラ
+  const handleFontSelect = (font: 'standard' | 'dyslexia') => {
+    setSelectedFont(font);
+  };
+
+  // テキストカラー選択ハンドラ
+  const handleTextColorSelect = (color: string) => {
+    setTextColor(color);
   };
 
   // 音声ツール選択ハンドラ
@@ -197,6 +242,43 @@ const CanvasEditor: React.FC = () => {
     return tool === 'pen' || tool === 'pencil' || tool === 'marker';
   };
 
+  // 文法選択ドロップダウンの状態管理
+  const [showTextTypeDropdown, setShowTextTypeDropdown] = useState<boolean>(false);
+  // 文字色選択の状態管理
+  const [showColorPicker, setShowColorPicker] = useState<boolean>(false);
+
+  // フォント選択ドロップダウンの状態管理
+  const [showFontDropdown, setShowFontDropdown] = useState<boolean>(false);
+  
+  // 利用可能なフォント一覧
+  const availableFonts = [
+    { key: 'dyslexia', label: 'UDフォント' },
+    { key: 'standard', label: '標準フォント' },
+    { key: 'serif', label: '明朝体' },
+    { key: 'gothic', label: 'ゴシック体' }
+  ];
+
+  // 文法選択ハンドラ
+  const handleTextTypeDropdownToggle = () => {
+    setShowTextTypeDropdown(!showTextTypeDropdown);
+    setShowColorPicker(false); // 他のドロップダウンを閉じる
+    setShowFontDropdown(false);
+  };
+
+  // 文字色ピッカーハンドラ
+  const handleColorPickerToggle = () => {
+    setShowColorPicker(!showColorPicker);
+    setShowTextTypeDropdown(false); // 他のドロップダウンを閉じる
+    setShowFontDropdown(false);
+  };
+
+  // フォント選択ハンドラ
+  const handleFontDropdownToggle = () => {
+    setShowFontDropdown(!showFontDropdown);
+    setShowTextTypeDropdown(false);
+    setShowColorPicker(false);
+  };
+
   return (
     <TouchableWithoutFeedback onPress={() => setIsCanvasIconsVisible(false)}>
       <SafeAreaView style={styles.safeArea}>
@@ -243,7 +325,7 @@ const CanvasEditor: React.FC = () => {
                 <MaterialCommunityIcons 
                   name="keyboard-outline" 
                   size={22} 
-                  color={selectedTool === 'keyboard' ? '#FF6B35' : '#fff'} 
+                  color={selectedTool === 'keyboard' ? '#4F8CFF' : '#fff'} 
                 />
               </TouchableOpacity>
               <TouchableOpacity 
@@ -256,7 +338,7 @@ const CanvasEditor: React.FC = () => {
                 <Ionicons 
                   name="mic-outline" 
                   size={22} 
-                  color={selectedTool === 'voice' ? '#FF6B35' : '#fff'} 
+                  color={selectedTool === 'voice' ? '#4F8CFF' : '#fff'} 
                 />
               </TouchableOpacity>
             </View>
@@ -432,8 +514,34 @@ const CanvasEditor: React.FC = () => {
             
             {selectedTool === 'keyboard' && (
               <View style={styles.subToolbarContent}>
-                <Text style={styles.subToolbarLabel}>キーボードツール</Text>
-                {/* 今後のキーボードツールを追加 */}
+                <View style={styles.subToolGroup}>
+                  <TouchableOpacity style={styles.keyboardSubToolIconSmall}>
+                    <Ionicons name="arrow-undo" size={16} color="#666" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.keyboardSubToolIconSmall}>
+                    <Ionicons name="arrow-redo" size={16} color="#666" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.keyboardSelectorSmall} onPress={handleTextTypeDropdownToggle}>
+                    <Text style={styles.keyboardTextSmall}>{selectedTextType === 'heading1' ? '見出し1' : selectedTextType === 'heading2' ? '見出し2' : selectedTextType === 'heading3' ? '見出し3' : '本文'}</Text>
+                    <MaterialIcons name="keyboard-arrow-down" size={16} color="#666" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.keyboardSelectorSmall} onPress={handleFontDropdownToggle}>
+                    <Text style={styles.keyboardTextSmall}>{availableFonts.find(font => font.key === selectedFont)?.label || 'UDフォント'}</Text>
+                    <MaterialIcons name="keyboard-arrow-down" size={16} color="#666" />
+                  </TouchableOpacity>
+                  <View style={styles.keyboardSelectorSmall}>
+                    <TouchableOpacity style={styles.keyboardSubToolIconSmall} onPress={() => setFontSize(Math.max(10, fontSize - 1))}>
+                      <MaterialIcons name="remove" size={16} color="#666" />
+                    </TouchableOpacity>
+                    <Text style={styles.keyboardTextSmall}>{fontSize}</Text>
+                    <TouchableOpacity style={styles.keyboardSubToolIconSmall} onPress={() => setFontSize(Math.min(30, fontSize + 1))}>
+                      <MaterialIcons name="add" size={16} color="#666" />
+                    </TouchableOpacity>
+                  </View>
+                  <TouchableOpacity style={styles.keyboardSubToolIconSmall} onPress={handleColorPickerToggle}>
+                    <View style={[styles.colorCircle, { backgroundColor: textColor, width: 16, height: 16, borderRadius: 8 }]} />
+                  </TouchableOpacity>
+                </View>
               </View>
             )}
             
@@ -533,6 +641,86 @@ const CanvasEditor: React.FC = () => {
             <View style={styles.aiTail} />
           </View>
         </View>
+
+        {/* 文法選択ドロップダウン */}
+        {showTextTypeDropdown && (
+          <View style={styles.dropdownMenu}>
+            <TouchableOpacity 
+              style={[styles.dropdownItem, selectedTextType === 'body' && styles.selectedDropdownItem]}
+              onPress={() => {
+                handleTextTypeSelect('body');
+                setShowTextTypeDropdown(false);
+              }}
+            >
+              <Text style={styles.dropdownItemText}>本文</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.dropdownItem, selectedTextType === 'heading1' && styles.selectedDropdownItem]}
+              onPress={() => {
+                handleTextTypeSelect('heading1');
+                setShowTextTypeDropdown(false);
+              }}
+            >
+              <Text style={[styles.dropdownItemText, { fontSize: 18, fontWeight: 'bold' }]}>見出し1</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.dropdownItem, selectedTextType === 'heading2' && styles.selectedDropdownItem]}
+              onPress={() => {
+                handleTextTypeSelect('heading2');
+                setShowTextTypeDropdown(false);
+              }}
+            >
+              <Text style={[styles.dropdownItemText, { fontSize: 16, fontWeight: 'bold' }]}>見出し2</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.dropdownItem, selectedTextType === 'heading3' && styles.selectedDropdownItem]}
+              onPress={() => {
+                handleTextTypeSelect('heading3');
+                setShowTextTypeDropdown(false);
+              }}
+            >
+              <Text style={[styles.dropdownItemText, { fontSize: 14, fontWeight: 'bold' }]}>見出し3</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* フォント選択ドロップダウン */}
+        {showFontDropdown && (
+          <View style={styles.dropdownMenu}>
+            {availableFonts.map((font) => (
+              <TouchableOpacity 
+                key={font.key}
+                style={[styles.dropdownItem, selectedFont === font.key && styles.selectedDropdownItem]}
+                onPress={() => {
+                  handleFontSelect(font.key as 'standard' | 'dyslexia');
+                  setShowFontDropdown(false);
+                }}
+              >
+                <Text style={styles.dropdownItemText}>{font.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* 文字色選択カラーピッカー - コンパクトサイズ */}
+        {showColorPicker && (
+          <View style={styles.colorPickerMenu}>
+            {['#000000', '#FF0000', '#0000FF', '#008000', '#FFA500', '#800080'].map((color, index) => (
+              <TouchableOpacity
+                key={`color-${index}`}
+                style={[
+                  styles.colorPickerOption,
+                  { backgroundColor: color },
+                  textColor === color && styles.selectedColorPickerOption,
+                ]}
+                onPress={() => {
+                  handleTextColorSelect(color);
+                  setShowColorPicker(false);
+                }}
+              />
+            ))}
+          </View>
+        )}
 
       </SafeAreaView>
     </TouchableWithoutFeedback>
@@ -721,17 +909,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
+    width: '100%',
   },
   subToolbarContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
+    justifyContent: 'flex-start',
+    paddingHorizontal: 0,
+    width: '100%',
   },
   subToolGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     flex: 1,
   },
   colorSettingsGroup: {
@@ -742,7 +932,7 @@ const styles = StyleSheet.create({
   },
   subToolIcon: {
     padding: 8,
-    marginHorizontal: 3,
+    marginHorizontal: 4,
     borderRadius: 8,
     backgroundColor: '#F6F7FB',
     minWidth: 36,
@@ -811,6 +1001,188 @@ const styles = StyleSheet.create({
     color: '#333',
     fontSize: 16,
     fontWeight: '500',
+  },
+  textTypeSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 6,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    minWidth: 55,
+    marginHorizontal: 2,
+  },
+  textTypeSelectorText: {
+    color: '#333',
+    fontSize: 12,
+    marginRight: 2,
+  },
+  fontSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 6,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    minWidth: 70,
+    marginHorizontal: 2,
+  },
+  fontSelectorText: {
+    color: '#333',
+    fontSize: 12,
+    marginRight: 2,
+  },
+  fontSizeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    marginHorizontal: 2,
+  },
+  fontSizeButton: {
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 6,
+    marginHorizontal: 1,
+  },
+  fontSizeText: {
+    color: '#333',
+    fontSize: 14,
+    paddingHorizontal: 8,
+  },
+  textColorIndicator: {
+    padding: 8,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    marginHorizontal: 2,
+  },
+  colorCircle: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  boldButton: {
+    padding: 8,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    marginHorizontal: 2,
+  },
+  boldButtonActive: {
+    backgroundColor: '#E3F2FD',
+  },
+  boldButtonText: {
+    color: '#333',
+    fontSize: 16,
+  },
+  boldButtonTextActive: {
+    fontWeight: 'bold',
+  },
+  dropdownMenu: {
+    position: 'absolute',
+    top: 48,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    padding: 16,
+  },
+  dropdownItem: {
+    padding: 8,
+  },
+  selectedDropdownItem: {
+    backgroundColor: '#E3F2FD',
+  },
+  dropdownItemText: {
+    color: '#333',
+    fontSize: 16,
+  },
+  colorPickerMenu: {
+    position: 'absolute',
+    top: 96,
+    left: 16,
+    right: 16,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    padding: 8,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  colorPickerOption: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    margin: 2,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  selectedColorPickerOption: {
+    borderColor: '#4F8CFF',
+    borderWidth: 3,
+  },
+  scrollableSubToolGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingHorizontal: 16,
+    paddingRight: 32,
+    flexGrow: 1,
+    minWidth: '100%',
+  },
+  keyboardSubToolIcon: {
+    padding: 4,
+    marginHorizontal: 1,
+    borderRadius: 8,
+    backgroundColor: '#F6F7FB',
+    minWidth: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+  },
+  keyboardSubToolIconSmall: {
+    padding: 4,
+    marginHorizontal: 2,
+    borderRadius: 7,
+    backgroundColor: '#F6F7FB',
+    minWidth: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  keyboardSelectorSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 7,
+    minWidth: 40,
+    marginHorizontal: 2,
+  },
+  keyboardTextSmall: {
+    color: '#333',
+    fontSize: 12,
+    marginRight: 2,
+  },
+  keyboardIconSmall: {
+    fontSize: 16,
   },
 });
 
