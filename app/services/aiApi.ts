@@ -1,4 +1,4 @@
-import { ApiClient } from './api';
+import ApiClient from './api';
 
 export class AIApi {
   private apiClient: ApiClient;

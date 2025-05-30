@@ -13,6 +13,10 @@ type RootStackParamList = {
 type CanvasEditorRouteProp = RouteProp<RootStackParamList, 'CanvasEditor'>;
 type CanvasEditorNavigationProp = StackNavigationProp<RootStackParamList, 'CanvasEditor'>;
 
+// ツールの種類定義
+type ToolType = 'pen' | 'keyboard' | 'voice' | null;
+type PenToolType = 'pen' | 'pencil' | 'eraser' | 'marker' | null;
+
 const CanvasEditor: React.FC = () => {
   const route = useRoute<CanvasEditorRouteProp>();
   const navigation = useNavigation<CanvasEditorNavigationProp>();
@@ -25,6 +29,27 @@ const CanvasEditor: React.FC = () => {
   const [isCanvasIconsVisible, setIsCanvasIconsVisible] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   
+  // ツール選択状態管理
+  const [selectedTool, setSelectedTool] = useState<ToolType>(null);
+  // ペンツール内の選択状態管理
+  const [selectedPenTool, setSelectedPenTool] = useState<PenToolType>(null);
+  // 選択された色
+  const [selectedColor, setSelectedColor] = useState<string>('#000000');
+
+  // カラーパレット定義
+  const getColorPalette = () => {
+    if (selectedPenTool === 'marker') {
+      // マーカー用カラーパレット（黄色系メイン）
+      return ['#FFFF00', '#FFD700', '#FFA500', '#FF69B4'];
+    } else if (selectedPenTool === 'pencil') {
+      // 鉛筆用カラーパレット（黒系メイン）
+      return ['#000000', '#666666', '#999999', '#333333'];
+    } else {
+      // ペン用カラーパレット
+      return ['#FF0000', '#4F8CFF', '#000000', '#008000'];
+    }
+  };
+
   const titleInputRef = useRef<TextInput>(null);
   const contentInputRef = useRef<TextInput>(null);
 
@@ -97,6 +122,46 @@ const CanvasEditor: React.FC = () => {
     setIsCanvasIconsVisible(false);
   };
 
+  // ペンツール選択ハンドラ
+  const handlePenToolPress = () => {
+    const newSelectedTool = selectedTool === 'pen' ? null : 'pen';
+    setSelectedTool(newSelectedTool);
+    
+    // ペンツールを解除した場合、サブツールもリセット
+    if (newSelectedTool === null) {
+      setSelectedPenTool(null);
+    }
+    
+    // TextInputのフォーカスを強制的に解除
+    titleInputRef.current?.blur();
+    contentInputRef.current?.blur();
+    setIsEditing(false);
+    setIsEditingTitle(false);
+    setIsCanvasIconsVisible(false);
+  };
+
+  // キーボードツール選択ハンドラ
+  const handleKeyboardToolPress = () => {
+    setSelectedTool(selectedTool === 'keyboard' ? null : 'keyboard');
+    // TextInputのフォーカスを強制的に解除
+    titleInputRef.current?.blur();
+    contentInputRef.current?.blur();
+    setIsEditing(false);
+    setIsEditingTitle(false);
+    setIsCanvasIconsVisible(false);
+  };
+
+  // 音声ツール選択ハンドラ
+  const handleVoiceToolPress = () => {
+    setSelectedTool(selectedTool === 'voice' ? null : 'voice');
+    // TextInputのフォーカスを強制的に解除
+    titleInputRef.current?.blur();
+    contentInputRef.current?.blur();
+    setIsEditing(false);
+    setIsEditingTitle(false);
+    setIsCanvasIconsVisible(false);
+  };
+
   // キャンバスアイコンタップ時のハンドラ（アイコン非表示）
   const handleCanvasIconPress = () => {
     setIsCanvasIconsVisible(false);
@@ -106,6 +171,30 @@ const CanvasEditor: React.FC = () => {
   const handleContentAreaPress = () => {
     setIsCanvasIconsVisible(true);
     setIsEditing(true);
+  };
+
+  // ペンツール内の選択ハンドラ
+  const handlePenToolSelect = (tool: PenToolType) => {
+    setSelectedPenTool(selectedPenTool === tool ? null : tool);
+    
+    // ツール選択時のデフォルト色設定
+    if (tool === 'marker') {
+      setSelectedColor('#FFFF00'); // 黄色
+    } else if (tool === 'pencil') {
+      setSelectedColor('#000000'); // 黒色
+    } else if (tool === 'pen') {
+      setSelectedColor('#000000'); // 黒色（青ではなく）
+    }
+  };
+
+  // 色選択ハンドラ
+  const handleColorSelect = (color: string) => {
+    setSelectedColor(color);
+  };
+
+  // 色設定が必要なツールかどうかを判定
+  const needsColorSettings = (tool: PenToolType): boolean => {
+    return tool === 'pen' || tool === 'pencil' || tool === 'marker';
   };
 
   return (
@@ -131,14 +220,44 @@ const CanvasEditor: React.FC = () => {
             
             {/* グループ2: ペンツール・キーボード・マイク */}
             <View style={styles.iconGroup}>
-              <TouchableOpacity style={styles.topBarIcon} onPress={handleToolbarIconPress}>
-                <MaterialIcons name="edit" size={22} color="#fff" />
+              <TouchableOpacity 
+                style={[
+                  styles.topBarIcon, 
+                  selectedTool === 'pen' && styles.selectedToolIcon
+                ]} 
+                onPress={handlePenToolPress}
+              >
+                <MaterialIcons 
+                  name="edit" 
+                  size={22} 
+                  color={selectedTool === 'pen' ? '#4F8CFF' : '#fff'} 
+                />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.topBarIcon} onPress={handleToolbarIconPress}>
-                <MaterialCommunityIcons name="keyboard-outline" size={22} color="#fff" />
+              <TouchableOpacity 
+                style={[
+                  styles.topBarIcon, 
+                  selectedTool === 'keyboard' && styles.selectedToolIcon
+                ]} 
+                onPress={handleKeyboardToolPress}
+              >
+                <MaterialCommunityIcons 
+                  name="keyboard-outline" 
+                  size={22} 
+                  color={selectedTool === 'keyboard' ? '#FF6B35' : '#fff'} 
+                />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.topBarIcon} onPress={handleToolbarIconPress}>
-                <Ionicons name="mic-outline" size={22} color="#fff" />
+              <TouchableOpacity 
+                style={[
+                  styles.topBarIcon, 
+                  selectedTool === 'voice' && styles.selectedToolIcon
+                ]} 
+                onPress={handleVoiceToolPress}
+              >
+                <Ionicons 
+                  name="mic-outline" 
+                  size={22} 
+                  color={selectedTool === 'voice' ? '#FF6B35' : '#fff'} 
+                />
               </TouchableOpacity>
             </View>
             
@@ -158,6 +277,174 @@ const CanvasEditor: React.FC = () => {
             <MaterialIcons name="more-horiz" size={24} color="#fff" />
           </TouchableOpacity>
         </View>
+
+        {/* サブツールバー - 選択されたツールによって表示 */}
+        {selectedTool && (
+          <View style={styles.subToolbar}>
+            {selectedTool === 'pen' && (
+              <View style={styles.subToolbarContent}>
+                {/* 色設定が必要なツールが選択されているかどうかで表示を切り替え */}
+                {!selectedPenTool || !needsColorSettings(selectedPenTool) ? (
+                  <>
+                    {/* サブツール群 - 中央配置 */}
+                    <View style={styles.subToolGroup}>
+                      {/* 共通ツール: 戻る・進む */}
+                      <TouchableOpacity style={styles.subToolIcon}>
+                        <Ionicons name="arrow-undo" size={18} color="#666" />
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.subToolIcon}>
+                        <Ionicons name="arrow-redo" size={18} color="#666" />
+                      </TouchableOpacity>
+                      
+                      {/* ペンツール */}
+                      <TouchableOpacity 
+                        style={[
+                          styles.subToolIcon,
+                          selectedPenTool === 'pen' && styles.selectedSubToolIcon
+                        ]}
+                        onPress={() => handlePenToolSelect('pen')}
+                      >
+                        <MaterialCommunityIcons 
+                          name="pen" 
+                          size={18} 
+                          color={selectedPenTool === 'pen' ? '#4F8CFF' : '#666'} 
+                        />
+                      </TouchableOpacity>
+                      
+                      {/* 鉛筆ツール */}
+                      <TouchableOpacity 
+                        style={[
+                          styles.subToolIcon,
+                          selectedPenTool === 'pencil' && styles.selectedSubToolIcon
+                        ]}
+                        onPress={() => handlePenToolSelect('pencil')}
+                      >
+                        <MaterialCommunityIcons 
+                          name="lead-pencil" 
+                          size={18} 
+                          color={selectedPenTool === 'pencil' ? '#4F8CFF' : '#666'} 
+                        />
+                      </TouchableOpacity>
+                      
+                      {/* 消しゴム */}
+                      <TouchableOpacity 
+                        style={[
+                          styles.subToolIcon,
+                          selectedPenTool === 'eraser' && styles.selectedSubToolIcon
+                        ]}
+                        onPress={() => handlePenToolSelect('eraser')}
+                      >
+                        <MaterialCommunityIcons 
+                          name="eraser" 
+                          size={18} 
+                          color={selectedPenTool === 'eraser' ? '#4F8CFF' : '#666'} 
+                        />
+                      </TouchableOpacity>
+                      
+                      {/* マーカー */}
+                      <TouchableOpacity 
+                        style={[
+                          styles.subToolIcon,
+                          selectedPenTool === 'marker' && styles.selectedSubToolIcon
+                        ]}
+                        onPress={() => handlePenToolSelect('marker')}
+                      >
+                        <MaterialCommunityIcons 
+                          name="marker" 
+                          size={18} 
+                          color={selectedPenTool === 'marker' ? '#4F8CFF' : '#666'} 
+                        />
+                      </TouchableOpacity>
+                      
+                      {/* 画像挿入 */}
+                      <TouchableOpacity style={styles.subToolIcon}>
+                        <MaterialIcons name="image" size={18} color="#666" />
+                      </TouchableOpacity>
+                      
+                      {/* 定規 */}
+                      <TouchableOpacity style={styles.subToolIcon}>
+                        <MaterialCommunityIcons name="ruler" size={18} color="#666" />
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                ) : (
+                  /* 色設定が必要なツール選択時（pen, pencil, marker） */
+                  <>
+                    {/* 色設定ツール群 - 中央配置 */}
+                    <View style={styles.colorSettingsGroup}>
+                      {/* 戻るボタン */}
+                      <TouchableOpacity 
+                        style={styles.subToolIcon}
+                        onPress={() => setSelectedPenTool(null)}
+                      >
+                        <Ionicons name="arrow-back" size={18} color="#666" />
+                      </TouchableOpacity>
+                      
+                      {/* 選択されたツールアイコン */}
+                      <View style={[styles.subToolIcon, styles.selectedSubToolIcon]}>
+                        {selectedPenTool === 'pen' && (
+                          <MaterialCommunityIcons name="pen" size={18} color="#4F8CFF" />
+                        )}
+                        {selectedPenTool === 'pencil' && (
+                          <MaterialCommunityIcons name="lead-pencil" size={18} color="#4F8CFF" />
+                        )}
+                        {selectedPenTool === 'marker' && (
+                          <MaterialCommunityIcons name="marker" size={18} color="#4F8CFF" />
+                        )}
+                      </View>
+                      
+                      {/* 線の太さ設定 */}
+                      <View style={styles.thicknessContainer}>
+                        <TouchableOpacity style={styles.thicknessIconContainer}>
+                          <View style={[styles.thicknessOption, styles.thicknessThin]} />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.thicknessIconContainer}>
+                          <View style={[styles.thicknessOption, styles.thicknessMedium]} />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.thicknessIconContainer}>
+                          <View style={[styles.thicknessOption, styles.thicknessThick]} />
+                        </TouchableOpacity>
+                      </View>
+                      
+                      {/* カラーパレット（赤、青、黒、カスタム） */}
+                      <View style={styles.colorPalette}>
+                        {getColorPalette().slice(0, 3).map((color, index) => (
+                          <TouchableOpacity
+                            key={`${selectedPenTool}-${index}`}
+                            style={[
+                              styles.colorOption,
+                              { backgroundColor: color },
+                              selectedColor === color && styles.selectedColorOption,
+                            ]}
+                            onPress={() => handleColorSelect(color)}
+                          />
+                        ))}
+                        {/* カスタムカラーボタン */}
+                        <TouchableOpacity style={[styles.colorOption, styles.customColorOption]}>
+                          <MaterialIcons name="palette" size={14} color="#666" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </>
+                )}
+              </View>
+            )}
+            
+            {selectedTool === 'keyboard' && (
+              <View style={styles.subToolbarContent}>
+                <Text style={styles.subToolbarLabel}>キーボードツール</Text>
+                {/* 今後のキーボードツールを追加 */}
+              </View>
+            )}
+            
+            {selectedTool === 'voice' && (
+              <View style={styles.subToolbarContent}>
+                <Text style={styles.subToolbarLabel}>音声ツール</Text>
+                {/* 今後の音声ツールを追加 */}
+              </View>
+            )}
+          </View>
+        )}
 
         {/* ノートエリア全体 */}
         <View style={styles.flex1}>
@@ -246,7 +533,6 @@ const CanvasEditor: React.FC = () => {
             <View style={styles.aiTail} />
           </View>
         </View>
-
 
       </SafeAreaView>
     </TouchableWithoutFeedback>
@@ -412,6 +698,119 @@ const styles = StyleSheet.create({
     width: 45,
     height: 45,
     zIndex: 20,
+  },
+  selectedToolIcon: {
+    backgroundColor: '#F8FAFF',
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#B8D4FF',
+    shadowColor: '#4F8CFF',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  subToolbar: {
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  subToolbarContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  subToolGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+  },
+  colorSettingsGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+  },
+  subToolIcon: {
+    padding: 8,
+    marginHorizontal: 3,
+    borderRadius: 8,
+    backgroundColor: '#F6F7FB',
+    minWidth: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectedSubToolIcon: {
+    backgroundColor: '#E3F2FD',
+    borderWidth: 2,
+    borderColor: '#4F8CFF',
+  },
+  thicknessContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 8,
+  },
+  thicknessIconContainer: {
+    padding: 6,
+    marginHorizontal: 1,
+    borderRadius: 6,
+    backgroundColor: '#F6F7FB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 28,
+  },
+  thicknessOption: {
+    backgroundColor: '#333',
+    borderRadius: 1,
+  },
+  thicknessThin: {
+    width: 18,
+    height: 1,
+  },
+  thicknessMedium: {
+    width: 18,
+    height: 3,
+  },
+  thicknessThick: {
+    width: 18,
+    height: 5,
+  },
+  colorPalette: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  colorOption: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    marginHorizontal: 2,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  selectedColorOption: {
+    borderColor: '#00C851',
+    borderWidth: 3,
+  },
+  customColorOption: {
+    backgroundColor: '#F6F7FB',
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  subToolbarLabel: {
+    color: '#333',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
 
