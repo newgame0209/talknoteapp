@@ -54,6 +54,11 @@ const CanvasEditor: React.FC = () => {
   // 選択された色
   const [selectedColor, setSelectedColor] = useState<string>('#000000');
 
+  // 音声録音状態管理
+  const [recordingState, setRecordingState] = useState<'idle' | 'recording' | 'paused'>('idle');
+  const [recordingTime, setRecordingTime] = useState<number>(0); // 秒単位
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // カラーパレット定義
   const getColorPalette = () => {
     if (selectedPenTool === 'marker') {
@@ -94,6 +99,16 @@ const CanvasEditor: React.FC = () => {
     };
     loadNote();
   }, [noteId, getNoteById, navigation]);
+
+  // コンポーネントのクリーンアップ
+  useEffect(() => {
+    return () => {
+      // コンポーネントがアンマウントされる際に録音タイマーをクリア
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+      }
+    };
+  }, []);
 
   // タイトル編集の保存
   const handleTitleSave = async () => {
@@ -279,6 +294,67 @@ const CanvasEditor: React.FC = () => {
     setShowColorPicker(false);
   };
 
+  // 録音時間をフォーマットする関数（MM:SS形式）
+  const formatRecordingTime = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
+  // 録音開始ハンドラー
+  const handleStartRecording = () => {
+    setRecordingState('recording');
+    setRecordingTime(0);
+    
+    // 1秒ごとに時間を更新
+    recordingTimerRef.current = setInterval(() => {
+      setRecordingTime(prev => {
+        const newTime = prev + 1;
+        // 60秒で自動停止
+        if (newTime >= 60) {
+          handleStopRecording();
+          return 60;
+        }
+        return newTime;
+      });
+    }, 1000);
+  };
+
+  // 録音停止ハンドラー
+  const handleStopRecording = () => {
+    setRecordingState('idle');
+    setRecordingTime(0);
+    
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+  };
+
+  // 録音一時停止ハンドラー
+  const handlePauseRecording = () => {
+    if (recordingState === 'recording') {
+      setRecordingState('paused');
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
+    } else if (recordingState === 'paused') {
+      setRecordingState('recording');
+      // 一時停止から再開
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime(prev => {
+          const newTime = prev + 1;
+          if (newTime >= 60) {
+            handleStopRecording();
+            return 60;
+          }
+          return newTime;
+        });
+      }, 1000);
+    }
+  };
+
   return (
     <TouchableWithoutFeedback onPress={() => setIsCanvasIconsVisible(false)}>
       <SafeAreaView style={styles.safeArea}>
@@ -292,7 +368,10 @@ const CanvasEditor: React.FC = () => {
           </TouchableOpacity>
           
           {/* 中央のアイコン群 */}
-          <View style={styles.centerIcons}>
+          <View style={[
+            styles.centerIcons,
+            (recordingState === 'recording' || recordingState === 'paused') && styles.centerIconsRecording
+          ]}>
             {/* グループ1: 戻る・検索 */}
             <View style={styles.iconGroup}>
               <TouchableOpacity style={styles.topBarIcon} onPress={handleToolbarIconPress}>
@@ -328,40 +407,84 @@ const CanvasEditor: React.FC = () => {
                   color={selectedTool === 'keyboard' ? '#4F8CFF' : '#fff'} 
                 />
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[
-                  styles.topBarIcon, 
-                  selectedTool === 'voice' && styles.selectedToolIcon
-                ]} 
-                onPress={handleVoiceToolPress}
-              >
-                <Ionicons 
-                  name="mic-outline" 
-                  size={22} 
-                  color={selectedTool === 'voice' ? '#4F8CFF' : '#fff'} 
-                />
-              </TouchableOpacity>
+              
+              {/* 音声録音エリア */}
+              <View style={styles.voiceRecordingArea}>
+                {recordingState === 'idle' ? (
+                  // 録音前：マイクアイコンのみ
+                  <TouchableOpacity 
+                    style={[
+                      styles.topBarIcon, 
+                      selectedTool === 'voice' && styles.selectedToolIcon
+                    ]} 
+                    onPress={() => {
+                      handleVoiceToolPress();
+                      handleStartRecording();
+                    }}
+                  >
+                    <Ionicons 
+                      name="mic-outline" 
+                      size={22} 
+                      color={selectedTool === 'voice' ? '#4F8CFF' : '#fff'} 
+                    />
+                  </TouchableOpacity>
+                ) : (
+                  // 録音中または一時停止中
+                  <>
+                    {/* 一時停止アイコン */}
+                    <TouchableOpacity 
+                      style={styles.topBarIcon} 
+                      onPress={handlePauseRecording}
+                    >
+                      <Ionicons 
+                        name={recordingState === 'recording' ? 'pause' : 'play'} 
+                        size={22} 
+                        color="#fff" 
+                      />
+                    </TouchableOpacity>
+                    
+                    {/* 録音時間表示 */}
+                    <View style={styles.recordingTimeDisplay}>
+                      <Text style={styles.recordingTimeTopBarText}>
+                        {formatRecordingTime(recordingTime)}
+                      </Text>
+                    </View>
+                    
+                    {/* 停止ボタン（赤色） */}
+                    <TouchableOpacity 
+                      style={styles.topBarIcon} 
+                      onPress={handleStopRecording}
+                    >
+                      <Ionicons name="stop" size={22} color="#FF4444" />
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
             </View>
             
             {/* グループ3: しおり・ページ設定 */}
-            <View style={styles.rightIconGroup}>
-              <TouchableOpacity style={styles.topBarIcon} onPress={handleToolbarIconPress}>
-                <MaterialIcons name="bookmark-border" size={22} color="#fff" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.topBarIcon} onPress={handleToolbarIconPress}>
-                <MaterialCommunityIcons name="content-copy" size={22} color="#fff" />
-              </TouchableOpacity>
-            </View>
+            {(recordingState === 'idle') && (
+              <View style={styles.rightIconGroup}>
+                <TouchableOpacity style={styles.topBarIcon} onPress={handleToolbarIconPress}>
+                  <MaterialIcons name="bookmark-border" size={22} color="#fff" />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.topBarIcon} onPress={handleToolbarIconPress}>
+                  <MaterialCommunityIcons name="content-copy" size={22} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
           
           {/* 三点リーダー（右端） */}
-          <TouchableOpacity style={styles.moreButtonContainer} onPress={handleToolbarIconPress}>
-            <MaterialIcons name="more-horiz" size={24} color="#fff" />
-          </TouchableOpacity>
+          {(recordingState === 'idle') && (
+            <TouchableOpacity style={styles.moreButtonContainer} onPress={handleToolbarIconPress}>
+              <MaterialIcons name="more-horiz" size={24} color="#fff" />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* サブツールバー - 選択されたツールによって表示 */}
-        {selectedTool && (
+        {selectedTool && selectedTool !== 'voice' && (
           <View style={styles.subToolbar}>
             {selectedTool === 'pen' && (
               <View style={styles.subToolbarContent}>
@@ -542,13 +665,6 @@ const CanvasEditor: React.FC = () => {
                     <View style={[styles.colorCircle, { backgroundColor: textColor, width: 16, height: 16, borderRadius: 8 }]} />
                   </TouchableOpacity>
                 </View>
-              </View>
-            )}
-            
-            {selectedTool === 'voice' && (
-              <View style={styles.subToolbarContent}>
-                <Text style={styles.subToolbarLabel}>音声ツール</Text>
-                {/* 今後の音声ツールを追加 */}
               </View>
             )}
           </View>
@@ -1183,6 +1299,70 @@ const styles = StyleSheet.create({
   },
   keyboardIconSmall: {
     fontSize: 16,
+  },
+  voiceToolIcon: {
+    padding: 8,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    marginHorizontal: 2,
+  },
+  recordingTimeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 6,
+    marginHorizontal: 2,
+  },
+  recordingTimeText: {
+    color: '#333',
+    fontSize: 14,
+  },
+  recordingStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 6,
+    marginHorizontal: 2,
+  },
+  recordingStatusDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 4,
+  },
+  recordingStatusDotActive: {
+    backgroundColor: '#FF4444',
+  },
+  recordingStatusText: {
+    color: '#333',
+    fontSize: 12,
+  },
+  voiceRecordingArea: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  recordingTimeDisplay: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginHorizontal: 4,
+  },
+  recordingTimeTopBarText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  centerIconsRecording: {
+    justifyContent: 'flex-start',
+    marginHorizontal: 0,
+    marginLeft: -8,
+    paddingLeft: 0,
   },
 });
 
