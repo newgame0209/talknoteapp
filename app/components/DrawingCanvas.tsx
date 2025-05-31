@@ -6,6 +6,7 @@ import {
   Skia,
   Group,
   useCanvasRef,
+  Circle,
 } from '@shopify/react-native-skia';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -127,6 +128,10 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   const [debugInfo, setDebugInfo] = useState<string>('Ready - Enhanced Smooth Drawing');
   const [moveCount, setMoveCount] = useState(0);
 
+  // 🗑️ 消しゴム用の状態
+  const [eraserPosition, setEraserPosition] = useState<Point | null>(null);
+  const [showEraserCursor, setShowEraserCursor] = useState(false);
+
   // selectedColorとstrokeWidthを常に最新の値で参照
   const selectedColorRef = useRef<string>(selectedColor);
   const strokeWidthRef = useRef<number>(strokeWidth);
@@ -199,6 +204,107 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     currentPathRef.current = updatedPath;
   }, []);
 
+  // 🗑️ 消しゴム用：触れた部分だけを消す
+  const eraseAtPoint = useCallback((point: Point) => {
+    const currentPaths = pathsRef.current;
+    if (currentPaths.length === 0) return;
+
+    const eraserRadius = 15; // 固定サイズ
+    let hasChanges = false;
+    const newPaths: DrawingPath[] = [];
+
+    currentPaths.forEach((drawingPath) => {
+      // パスから座標点を取得
+      const pathCoords = parsePathCoordinates(drawingPath.path);
+      if (pathCoords.length === 0) {
+        newPaths.push(drawingPath);
+        return;
+      }
+
+      // 連続したセグメントを作成（消しゴムの範囲外の点をグループ化）
+      const segments: Point[][] = [];
+      let currentSegment: Point[] = [];
+      
+      pathCoords.forEach((coord) => {
+        const distance = SmoothDrawing.distance(coord, point);
+        
+        if (distance > eraserRadius) {
+          // 消しゴムの範囲外なので保持
+          currentSegment.push(coord);
+        } else {
+          // 消しゴムの範囲内なので削除
+          hasChanges = true;
+          
+          // 現在のセグメントに点があれば保存して新しいセグメントを開始
+          if (currentSegment.length > 0) {
+            segments.push(currentSegment);
+            currentSegment = [];
+          }
+        }
+      });
+      
+      // 最後のセグメントを追加
+      if (currentSegment.length > 0) {
+        segments.push(currentSegment);
+      }
+
+      // 各セグメントから新しいパスを作成
+      if (segments.length > 0) {
+        segments.forEach((segment, index) => {
+          if (segment.length >= 2) { // 最低2点必要
+            // 直接SVGパスを作成（シンプルに）
+            let path = `M${segment[0].x.toFixed(1)},${segment[0].y.toFixed(1)}`;
+            for (let i = 1; i < segment.length; i++) {
+              path += `L${segment[i].x.toFixed(1)},${segment[i].y.toFixed(1)}`;
+            }
+            
+            newPaths.push({
+              ...drawingPath,
+              path: path,
+              timestamp: drawingPath.timestamp + index * 0.001,
+            });
+          }
+        });
+      }
+      // segments.length === 0 の場合は線全体が削除された
+    });
+
+    // 変更があった場合のみ更新
+    if (hasChanges) {
+      console.log('🗑️ Eraser applied', {
+        originalPaths: currentPaths.length,
+        newPaths: newPaths.length,
+        eraserRadius: eraserRadius,
+        position: `(${point.x.toFixed(0)}, ${point.y.toFixed(0)})`
+      });
+      
+      onPathsChange(newPaths);
+    }
+  }, []);
+
+  // 📐 SVGパス文字列から座標を抽出（改良版）
+  const parsePathCoordinates = useCallback((pathString: string): Point[] => {
+    const coords: Point[] = [];
+    if (!pathString) return coords;
+
+    // 数値のペアを抽出（座標として扱う）
+    const numberPairs = pathString.match(/([0-9.-]+)\s*,\s*([0-9.-]+)/g);
+    
+    if (numberPairs) {
+      numberPairs.forEach(pair => {
+        const [xStr, yStr] = pair.split(',');
+        const x = parseFloat(xStr.trim());
+        const y = parseFloat(yStr.trim());
+        
+        if (!isNaN(x) && !isNaN(y)) {
+          coords.push({ x, y });
+        }
+      });
+    }
+
+    return coords;
+  }, []);
+
   // PanResponder for touch handling - スムーズ描画対応版
   const panResponder = useRef(
     PanResponder.create({
@@ -220,6 +326,15 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         const { locationX, locationY } = event.nativeEvent;
         const x = locationX || 50;
         const y = locationY || 50;
+        
+        // 🗑️ 消しゴムモードの場合は削除処理
+        if (currentTool === 'eraser') {
+          eraseAtPoint({ x, y });
+          setEraserPosition({ x, y });
+          setShowEraserCursor(true);
+          setDebugInfo(`Eraser: x=${x.toFixed(1)}, y=${y.toFixed(1)}`);
+          return;
+        }
         
         const newPath = createNewPath();
         if (!newPath) {
@@ -249,8 +364,21 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         setMoveCount(prev => prev + 1);
         
         const currentTool = selectedToolRef.current;
-        if (!currentTool || !currentPathRef.current) {
-          setDebugInfo(`Move ${moveCount}: No tool or path`);
+        if (!currentTool) {
+          setDebugInfo(`Move ${moveCount}: No tool`);
+          return;
+        }
+        
+        // 🗑️ 消しゴムモードの場合は削除処理を継続
+        if (currentTool === 'eraser') {
+          eraseAtPoint({ x, y });
+          setEraserPosition({ x, y });
+          setDebugInfo(`Eraser Move ${moveCount}: x=${x.toFixed(1)}, y=${y.toFixed(1)}`);
+          return;
+        }
+        
+        if (!currentPathRef.current) {
+          setDebugInfo(`Move ${moveCount}: No path`);
           return;
         }
         
@@ -264,6 +392,17 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       },
       
       onPanResponderRelease: () => {
+        const currentTool = selectedToolRef.current;
+        
+        // 🗑️ 消しゴムモードの場合は何もしない
+        if (currentTool === 'eraser') {
+          setShowEraserCursor(false);
+          setEraserPosition(null);
+          setDebugInfo('Eraser: Released');
+          setMoveCount(0);
+          return;
+        }
+        
         const pathExists = currentPathRef.current !== null;
         const pointCount = currentPointsRef.current.length;
         
@@ -360,13 +499,6 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           opacity: 0.6, // マーカーらしい透明感
           strokeCap: 'square' as const, // マーカーらしい角張った端
         };
-      case 'eraser':
-        return {
-          ...baseStyle,
-          color: 'white',
-          strokeWidth: drawingPath.strokeWidth * 3.5, // 消しゴムは大きく
-          blendMode: 'clear' as const,
-        };
       default:
         return {
           ...baseStyle,
@@ -452,6 +584,18 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
                   return null;
                 }
               })()
+            )}
+            
+            {/* 🗑️ 消しゴムカーソル */}
+            {showEraserCursor && eraserPosition && (
+              <Circle
+                cx={eraserPosition.x}
+                cy={eraserPosition.y}
+                r={15}
+                style="stroke"
+                strokeWidth={2}
+                color="rgba(255, 0, 0, 0.5)"
+              />
             )}
           </Group>
         </Canvas>

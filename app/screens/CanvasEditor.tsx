@@ -111,7 +111,7 @@ const CanvasEditor: React.FC = () => {
       return ['#000000', '#FF0000', '#0000FF', '#008000', '#FFA500', '#800080', '#FFD700', '#FF69B4', '#00FFFF', '#A52A2A', '#808080'];
     }
   };
-
+  
   const titleInputRef = useRef<TextInput>(null);
   const contentInputRef = useRef<TextInput>(null);
 
@@ -199,17 +199,18 @@ const CanvasEditor: React.FC = () => {
     const newSelectedTool = selectedTool === 'pen' ? null : 'pen';
     setSelectedTool(newSelectedTool);
     
-    // ペンツールを解除した場合、サブツールもリセット
-    if (newSelectedTool === null) {
+    // ペンツールが選択された時、デフォルトでペンを選択
+    if (newSelectedTool === 'pen') {
+      setSelectedPenTool('pen');
+    } else {
       setSelectedPenTool(null);
     }
     
-    // TextInputのフォーカスを強制的に解除
-    titleInputRef.current?.blur();
-    contentInputRef.current?.blur();
-    setIsEditing(false);
-    setIsEditingTitle(false);
-    setIsCanvasIconsVisible(false);
+    // ペンツール選択時に色・太さ設定を閉じる
+    setShowColorSettings(false);
+    setShowStrokeSettings(false);
+    
+    console.log('🖊️ Pen tool pressed, selectedTool set to:', newSelectedTool);
   };
 
   // キーボードツール選択ハンドラ
@@ -272,18 +273,17 @@ const CanvasEditor: React.FC = () => {
     setIsEditing(true);
   };
 
-  // ペンツール内の選択ハンドラ
+  // ペンツール選択ハンドラ
   const handlePenToolSelect = (tool: PenToolType) => {
-    setSelectedPenTool(selectedPenTool === tool ? null : tool);
+    setSelectedPenTool(tool);
     
-    // ツール選択時のデフォルト色設定
-    if (tool === 'marker') {
-      setSelectedColor('#FFFF00'); // 黄色
-    } else if (tool === 'pencil') {
-      setSelectedColor('#000000'); // 黒色
-    } else if (tool === 'pen') {
-      setSelectedColor('#000000'); // 黒色（青ではなく）
+    // 消しゴムが選択された場合は色と太さ設定を閉じる
+    if (tool === 'eraser') {
+      setShowColorSettings(false);
+      setShowStrokeSettings(false);
     }
+    
+    console.log('🎨 Pen sub-tool selected:', tool);
   };
 
   // 色選択ハンドラ
@@ -570,7 +570,7 @@ const CanvasEditor: React.FC = () => {
                       size={22} 
                       color={selectedTool === 'voice' ? '#4F8CFF' : '#fff'} 
                     />
-                  </TouchableOpacity>
+              </TouchableOpacity>
                 ) : (
                   // 録音中または一時停止中
                   <>
@@ -607,22 +607,22 @@ const CanvasEditor: React.FC = () => {
             
             {/* グループ3: しおり・ページ設定 */}
             {(recordingState === 'idle') && (
-              <View style={styles.rightIconGroup}>
-                <TouchableOpacity style={styles.topBarIcon} onPress={handleToolbarIconPress}>
-                  <MaterialIcons name="bookmark-border" size={22} color="#fff" />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.topBarIcon} onPress={handleToolbarIconPress}>
-                  <MaterialCommunityIcons name="content-copy" size={22} color="#fff" />
-                </TouchableOpacity>
-              </View>
+            <View style={styles.rightIconGroup}>
+              <TouchableOpacity style={styles.topBarIcon} onPress={handleToolbarIconPress}>
+                <MaterialIcons name="bookmark-border" size={22} color="#fff" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.topBarIcon} onPress={handleToolbarIconPress}>
+                <MaterialCommunityIcons name="content-copy" size={22} color="#fff" />
+              </TouchableOpacity>
+            </View>
             )}
           </View>
           
           {/* 三点リーダー（右端） */}
           {(recordingState === 'idle') && (
-            <TouchableOpacity style={styles.moreButtonContainer} onPress={handleToolbarIconPress}>
-              <MaterialIcons name="more-horiz" size={24} color="#fff" />
-            </TouchableOpacity>
+          <TouchableOpacity style={styles.moreButtonContainer} onPress={handleToolbarIconPress}>
+            <MaterialIcons name="more-horiz" size={24} color="#fff" />
+          </TouchableOpacity>
           )}
         </View>
 
@@ -636,229 +636,136 @@ const CanvasEditor: React.FC = () => {
                 contentContainerStyle={{ paddingHorizontal: 8 }}
               >
                 <View style={styles.subToolbarContent}>
-                  {/* 詳細ツールが選択されていない場合：中カテゴリ表示 */}
-                  {!selectedPenTool ? (
-                    <>
-                      {/* 中カテゴリ：戻る、進む、ボールペン、鉛筆、マーカー */}
-                      <View style={styles.subToolGroup}>
-                        {/* 戻す・進める */}
-                        <View style={styles.compactUndoRedoContainer}>
-                          <TouchableOpacity 
-                            style={[
-                              styles.compactUndoRedoIcon,
-                              !drawingPaths.length && styles.disabledSubToolIcon
-                            ]}
-                            onPress={handleUndo}
-                            disabled={!drawingPaths.length}
-                          >
-                            <Ionicons 
-                              name="arrow-undo" 
-                              size={14} 
-                              color={drawingPaths.length ? '#666' : '#ccc'} 
-                            />
-                          </TouchableOpacity>
-                          <TouchableOpacity 
-                            style={[
-                              styles.compactUndoRedoIcon,
-                              !redoStack.length && styles.disabledSubToolIcon
-                            ]}
-                            onPress={handleRedo}
-                            disabled={!redoStack.length}
-                          >
-                            <Ionicons 
-                              name="arrow-redo" 
-                              size={14} 
-                              color={redoStack.length ? '#666' : '#ccc'} 
-                            />
-                          </TouchableOpacity>
-                        </View>
-                        
-                        {/* ペンツール */}
-                        <TouchableOpacity 
-                          style={[
-                            styles.subToolIcon,
-                            selectedPenTool === 'pen' && styles.selectedSubToolIcon
-                          ]}
-                          onPress={() => handlePenToolSelect('pen')}
-                        >
-                          <MaterialCommunityIcons 
-                            name="pen" 
-                            size={22} 
-                            color={selectedPenTool === 'pen' ? '#4F8CFF' : '#666'} 
-                          />
-                        </TouchableOpacity>
-                        
-                        {/* 鉛筆ツール */}
-                        <TouchableOpacity 
-                          style={[
-                            styles.subToolIcon,
-                            selectedPenTool === 'pencil' && styles.selectedSubToolIcon
-                          ]}
-                          onPress={() => handlePenToolSelect('pencil')}
-                        >
-                          <MaterialCommunityIcons 
-                            name="lead-pencil" 
-                            size={22} 
-                            color={selectedPenTool === 'pencil' ? '#4F8CFF' : '#666'} 
-                          />
-                        </TouchableOpacity>
-                        
-                        {/* マーカー */}
-                        <TouchableOpacity 
-                          style={[
-                            styles.subToolIcon,
-                            selectedPenTool === 'marker' && styles.selectedSubToolIcon
-                          ]}
-                          onPress={() => handlePenToolSelect('marker')}
-                        >
-                          <MaterialCommunityIcons 
-                            name="marker" 
-                            size={22} 
-                            color={selectedPenTool === 'marker' ? '#4F8CFF' : '#666'} 
-                          />
-                        </TouchableOpacity>
-                        
-                        {/* 消しゴム */}
-                        <TouchableOpacity 
-                          style={[
-                            styles.subToolIcon,
-                            selectedPenTool === 'eraser' && styles.selectedSubToolIcon
-                          ]}
-                          onPress={() => handlePenToolSelect('eraser')}
-                        >
-                          <MaterialCommunityIcons 
-                            name="eraser" 
-                            size={22} 
-                            color={selectedPenTool === 'eraser' ? '#4F8CFF' : '#666'} 
-                          />
-                        </TouchableOpacity>
-                        
-                        {/* 画像挿入 */}
-                        <TouchableOpacity style={styles.subToolIcon}>
-                          <MaterialIcons name="image" size={22} color="#666" />
-                        </TouchableOpacity>
-                        
-                        {/* 定規 */}
-                        <TouchableOpacity style={styles.subToolIcon}>
-                          <MaterialCommunityIcons name="ruler" size={22} color="#666" />
-                        </TouchableOpacity>
-                      </View>
-                    </>
-                  ) : (
-                    /* 詳細カテゴリ：戻る、戻す、進める、太さ、色、消しゴム、画像、定規 */
-                    <>
-                      <View style={styles.detailSettingsGroup}>
-                        {/* 戻るボタン */}
-                        <TouchableOpacity 
-                          style={styles.detailToolIcon}
-                          onPress={() => setSelectedPenTool(null)}
-                        >
-                          <Ionicons name="arrow-back" size={18} color="#666" />
-                        </TouchableOpacity>
-                        
-                        {/* 戻す・進める */}
-                        <View style={styles.compactUndoRedoContainer}>
-                          <TouchableOpacity 
-                            style={[
-                              styles.compactUndoRedoIcon,
-                              !drawingPaths.length && styles.disabledSubToolIcon
-                            ]}
-                            onPress={handleUndo}
-                            disabled={!drawingPaths.length}
-                          >
-                            <Ionicons 
-                              name="arrow-undo" 
-                              size={14} 
-                              color={drawingPaths.length ? '#666' : '#ccc'} 
-                            />
-                          </TouchableOpacity>
-                          <TouchableOpacity 
-                            style={[
-                              styles.compactUndoRedoIcon,
-                              !redoStack.length && styles.disabledSubToolIcon
-                            ]}
-                            onPress={handleRedo}
-                            disabled={!redoStack.length}
-                          >
-                            <Ionicons 
-                              name="arrow-redo" 
-                              size={14} 
-                              color={redoStack.length ? '#666' : '#ccc'} 
-                            />
-                          </TouchableOpacity>
-                        </View>
-                        
-                        {/* 選択されたツールアイコン */}
-                        <TouchableOpacity 
-                          style={[styles.detailToolIcon, styles.selectedDetailToolIcon]}
-                          onPress={() => {
-                            // 現在のツールから次のツールに切り替え
-                            if (selectedPenTool === 'pen') {
-                              handlePenToolSelect('pencil');
-                            } else if (selectedPenTool === 'pencil') {
-                              handlePenToolSelect('marker');
-                            } else if (selectedPenTool === 'marker') {
-                              handlePenToolSelect('pen');
-                            }
-                          }}
-                        >
-                          {selectedPenTool === 'pen' && (
-                            <MaterialCommunityIcons name="pen" size={18} color="#4F8CFF" />
-                          )}
-                          {selectedPenTool === 'pencil' && (
-                            <MaterialCommunityIcons name="lead-pencil" size={18} color="#4F8CFF" />
-                          )}
-                          {selectedPenTool === 'marker' && (
-                            <MaterialCommunityIcons name="marker" size={18} color="#4F8CFF" />
-                          )}
-                        </TouchableOpacity>
-                        
-                        {/* 線の太さ設定アイコン */}
-                        <TouchableOpacity 
-                          style={[
-                            styles.detailToolIcon,
-                            showStrokeSettings && styles.selectedDetailToolIcon
-                          ]}
-                          onPress={handleStrokeSettingsToggle}
-                        >
-                          <MaterialCommunityIcons name="format-line-weight" size={18} color="#666" />
-                        </TouchableOpacity>
-                        
-                        {/* 色選択アイコン */}
-                        <TouchableOpacity 
-                          style={[
-                            styles.detailToolIcon,
-                            showColorSettings && styles.selectedDetailToolIcon
-                          ]}
-                          onPress={handleColorSettingsToggle}
-                        >
-                          <MaterialIcons name="palette" size={18} color="#666" />
-                        </TouchableOpacity>
-                        
-                        {/* 消しゴム */}
-                        <TouchableOpacity 
-                          style={styles.detailToolIcon}
-                          onPress={() => handlePenToolSelect('eraser')}
-                        >
-                          <MaterialCommunityIcons 
-                            name="eraser" 
-                            size={18} 
-                            color="#666" 
-                          />
-                        </TouchableOpacity>
-                        
-                        {/* 画像挿入 */}
-                        <TouchableOpacity style={styles.detailToolIcon}>
-                          <MaterialIcons name="image" size={18} color="#666" />
-                        </TouchableOpacity>
-                        
-                        {/* 定規 */}
-                        <TouchableOpacity style={styles.detailToolIcon}>
-                          <MaterialCommunityIcons name="ruler" size={18} color="#666" />
-                        </TouchableOpacity>
-                      </View>
-                    </>
-                  )}
+                  {/* サブツール：戻す、進む、ペン、鉛筆、マーカー、消しゴム、太さ、色、画像、定規 */}
+                  <View style={styles.subToolGroup}>
+                    {/* 戻す・進める */}
+                    <View style={styles.compactUndoRedoContainer}>
+                      <TouchableOpacity 
+                        style={[
+                          styles.compactUndoRedoIcon,
+                          !drawingPaths.length && styles.disabledSubToolIcon
+                        ]}
+                        onPress={handleUndo}
+                        disabled={!drawingPaths.length}
+                      >
+                        <Ionicons 
+                          name="arrow-undo" 
+                          size={14} 
+                          color={drawingPaths.length ? '#666' : '#ccc'} 
+                        />
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[
+                          styles.compactUndoRedoIcon,
+                          !redoStack.length && styles.disabledSubToolIcon
+                        ]}
+                        onPress={handleRedo}
+                        disabled={!redoStack.length}
+                      >
+                        <Ionicons 
+                          name="arrow-redo" 
+                          size={14} 
+                          color={redoStack.length ? '#666' : '#ccc'} 
+                        />
+                      </TouchableOpacity>
+                    </View>
+                    
+                    {/* ペンツール */}
+                    <TouchableOpacity 
+                      style={[
+                        styles.subToolIcon,
+                        selectedPenTool === 'pen' && styles.selectedSubToolIcon
+                      ]}
+                      onPress={() => handlePenToolSelect('pen')}
+                    >
+                      <MaterialCommunityIcons 
+                        name="pen" 
+                        size={22} 
+                        color={selectedPenTool === 'pen' ? '#4F8CFF' : '#666'} 
+                      />
+                    </TouchableOpacity>
+                    
+                    {/* 鉛筆ツール */}
+                    <TouchableOpacity 
+                      style={[
+                        styles.subToolIcon,
+                        selectedPenTool === 'pencil' && styles.selectedSubToolIcon
+                      ]}
+                      onPress={() => handlePenToolSelect('pencil')}
+                    >
+                      <MaterialCommunityIcons 
+                        name="lead-pencil" 
+                        size={22} 
+                        color={selectedPenTool === 'pencil' ? '#4F8CFF' : '#666'} 
+                      />
+                    </TouchableOpacity>
+                    
+                    {/* マーカー */}
+                    <TouchableOpacity 
+                      style={[
+                        styles.subToolIcon,
+                        selectedPenTool === 'marker' && styles.selectedSubToolIcon
+                      ]}
+                      onPress={() => handlePenToolSelect('marker')}
+                    >
+                      <MaterialCommunityIcons 
+                        name="marker" 
+                        size={22} 
+                        color={selectedPenTool === 'marker' ? '#4F8CFF' : '#666'} 
+                      />
+                    </TouchableOpacity>
+                    
+                    {/* 消しゴム */}
+                    <TouchableOpacity 
+                      style={[
+                        styles.subToolIcon,
+                        selectedPenTool === 'eraser' && styles.selectedSubToolIcon
+                      ]}
+                      onPress={() => handlePenToolSelect('eraser')}
+                    >
+                      <MaterialCommunityIcons 
+                        name="eraser" 
+                        size={22} 
+                        color={selectedPenTool === 'eraser' ? '#4F8CFF' : '#666'} 
+                      />
+                    </TouchableOpacity>
+                    
+                    {/* 線の太さ設定アイコン（消しゴム以外で表示） */}
+                    {selectedPenTool !== 'eraser' && (
+                      <TouchableOpacity 
+                        style={[
+                          styles.subToolIcon,
+                          showStrokeSettings && styles.selectedSubToolIcon
+                        ]}
+                        onPress={handleStrokeSettingsToggle}
+                      >
+                        <MaterialCommunityIcons name="format-line-weight" size={22} color="#666" />
+                      </TouchableOpacity>
+                    )}
+                    
+                    {/* 色選択アイコン（消しゴム以外で表示） */}
+                    {selectedPenTool !== 'eraser' && (
+                      <TouchableOpacity 
+                        style={[
+                          styles.subToolIcon,
+                          showColorSettings && styles.selectedSubToolIcon
+                        ]}
+                        onPress={handleColorSettingsToggle}
+                      >
+                        <MaterialIcons name="palette" size={22} color="#666" />
+                      </TouchableOpacity>
+                    )}
+                    
+                    {/* 画像挿入 */}
+                    <TouchableOpacity style={styles.subToolIcon}>
+                      <MaterialIcons name="image" size={22} color="#666" />
+                    </TouchableOpacity>
+                    
+                    {/* 定規 */}
+                    <TouchableOpacity style={styles.subToolIcon}>
+                      <MaterialCommunityIcons name="ruler" size={22} color="#666" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </ScrollView>
             )}
@@ -1137,7 +1044,7 @@ const CanvasEditor: React.FC = () => {
         )}
 
         {/* 📏 線の太さ設定ドロップダウン - コンパクトサイズ */}
-        {showStrokeSettings && (
+        {showStrokeSettings && selectedPenTool !== 'eraser' && (
           <View style={styles.strokeSettingsMenu}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' }}>
               {Object.entries(strokeOptions).map(([type, option]) => {
@@ -1176,7 +1083,7 @@ const CanvasEditor: React.FC = () => {
         )}
 
         {/* 🎨 ペンツール用カラー設定ドロップダウン - キーボードツールと同じ形式 */}
-        {showColorSettings && (
+        {showColorSettings && selectedPenTool !== 'eraser' && (
           <View style={styles.colorPickerMenu}>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' }}>
               {getColorPalette().map((color, index) => (
