@@ -20,6 +20,7 @@ type PenToolType = 'pen' | 'pencil' | 'eraser' | 'marker' | null;
 // キーボードツール用の型定義を追加
 type KeyboardToolType = 'textType' | 'font' | 'size' | 'color' | 'bold' | 'spacing' | null;
 type TextType = 'heading1' | 'heading2' | 'heading3' | 'body';
+type FontType = 'standard' | 'dyslexia' | 'serif' | 'gothic'; // フォントタイプの型を拡張
 
 const CanvasEditor: React.FC = () => {
   const route = useRoute<CanvasEditorRouteProp>();
@@ -47,7 +48,7 @@ const CanvasEditor: React.FC = () => {
   // テキストタイプの状態管理
   const [selectedTextType, setSelectedTextType] = useState<TextType>('body');
   // フォントタイプの状態管理
-  const [selectedFont, setSelectedFont] = useState<'standard' | 'dyslexia'>('standard');
+  const [selectedFont, setSelectedFont] = useState<FontType>('standard'); // 型を更新
   // テキストサイズ設定
   const [fontSize, setFontSize] = useState<number>(16);
   // テキストカラー設定
@@ -86,16 +87,16 @@ const CanvasEditor: React.FC = () => {
 
   // 🔍 drawingPaths状態の変化を監視（デバッグ用）
   useEffect(() => {
-    console.log('🎨 CanvasEditor: drawingPaths state changed', {
-      pathsLength: drawingPaths.length,
-      paths: drawingPaths.map((p, i) => ({ 
-        index: i, 
-        tool: p.tool, 
-        color: p.color, 
-        timestamp: p.timestamp,
-        pathLength: p.path.length
-      }))
-    });
+    // console.log('🎨 CanvasEditor: drawingPaths state changed', {
+    //   pathsLength: drawingPaths.length,
+    //   paths: drawingPaths.map((p, i) => ({ 
+    //     index: i, 
+    //     tool: p.tool, 
+    //     color: p.color, 
+    //     timestamp: p.timestamp,
+    //     pathLength: p.path.length
+    //   }))
+    // });
   }, [drawingPaths]);
 
   // カラーパレット定義
@@ -209,8 +210,6 @@ const CanvasEditor: React.FC = () => {
     // ペンツール選択時に色・太さ設定を閉じる
     setShowColorSettings(false);
     setShowStrokeSettings(false);
-    
-    console.log('🖊️ Pen tool pressed, selectedTool set to:', newSelectedTool);
   };
 
   // キーボードツール選択ハンドラ
@@ -242,7 +241,7 @@ const CanvasEditor: React.FC = () => {
   };
 
   // フォント選択ハンドラ
-  const handleFontSelect = (font: 'standard' | 'dyslexia') => {
+  const handleFontSelect = (font: FontType) => { // 型を更新
     setSelectedFont(font);
   };
 
@@ -283,7 +282,7 @@ const CanvasEditor: React.FC = () => {
       setShowStrokeSettings(false);
     }
     
-    console.log('🎨 Pen sub-tool selected:', tool);
+    // console.log('🎨 Pen sub-tool selected:', tool);
   };
 
   // 色選択ハンドラ
@@ -304,9 +303,9 @@ const CanvasEditor: React.FC = () => {
   // フォント選択ドロップダウンの状態管理
   const [showFontDropdown, setShowFontDropdown] = useState<boolean>(false);
   
-  // 利用可能なフォント一覧
+  // 利用可能なフォント一覧（更新版）
   const availableFonts = [
-    { key: 'dyslexia', label: 'UDフォント' },
+    { key: 'dyslexia', label: 'UDフォント（読みやすい）' },
     { key: 'standard', label: '標準フォント' },
     { key: 'serif', label: '明朝体' },
     { key: 'gothic', label: 'ゴシック体' }
@@ -396,22 +395,22 @@ const CanvasEditor: React.FC = () => {
 
   // 描画パス変更ハンドラー
   const handlePathsChange = (newPaths: DrawingPath[]) => {
-    console.log('📝 CanvasEditor: handlePathsChange called', {
-      currentPathsLength: drawingPaths.length,
-      newPathsLength: newPaths.length,
-      currentPaths: drawingPaths.map((p, i) => ({ 
-        index: i, 
-        tool: p.tool, 
-        timestamp: p.timestamp,
-        pathLength: p.path.length
-      })),
-      newPaths: newPaths.map((p, i) => ({ 
-        index: i, 
-        tool: p.tool, 
-        timestamp: p.timestamp,
-        pathLength: p.path.length
-      }))
-    });
+    // console.log('📝 CanvasEditor: handlePathsChange called', {
+    //   currentPathsLength: drawingPaths.length,
+    //   newPathsLength: newPaths.length,
+    //   currentPaths: drawingPaths.map((p, i) => ({ 
+    //     index: i, 
+    //     tool: p.tool, 
+    //     timestamp: p.timestamp,
+    //     pathLength: p.path.length
+    //   })),
+    //   newPaths: newPaths.map((p, i) => ({ 
+    //     index: i, 
+    //     tool: p.tool, 
+    //     timestamp: p.timestamp,
+    //     pathLength: p.path.length
+    //   }))
+    // });
 
     // Redo履歴をクリア（新しいパスが追加された時）
     if (newPaths.length > drawingPaths.length) {
@@ -421,7 +420,7 @@ const CanvasEditor: React.FC = () => {
     // 新しいパスを設定
     setDrawingPaths(newPaths);
     
-    console.log('✅ CanvasEditor: Paths updated in state');
+    // console.log('✅ CanvasEditor: Paths updated in state');
   };
 
   // Undoハンドラー - 最後のパスを1つ削除
@@ -437,14 +436,14 @@ const CanvasEditor: React.FC = () => {
       // パスを更新
       setDrawingPaths(newPaths);
       
-      console.log('🔙 Undo: Removed last path', {
-        removedPath: {
-          tool: lastPath.tool,
-          color: lastPath.color,
-          timestamp: lastPath.timestamp
-        },
-        remainingPaths: newPaths.length
-      });
+      // console.log('🔙 Undo: Removed last path', {
+      //   removedPath: {
+      //     tool: lastPath.tool,
+      //     color: lastPath.color,
+      //     timestamp: lastPath.timestamp
+      //   },
+      //   remainingPaths: newPaths.length
+      // });
     }
   };
 
@@ -464,14 +463,14 @@ const CanvasEditor: React.FC = () => {
       // パスを更新
       setDrawingPaths(newPaths);
       
-      console.log('🔜 Redo: Restored path', {
-        restoredPath: {
-          tool: pathToRestore.tool,
-          color: pathToRestore.color,
-          timestamp: pathToRestore.timestamp
-        },
-        totalPaths: newPaths.length
-      });
+      // console.log('🔜 Redo: Restored path', {
+      //   restoredPath: {
+      //     tool: pathToRestore.tool,
+      //     color: pathToRestore.color,
+      //     timestamp: pathToRestore.timestamp
+      //   },
+      //   totalPaths: newPaths.length
+      // });
     }
   };
 
@@ -496,6 +495,110 @@ const CanvasEditor: React.FC = () => {
   const handleStrokeTypeSelect = (type: 'thin' | 'medium' | 'thick') => {
     setStrokeWidth(strokeOptions[type].value);
     setShowStrokeSettings(false); // 選択後に閉じる
+  };
+
+  // テキストスタイルを動的に生成する関数を追加
+  const getTextInputStyle = () => {
+    const baseStyle = {
+      flex: 1,
+      padding: 0,
+      margin: 0,
+      textAlignVertical: 'top' as const,
+    };
+
+    // テキストタイプに応じたスタイル
+    interface TypeStyle {
+      fontSize: number;
+      fontWeight?: 'normal' | 'bold';
+    }
+    
+    let typeStyle: TypeStyle = { fontSize: fontSize }; // 初期値を設定
+    switch (selectedTextType) {
+      case 'heading1':
+        typeStyle = { fontSize: 24, fontWeight: 'bold' as const };
+        break;
+      case 'heading2':
+        typeStyle = { fontSize: 20, fontWeight: 'bold' as const };
+        break;
+      case 'heading3':
+        typeStyle = { fontSize: 18, fontWeight: 'bold' as const };
+        break;
+      case 'body':
+      default:
+        typeStyle = { fontSize: fontSize };
+        break;
+    }
+
+    // フォントファミリー設定
+    let fontFamily = 'System'; // デフォルト
+    switch (selectedFont) {
+      case 'dyslexia':
+        // UDフォント（ディスレクシア対応）
+        if (Platform.OS === 'ios') {
+          fontFamily = 'SF Pro Text'; // iOSの読みやすいフォント
+        } else {
+          fontFamily = 'Roboto'; // Androidの読みやすいフォント
+        }
+        break;
+      case 'standard':
+        fontFamily = Platform.OS === 'ios' ? 'System' : 'sans-serif';
+        break;
+      case 'serif':
+        fontFamily = Platform.OS === 'ios' ? 'Times New Roman' : 'serif';
+        break;
+      case 'gothic':
+        fontFamily = Platform.OS === 'ios' ? 'Helvetica Neue' : 'sans-serif-medium';
+        break;
+      default:
+        fontFamily = 'System';
+        break;
+    }
+
+    return {
+      ...baseStyle,
+      ...typeStyle,
+      fontFamily,
+      color: textColor,
+      fontWeight: isBold ? 'bold' as const : (typeStyle.fontWeight || 'normal' as const),
+      lineHeight: fontSize * lineSpacing,
+      letterSpacing: selectedFont === 'dyslexia' ? Math.max(letterSpacing, 0.5) : letterSpacing, // UDフォント時は最低0.5px間隔
+    };
+  };
+
+  // フォントサイズ変更ハンドラ
+  const handleFontSizeChange = (newSize: number) => {
+    // 最小8px、最大32pxに制限
+    const clampedSize = Math.max(8, Math.min(32, newSize));
+    setFontSize(clampedSize);
+  };
+
+  // フォントサイズ増加ハンドラ
+  const handleFontSizeIncrease = () => {
+    handleFontSizeChange(fontSize + 2);
+  };
+
+  // フォントサイズ減少ハンドラ
+  const handleFontSizeDecrease = () => {
+    handleFontSizeChange(fontSize - 2);
+  };
+
+  // 太字トグルハンドラ
+  const handleBoldToggle = () => {
+    setIsBold(!isBold);
+  };
+
+  // 行間調整ハンドラ
+  const handleLineSpacingChange = (spacing: number) => {
+    // 0.8倍から2.0倍の範囲で制限
+    const clampedSpacing = Math.max(0.8, Math.min(2.0, spacing));
+    setLineSpacing(clampedSpacing);
+  };
+
+  // 文字間隔調整ハンドラ
+  const handleLetterSpacingChange = (spacing: number) => {
+    // -2pxから5pxの範囲で制限
+    const clampedSpacing = Math.max(-2, Math.min(5, spacing));
+    setLetterSpacing(clampedSpacing);
   };
 
   return (
@@ -636,7 +739,7 @@ const CanvasEditor: React.FC = () => {
                 contentContainerStyle={{ paddingHorizontal: 8 }}
               >
                 <View style={styles.subToolbarContent}>
-                  {/* サブツール：戻す、進む、ペン、鉛筆、マーカー、消しゴム、太さ、色、画像、定規 */}
+                  {/* サブツール：戻す、進める、ペン、鉛筆、マーカー、消しゴム、太さ、色、画像、定規 */}
                   <View style={styles.subToolGroup}>
                     {/* 戻す・進める */}
                     <View style={styles.compactUndoRedoContainer}>
@@ -819,11 +922,11 @@ const CanvasEditor: React.FC = () => {
                       <MaterialIcons name="keyboard-arrow-down" size={18} color="#666" />
                     </TouchableOpacity>
                     <View style={styles.keyboardSelectorSmall}>
-                      <TouchableOpacity style={styles.keyboardSubToolIconSmall} onPress={() => setFontSize(Math.max(10, fontSize - 1))}>
+                      <TouchableOpacity style={styles.keyboardSubToolIconSmall} onPress={handleFontSizeDecrease}>
                         <MaterialIcons name="remove" size={18} color="#666" />
                       </TouchableOpacity>
                       <Text style={styles.keyboardTextSmall}>{fontSize}</Text>
-                      <TouchableOpacity style={styles.keyboardSubToolIconSmall} onPress={() => setFontSize(Math.min(30, fontSize + 1))}>
+                      <TouchableOpacity style={styles.keyboardSubToolIconSmall} onPress={handleFontSizeIncrease}>
                         <MaterialIcons name="add" size={18} color="#666" />
                       </TouchableOpacity>
                     </View>
@@ -837,7 +940,7 @@ const CanvasEditor: React.FC = () => {
                         styles.keyboardSubToolIconSmall,
                         isBold && { backgroundColor: '#E3F2FD', borderColor: '#4F8CFF' }
                       ]} 
-                      onPress={() => setIsBold(!isBold)}
+                      onPress={handleBoldToggle}
                     >
                       <MaterialIcons 
                         name="format-bold" 
@@ -845,6 +948,32 @@ const CanvasEditor: React.FC = () => {
                         color={isBold ? '#4F8CFF' : '#666'} 
                       />
                     </TouchableOpacity>
+                    
+                    {/* 行間調整 */}
+                    <View style={styles.keyboardSelectorSmall}>
+                      <TouchableOpacity style={styles.keyboardSubToolIconSmall} onPress={() => handleLineSpacingChange(lineSpacing - 0.1)}>
+                        <MaterialIcons name="format-line-spacing" size={18} color="#666" />
+                        <MaterialIcons name="remove" size={12} color="#666" style={{ position: 'absolute', bottom: 0, right: 0 }} />
+                      </TouchableOpacity>
+                      <Text style={styles.keyboardTextSmall}>{lineSpacing.toFixed(1)}</Text>
+                      <TouchableOpacity style={styles.keyboardSubToolIconSmall} onPress={() => handleLineSpacingChange(lineSpacing + 0.1)}>
+                        <MaterialIcons name="format-line-spacing" size={18} color="#666" />
+                        <MaterialIcons name="add" size={12} color="#666" style={{ position: 'absolute', bottom: 0, right: 0 }} />
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* 文字間隔調整 */}
+                    <View style={styles.keyboardSelectorSmall}>
+                      <TouchableOpacity style={styles.keyboardSubToolIconSmall} onPress={() => handleLetterSpacingChange(letterSpacing - 0.5)}>
+                        <MaterialIcons name="format-indent-increase" size={18} color="#666" />
+                        <MaterialIcons name="remove" size={12} color="#666" style={{ position: 'absolute', bottom: 0, right: 0 }} />
+                      </TouchableOpacity>
+                      <Text style={styles.keyboardTextSmall}>{letterSpacing.toFixed(1)}</Text>
+                      <TouchableOpacity style={styles.keyboardSubToolIconSmall} onPress={() => handleLetterSpacingChange(letterSpacing + 0.5)}>
+                        <MaterialIcons name="format-indent-increase" size={18} color="#666" />
+                        <MaterialIcons name="add" size={12} color="#666" style={{ position: 'absolute', bottom: 0, right: 0 }} />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
               </ScrollView>
@@ -882,7 +1011,7 @@ const CanvasEditor: React.FC = () => {
                 <TextInput
                   ref={contentInputRef}
                   style={[
-                    styles.contentInput,
+                    getTextInputStyle(), // 動的スタイルを適用
                     selectedTool === 'pen' && styles.contentInputBackground
                   ]}
                   value={content}
@@ -1013,7 +1142,7 @@ const CanvasEditor: React.FC = () => {
                 key={font.key}
                 style={[styles.dropdownItem, selectedFont === font.key && styles.selectedDropdownItem]}
                 onPress={() => {
-                  handleFontSelect(font.key as 'standard' | 'dyslexia');
+                  handleFontSelect(font.key as FontType);
                   setShowFontDropdown(false);
                 }}
               >
@@ -1314,7 +1443,7 @@ const styles = StyleSheet.create({
   },
   subToolIcon: {
     padding: 10,
-    marginHorizontal: 3,
+    marginHorizontal: 6,
     borderRadius: 8,
     backgroundColor: '#F6F7FB',
     minWidth: 44,
@@ -1539,7 +1668,7 @@ const styles = StyleSheet.create({
   },
   keyboardSubToolIconSmall: {
     padding: 6,
-    marginHorizontal: 2,
+    marginHorizontal: 6,
     borderRadius: 7,
     backgroundColor: '#F6F7FB',
     minWidth: 36,
@@ -1556,7 +1685,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     borderRadius: 7,
     minWidth: 50,
-    marginHorizontal: 2,
+    marginHorizontal: 4,
   },
   keyboardTextSmall: {
     color: '#333',

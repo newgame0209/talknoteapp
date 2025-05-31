@@ -158,16 +158,16 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
   // 🔍 paths プロパティの変化を監視（デバッグ用）
   useEffect(() => {
-    console.log('🔍 DrawingCanvas: paths prop changed:', {
-      pathsLength: paths.length,
-      paths: paths.map((p, i) => ({ 
-        index: i, 
-        tool: p.tool, 
-        color: p.color, 
-        timestamp: p.timestamp,
-        pathLength: p.path.length
-      }))
-    });
+    // console.log('🔍 DrawingCanvas: paths prop changed:', {
+    //   pathsLength: paths.length,
+    //   paths: paths.map((p, i) => ({ 
+    //     index: i, 
+    //     tool: p.tool, 
+    //     color: p.color, 
+    //     timestamp: p.timestamp,
+    //     pathLength: p.path.length
+    //   }))
+    // });
     setDebugInfo(`Props changed: paths=${paths.length}`);
   }, [paths]);
 
@@ -271,12 +271,12 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
     // 変更があった場合のみ更新
     if (hasChanges) {
-      console.log('🗑️ Eraser applied', {
-        originalPaths: currentPaths.length,
-        newPaths: newPaths.length,
-        eraserRadius: eraserRadius,
-        position: `(${point.x.toFixed(0)}, ${point.y.toFixed(0)})`
-      });
+      // console.log('🗑️ Eraser applied', {
+      //   originalPaths: currentPaths.length,
+      //   newPaths: newPaths.length,
+      //   eraserRadius: eraserRadius,
+      //   position: `(${point.x.toFixed(0)}, ${point.y.toFixed(0)})`
+      // });
       
       onPathsChange(newPaths);
     }
@@ -392,32 +392,27 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       },
       
       onPanResponderRelease: () => {
-        const currentTool = selectedToolRef.current;
+        // console.log('🎨 DrawingCanvas: onPanResponderRelease called', {
+        //   currentPath: currentPathRef.current,
+        //   currentPoints: currentPointsRef.current?.length || 0,
+        //   selectedTool: selectedToolRef.current
+        // });
         
-        // 🗑️ 消しゴムモードの場合は何もしない
-        if (currentTool === 'eraser') {
-          setShowEraserCursor(false);
-          setEraserPosition(null);
-          setDebugInfo('Eraser: Released');
+        // 🗑️ 消しゴムカーソルを非表示にする
+        setShowEraserCursor(false);
+        setEraserPosition(null);
+        
+        if (selectedToolRef.current === 'eraser') {
+          setIsDrawing(false);
           setMoveCount(0);
           return;
         }
         
-        const pathExists = currentPathRef.current !== null;
-        const pointCount = currentPointsRef.current.length;
-        
-        console.log('🎨 DrawingCanvas: onPanResponderRelease called', {
-          pathExists,
-          pointCount,
-          currentPathsLength: pathsRef.current.length,
-          currentTool: selectedToolRef.current
-        });
-        
-        setDebugInfo(`Release: path=${pathExists ? 'exists' : 'null'}, points=${pointCount}`);
-        
-        if (currentPathRef.current && pointCount > 0) {
-          // 🎯 最終的なスムーズパスを生成
-          const finalFilteredPoints = SmoothDrawing.filterPoints(currentPointsRef.current, 1.5);
+        if (currentPathRef.current && currentPointsRef.current && currentPointsRef.current.length > 0) {
+          // 🎯 最終的な座標間引き処理（より厳しく）
+          const finalFilteredPoints = SmoothDrawing.filterPoints(currentPointsRef.current, 3);
+          
+          // 🌊 最終的なスムーズパスを生成
           const finalSmoothPath = SmoothDrawing.createSmoothPath(finalFilteredPoints);
           
           const finalPath = {
@@ -425,31 +420,30 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
             path: finalSmoothPath
           };
           
-          // 🔧 常に最新のpaths配列を参照
           const newPaths = [...pathsRef.current, finalPath];
           
-          console.log('🚀 DrawingCanvas: Saving new path', {
-            finalPath: {
-              tool: finalPath.tool,
-              color: finalPath.color,
-              timestamp: finalPath.timestamp,
-              pathLength: finalPath.path.length
-            },
-            existingPathsLength: pathsRef.current.length,
-            newPathsLength: newPaths.length,
-            newPaths: newPaths.map((p, i) => ({ 
-              index: i, 
-              tool: p.tool, 
-              timestamp: p.timestamp,
-              pathLength: p.path.length
-            }))
-          });
+          // console.log('🚀 DrawingCanvas: Saving new path', {
+          //   tool: finalPath.tool,
+          //   color: finalPath.color,
+          //   strokeWidth: finalPath.strokeWidth,
+          //   pathLength: finalPath.path.length,
+          //   originalPoints: currentPointsRef.current.length,
+          //   filteredPoints: finalFilteredPoints.length,
+          //   existingPathsLength: pathsRef.current.length,
+          //   newPathsLength: newPaths.length,
+          //   newPaths: newPaths.map((p, i) => ({ 
+          //     index: i, 
+          //     tool: p.tool, 
+          //     timestamp: p.timestamp,
+          //     pathLength: p.path.length
+          //   }))
+          // });
           
           setDebugInfo(`Release: Saved smooth path with ${finalFilteredPoints.length} points`);
           onPathsChange(newPaths);
         } else {
           setDebugInfo(`Release: NOT saved - no path or points`);
-          console.log('❌ DrawingCanvas: Path NOT saved - no path or points');
+          // console.log('❌ DrawingCanvas: Path NOT saved - no path or points');
         }
         
         // 🧹 クリーンアップ
@@ -511,7 +505,7 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   return (
     <View style={styles.container}>
       {/* デバッグ情報表示 - 開発時のみ表示 */}
-      {__DEV__ && (
+      {false && (
         <View style={styles.debugInfo}>
           <Text style={styles.debugText}>📊 Debug: {debugInfo}</Text>
           <Text style={styles.debugText}>🎨 Tool: {selectedTool || 'null'}</Text>
@@ -562,7 +556,7 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
                   />
                 ) : null;
               } catch (error) {
-                console.log('Invalid saved path:', drawingPath.path);
+                // console.log('Invalid saved path:', drawingPath.path);
                 return null;
               }
             })}
@@ -580,7 +574,7 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
                     />
                   ) : null;
                 } catch (error) {
-                  console.log('Invalid current path:', currentPath.path);
+                  // console.log('Invalid current path:', currentPath.path);
                   return null;
                 }
               })()
