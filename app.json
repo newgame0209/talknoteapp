@@ -12,20 +12,34 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.talknote.app",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "録音機能を利用するためにマイクへのアクセスを許可してください。"
+        "NSMicrophoneUsageDescription": "録音機能を利用するためにマイクへのアクセスを許可してください。",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#4F46E5"
       },
-      "package": "com.talknote.app"
+      "package": "com.talknote.app",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.INTERNET"
+      ]
     },
     "plugins": [
       "expo-font",
       "expo-av",
       "expo-file-system",
-      "expo-sqlite"
-    ]
+      "expo-sqlite",
+      "expo-dev-client"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "289c2b35-e74b-4c11-abc4-d0c7e2f9df79"
+      }
+    }
   }
 }

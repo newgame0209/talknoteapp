@@ -12,8 +12,10 @@ if (!config.resolver.sourceExts.includes('cjs')) {
 }
 
 // Disable the new, stricter "package.json exports" resolution until every
-// dependency (Firebase, React‑Native‑WebView, etc.) ships full export maps.
+// dependency (Firebase, React‑Native‑WebView, @shopify/react-native-skia, etc.) 
+// ships full export maps.
 config.resolver.unstable_enablePackageExports = false;
+config.resolver.unstable_disablePackageExports = true;
 
 // -----------------------------------------------------------------------------
 // That's it – export the tweaked config.

@@ -4,6 +4,7 @@ import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import { useDatabaseStore } from '../store/databaseStore';
+import DrawingCanvas, { DrawingPath } from '../components/DrawingCanvas';
 
 // 画面遷移の型定義
 type RootStackParamList = {
@@ -58,6 +59,12 @@ const CanvasEditor: React.FC = () => {
   const [recordingState, setRecordingState] = useState<'idle' | 'recording' | 'paused'>('idle');
   const [recordingTime, setRecordingTime] = useState<number>(0); // 秒単位
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 描画関連の状態管理
+  const [drawingPaths, setDrawingPaths] = useState<DrawingPath[]>([]);
+  const [undoStack, setUndoStack] = useState<DrawingPath[][]>([]);
+  const [redoStack, setRedoStack] = useState<DrawingPath[][]>([]);
+  const [strokeWidth, setStrokeWidth] = useState<number>(3); // デフォルト線の太さ
 
   // カラーパレット定義
   const getColorPalette = () => {
@@ -355,6 +362,58 @@ const CanvasEditor: React.FC = () => {
     }
   };
 
+  // 描画パス変更ハンドラー
+  const handlePathsChange = (newPaths: DrawingPath[]) => {
+    // Undo用に現在の状態を保存（最大100スタック）
+    setUndoStack(prev => {
+      const newUndoStack = [...prev, drawingPaths];
+      return newUndoStack.slice(-100); // 最大100スタックに制限
+    });
+    
+    // Redo履歴をクリア
+    setRedoStack([]);
+    
+    // 新しいパスを設定
+    setDrawingPaths(newPaths);
+  };
+
+  // Undoハンドラー
+  const handleUndo = () => {
+    if (undoStack.length > 0) {
+      const lastState = undoStack[undoStack.length - 1];
+      
+      // Redo用に現在の状態を保存
+      setRedoStack(prev => [...prev, drawingPaths]);
+      
+      // Undoスタックから一つ戻る
+      setUndoStack(prev => prev.slice(0, -1));
+      
+      // パスを復元
+      setDrawingPaths(lastState);
+    }
+  };
+
+  // Redoハンドラー
+  const handleRedo = () => {
+    if (redoStack.length > 0) {
+      const nextState = redoStack[redoStack.length - 1];
+      
+      // Undo用に現在の状態を保存
+      setUndoStack(prev => [...prev, drawingPaths]);
+      
+      // Redoスタックから一つ進む
+      setRedoStack(prev => prev.slice(0, -1));
+      
+      // パスを復元
+      setDrawingPaths(nextState);
+    }
+  };
+
+  // 線の太さ変更ハンドラー
+  const handleStrokeWidthChange = (width: number) => {
+    setStrokeWidth(width);
+  };
+
   return (
     <TouchableWithoutFeedback onPress={() => setIsCanvasIconsVisible(false)}>
       <SafeAreaView style={styles.safeArea}>
@@ -494,11 +553,33 @@ const CanvasEditor: React.FC = () => {
                     {/* サブツール群 - 中央配置 */}
                     <View style={styles.subToolGroup}>
                       {/* 共通ツール: 戻る・進む */}
-                      <TouchableOpacity style={styles.subToolIcon}>
-                        <Ionicons name="arrow-undo" size={18} color="#666" />
+                      <TouchableOpacity 
+                        style={[
+                          styles.subToolIcon,
+                          !undoStack.length && styles.disabledSubToolIcon
+                        ]}
+                        onPress={handleUndo}
+                        disabled={!undoStack.length}
+                      >
+                        <Ionicons 
+                          name="arrow-undo" 
+                          size={18} 
+                          color={undoStack.length ? '#666' : '#ccc'} 
+                        />
                       </TouchableOpacity>
-                      <TouchableOpacity style={styles.subToolIcon}>
-                        <Ionicons name="arrow-redo" size={18} color="#666" />
+                      <TouchableOpacity 
+                        style={[
+                          styles.subToolIcon,
+                          !redoStack.length && styles.disabledSubToolIcon
+                        ]}
+                        onPress={handleRedo}
+                        disabled={!redoStack.length}
+                      >
+                        <Ionicons 
+                          name="arrow-redo" 
+                          size={18} 
+                          color={redoStack.length ? '#666' : '#ccc'} 
+                        />
                       </TouchableOpacity>
                       
                       {/* ペンツール */}
@@ -600,13 +681,31 @@ const CanvasEditor: React.FC = () => {
                       
                       {/* 線の太さ設定 */}
                       <View style={styles.thicknessContainer}>
-                        <TouchableOpacity style={styles.thicknessIconContainer}>
+                        <TouchableOpacity 
+                          style={[
+                            styles.thicknessIconContainer,
+                            strokeWidth === 1 && styles.selectedThickness
+                          ]}
+                          onPress={() => handleStrokeWidthChange(1)}
+                        >
                           <View style={[styles.thicknessOption, styles.thicknessThin]} />
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.thicknessIconContainer}>
+                        <TouchableOpacity 
+                          style={[
+                            styles.thicknessIconContainer,
+                            strokeWidth === 3 && styles.selectedThickness
+                          ]}
+                          onPress={() => handleStrokeWidthChange(3)}
+                        >
                           <View style={[styles.thicknessOption, styles.thicknessMedium]} />
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.thicknessIconContainer}>
+                        <TouchableOpacity 
+                          style={[
+                            styles.thicknessIconContainer,
+                            strokeWidth === 6 && styles.selectedThickness
+                          ]}
+                          onPress={() => handleStrokeWidthChange(6)}
+                        >
                           <View style={[styles.thicknessOption, styles.thicknessThick]} />
                         </TouchableOpacity>
                       </View>
@@ -696,19 +795,39 @@ const CanvasEditor: React.FC = () => {
 
               {/* 本文エリア */}
               <View style={styles.contentArea}>
-                <TextInput
-                  ref={contentInputRef}
-                  style={styles.contentInput}
-                  value={content}
-                  onChangeText={setContent}
-                  placeholder="本文を入力"
-                  multiline
-                  textAlignVertical="top"
-                  placeholderTextColor="#B0B0B0"
-                  onBlur={handleContentSave}
-                  editable={true}
-                  onFocus={() => setIsEditing(true)}
-                />
+                {/* DrawingCanvas - ペンツールが選択されている場合に表示 */}
+                {selectedTool === 'pen' && (
+                  <View style={styles.drawingCanvasContainer}>
+                    <DrawingCanvas
+                      selectedTool={selectedPenTool}
+                      selectedColor={selectedColor}
+                      strokeWidth={strokeWidth}
+                      onPathsChange={handlePathsChange}
+                      paths={drawingPaths}
+                      onUndo={handleUndo}
+                      onRedo={handleRedo}
+                      canUndo={undoStack.length > 0}
+                      canRedo={redoStack.length > 0}
+                    />
+                  </View>
+                )}
+                
+                {/* テキスト入力エリア - ペンツール以外の場合に表示 */}
+                {selectedTool !== 'pen' && (
+                  <TextInput
+                    ref={contentInputRef}
+                    style={styles.contentInput}
+                    value={content}
+                    onChangeText={setContent}
+                    placeholder="本文を入力"
+                    multiline
+                    textAlignVertical="top"
+                    placeholderTextColor="#B0B0B0"
+                    onBlur={handleContentSave}
+                    editable={true}
+                    onFocus={() => setIsEditing(true)}
+                  />
+                )}
               </View>
             </View>
 
@@ -1363,6 +1482,17 @@ const styles = StyleSheet.create({
     marginHorizontal: 0,
     marginLeft: -8,
     paddingLeft: 0,
+  },
+  disabledSubToolIcon: {
+    opacity: 0.5,
+  },
+  selectedThickness: {
+    backgroundColor: '#E3F2FD',
+    borderWidth: 2,
+    borderColor: '#4F8CFF',
+  },
+  drawingCanvasContainer: {
+    flex: 1,
   },
 });
 

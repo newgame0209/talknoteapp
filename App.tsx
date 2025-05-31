@@ -20,6 +20,7 @@ import ImportProgressScreen from './app/screens/import/ImportProgressScreen';
 import DashboardScreen from './app/screens/dashboard/DashboardScreen';
 import FilePickerArea from './app/components/import/FilePickerArea';
 import CanvasEditor from './app/screens/CanvasEditor';
+import { SkiaTest } from './app/components/SkiaTest';
 // Skiaのインポートを修正
 // import { Canvas } from '@shopify/react-native-skia';
 
@@ -53,6 +54,15 @@ const HomeScreen = ({ navigation }: any) => (
         <FontAwesome5 name="file-import" size={20} color="white" />
         <StyledText className="text-white font-bold ml-2">ファイルをインポートする</StyledText>
       </StyledTouchableOpacity>
+      
+      {/* Skiaテスト用ボタン */}
+      <StyledTouchableOpacity 
+        className="flex-row items-center justify-center bg-green-600 py-4 rounded-lg"
+        onPress={() => navigation.navigate('SkiaTest')}
+      >
+        <FontAwesome5 name="paint-brush" size={20} color="white" />
+        <StyledText className="text-white font-bold ml-2">Skia描画テスト</StyledText>
+      </StyledTouchableOpacity>
     </StyledView>
     
     <StatusBar style="auto" />
@@ -75,6 +85,7 @@ type RootStackParamList = {
   };
   FileImportSheet: undefined;
   CanvasEditor: { noteId?: string };
+  SkiaTest: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -210,6 +221,13 @@ export default function App() {
           <Stack.Screen 
             name="CanvasEditor" 
             component={CanvasEditor} 
+            options={{ 
+              headerShown: false
+            }} 
+          />
+          <Stack.Screen 
+            name="SkiaTest" 
+            component={SkiaTest} 
             options={{ 
               headerShown: false
             }} 
