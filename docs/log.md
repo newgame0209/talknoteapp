@@ -1,684 +1,370 @@
-LOG  [Dashboard] データ読み込み完了
- LOG  [RecordScreen] 録音開始処理を開始
- LOG  [RecordScreen] マイク権限をリクエスト中...
- LOG  [RecordScreen] マイク権限ステータス: granted
- LOG  [RecordScreen] WebSocket接続を初期化中...
- LOG  [RecordScreen] STTSocket初期化開始
- LOG  [ENV] WebSocket URL: ws://192.168.0.46:8002/api/v1/stt/stream
- WARN  [RecordScreen] ユーザーが認証されていません。デモモードで続行します。
- LOG  [RecordScreen] 新しいSTTSocket接続を作成
- LOG  [RecordScreen] WebSocket接続を開始 (URL: ws://192.168.0.46:8002/api/v1/stt/stream, Token: あり)
- LOG  [STTSocket] STTサーバーへの接続を開始します URL: ws://192.168.0.46:8002/api/v1/stt/stream?token=demo_token_for_development
- LOG  [RecordScreen] 録音を開始中...
- LOG  録音開始
- LOG  [RecordScreen] 録音開始完了
- LOG  [STTSocket] WebSocket接続成功
- LOG  [RecordScreen] STT WebSocket接続完了
- LOG  [STTSocket] 初期設定 JSON を送信しました {"enable_automatic_punctuation": true, "interim_results": true, "language_code": "ja-JP", "sample_rate_hertz": 16000}
- LOG  Sending audio chunk size: 4052
- LOG  [RecordScreen] オーディオデータ受信: 4052 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 4052 バイト
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  Sending audio chunk size: 9728
- LOG  [RecordScreen] オーディオデータ受信: 9728 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 9728 バイト
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\uff1f","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "これ？"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これ？"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これ？"}
- LOG  [RecordScreen] 中間結果を更新: これ？
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f\uff1f","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "これは？"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは？"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは？"}
- LOG  [RecordScreen] 中間結果を更新: これは？
- LOG  Sending audio chunk size: 9472
- LOG  [RecordScreen] オーディオデータ受信: 9472 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 9472 バイト
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f\uff1f","confidence":0.0,"is_final":false,"stability":0.8999999761581421}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.8999999761581421, "text": "これは？"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは？"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは？"}
- LOG  [RecordScreen] 中間結果を更新: これは？
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f","confidence":0.0,"is_final":false,"stability":0.8999999761581421}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.8999999761581421, "text": "これは"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは"}
- LOG  [RecordScreen] 中間結果を更新: これは
- LOG  [STTSocket] Raw event.data: {"text":" \u6587\u5b57\uff1f","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": " 文字？"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " 文字？"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " 文字？"}
- LOG  [RecordScreen] 中間結果を更新:  文字？
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f","confidence":0.0,"is_final":false,"stability":0.8999999761581421}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.8999999761581421, "text": "これは"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは"}
- LOG  [RecordScreen] 中間結果を更新: これは
- LOG  [STTSocket] Raw event.data: {"text":" \u6587\u5b57\u8d77\u3053\u3057\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": " 文字起こし。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " 文字起こし。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " 文字起こし。"}
- LOG  [RecordScreen] 中間結果を更新:  文字起こし。
- LOG  Sending audio chunk size: 9472
- LOG  [RecordScreen] オーディオデータ受信: 9472 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 9472 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f","confidence":0.0,"is_final":false,"stability":0.8999999761581421}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.8999999761581421, "text": "これは"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは"}
- LOG  [RecordScreen] 中間結果を更新: これは
- LOG  [STTSocket] Raw event.data: {"text":" \u6587\u5b57\u8d77\u3053\u3057\u306e\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": " 文字起こしの。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " 文字起こしの。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " 文字起こしの。"}
- LOG  [RecordScreen] 中間結果を更新:  文字起こしの。
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f","confidence":0.0,"is_final":false,"stability":0.8999999761581421}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.8999999761581421, "text": "これは"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは"}
- LOG  [RecordScreen] 中間結果を更新: これは
- LOG  [STTSocket] Raw event.data: {"text":" \u6587\u5b57\u8d77\u3053\u3057\u306e\u30c6\u30b9\u30c8\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": " 文字起こしのテスト。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " 文字起こしのテスト。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " 文字起こしのテスト。"}
- LOG  [RecordScreen] 中間結果を更新:  文字起こしのテスト。
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f","confidence":0.0,"is_final":false,"stability":0.8999999761581421}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.8999999761581421, "text": "これは"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは"}
- LOG  [RecordScreen] 中間結果を更新: これは
- LOG  [STTSocket] Raw event.data: {"text":" \u6587\u5b57\u8d77\u3053\u3057\u306e\u30c6\u30b9\u30c8\u3067\u3059\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": " 文字起こしのテストです。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " 文字起こしのテストです。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " 文字起こしのテストです。"}
- LOG  [RecordScreen] 中間結果を更新:  文字起こしのテストです。
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  Sending audio chunk size: 9472
- LOG  [RecordScreen] オーディオデータ受信: 9472 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 9472 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f \u6587\u5b57\u8d77\u3053\u3057\u306e\u30c6\u30b9\u30c8\u3067\u3059\u3002","confidence":0.0,"is_final":false,"stability":0.8999999761581421}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.8999999761581421, "text": "これは 文字起こしのテストです。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。"}
- LOG  [RecordScreen] 中間結果を更新: これは 文字起こしのテストです。
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f","confidence":0.0,"is_final":false,"stability":0.8999999761581421}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.8999999761581421, "text": "これは"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは"}
- LOG  [RecordScreen] 中間結果を更新: これは
- LOG  [STTSocket] Raw event.data: {"text":" \u6587\u5b57\u8d77\u3053\u3057\u306e\u30c6\u30b9\u30c8\u3067\u3059\u3002\u304a","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": " 文字起こしのテストです。お"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " 文字起こしのテストです。お"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " 文字起こしのテストです。お"}
- LOG  [RecordScreen] 中間結果を更新:  文字起こしのテストです。お
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f","confidence":0.0,"is_final":false,"stability":0.8999999761581421}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.8999999761581421, "text": "これは"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは"}
- LOG  [RecordScreen] 中間結果を更新: これは
- LOG  [STTSocket] Raw event.data: {"text":" \u6587\u5b57\u8d77\u3053\u3057\u306e\u30c6\u30b9\u30c8\u3067\u3059\u3002\u304a\u305d\u3089\u304f\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": " 文字起こしのテストです。おそらく。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " 文字起こしのテストです。おそらく。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " 文字起こしのテストです。おそらく。"}
- LOG  [RecordScreen] 中間結果を更新:  文字起こしのテストです。おそらく。
- LOG  Sending audio chunk size: 9472
- LOG  [RecordScreen] オーディオデータ受信: 9472 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 9472 バイト
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f \u6587\u5b57\u8d77\u3053\u3057\u306e\u30c6\u30b9\u30c8\u3067\u3059\u3002\u304a\u305d\u3089\u304f\u3002","confidence":0.0,"is_final":false,"stability":0.8999999761581421}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.8999999761581421, "text": "これは 文字起こしのテストです。おそらく。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく。"}
- LOG  [RecordScreen] 中間結果を更新: これは 文字起こしのテストです。おそらく。
- LOG  Sending audio chunk size: 9472
- LOG  [RecordScreen] オーディオデータ受信: 9472 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 9472 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f \u6587\u5b57\u8d77\u3053\u3057\u306e\u30c6\u30b9\u30c8\u3067\u3059\u3002\u304a\u305d\u3089\u304f a\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "これは 文字起こしのテストです。おそらく a。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく a。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく a。"}
- LOG  [RecordScreen] 中間結果を更新: これは 文字起こしのテストです。おそらく a。
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f \u6587\u5b57\u8d77\u3053\u3057\u306e\u30c6\u30b9\u30c8\u3067\u3059\u3002\u304a\u305d\u3089\u304f ai\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "これは 文字起こしのテストです。おそらく ai。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく ai。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく ai。"}
- LOG  [RecordScreen] 中間結果を更新: これは 文字起こしのテストです。おそらく ai。
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f \u6587\u5b57\u8d77\u3053\u3057\u306e\u30c6\u30b9\u30c8\u3067\u3059\u3002\u304a\u305d\u3089\u304f AI \u30bf\u30a4\u30c8\u30eb\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "これは 文字起こしのテストです。おそらく AI タイトル。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル。"}
- LOG  [RecordScreen] 中間結果を更新: これは 文字起こしのテストです。おそらく AI タイトル。
- LOG  Sending audio chunk size: 9472
- LOG  [RecordScreen] オーディオデータ受信: 9472 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 9472 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f \u6587\u5b57\u8d77\u3053\u3057\u306e\u30c6\u30b9\u30c8\u3067\u3059\u3002\u304a\u305d\u3089\u304f AI \u30bf\u30a4\u30c8\u30eb \u751f","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "これは 文字起こしのテストです。おそらく AI タイトル 生"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生"}
- LOG  [RecordScreen] 中間結果を更新: これは 文字起こしのテストです。おそらく AI タイトル 生
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f \u6587\u5b57\u8d77\u3053\u3057\u306e\u30c6\u30b9\u30c8\u3067\u3059\u3002\u304a\u305d\u3089\u304f AI \u30bf\u30a4\u30c8\u30eb \u751f\u6210","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成"}
- LOG  [RecordScreen] 中間結果を更新: これは 文字起こしのテストです。おそらく AI タイトル 生成
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f \u6587\u5b57\u8d77\u3053\u3057\u306e\u30c6\u30b9\u30c8\u3067\u3059\u3002\u304a\u305d\u3089\u304f AI \u30bf\u30a4\u30c8\u30eb \u751f\u6210\u306e","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の"}
- LOG  [RecordScreen] 中間結果を更新: これは 文字起こしのテストです。おそらく AI タイトル 生成の
- LOG  Sending audio chunk size: 9472
- LOG  [RecordScreen] オーディオデータ受信: 9472 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 9472 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f \u6587\u5b57\u8d77\u3053\u3057\u306e\u30c6\u30b9\u30c8\u3067\u3059\u3002\u304a\u305d\u3089\u304f AI \u30bf\u30a4\u30c8\u30eb \u751f\u6210\u306e\u6a5f\u80fd\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能。"}
- LOG  [RecordScreen] 中間結果を更新: これは 文字起こしのテストです。おそらく AI タイトル 生成の機能。
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f \u6587\u5b57\u8d77\u3053\u3057\u306e\u30c6\u30b9\u30c8\u3067\u3059\u3002\u304a\u305d\u3089\u304f AI \u30bf\u30a4\u30c8\u30eb \u751f\u6210\u306e\u6a5f\u80fd\u304c\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が。"}
- LOG  [RecordScreen] 中間結果を更新: これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が。
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f \u6587\u5b57\u8d77\u3053\u3057\u306e\u30c6\u30b9\u30c8\u3067\u3059\u3002\u304a\u305d\u3089\u304f AI \u30bf\u30a4\u30c8\u30eb \u751f\u6210\u306e\u6a5f\u80fd\u304c\u5b9f\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実。"}
- LOG  [RecordScreen] 中間結果を更新: これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実。
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f \u6587\u5b57\u8d77\u3053\u3057\u306e\u30c6\u30b9\u30c8\u3067\u3059\u3002\u304a\u305d\u3089\u304f AI \u30bf\u30a4\u30c8\u30eb \u751f\u6210\u306e\u6a5f\u80fd\u304c\u5b9f\u88c5\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装。"}
- LOG  [RecordScreen] 中間結果を更新: これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装。
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f \u6587\u5b57\u8d77\u3053\u3057\u306e\u30c6\u30b9\u30c8\u3067\u3059\u3002\u304a\u305d\u3089\u304f AI \u30bf\u30a4\u30c8\u30eb \u751f\u6210\u306e\u6a5f\u80fd\u304c\u5b9f\u88c5\u3055\u308c\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装され。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装され。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装され。"}
- LOG  [RecordScreen] 中間結果を更新: これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装され。
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f \u6587\u5b57\u8d77\u3053\u3057\u306e\u30c6\u30b9\u30c8\u3067\u3059\u3002\u304a\u305d\u3089\u304f AI \u30bf\u30a4\u30c8\u30eb \u751f\u6210\u306e\u6a5f\u80fd\u304c\u5b9f\u88c5\u3055\u308c\u3066\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装されて。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装されて。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装されて。"}
- LOG  [RecordScreen] 中間結果を更新: これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装されて。
- LOG  Sending audio chunk size: 9472
- LOG  [RecordScreen] オーディオデータ受信: 9472 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 9472 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f \u6587\u5b57\u8d77\u3053\u3057\u306e\u30c6\u30b9\u30c8\u3067\u3059\u3002\u304a\u305d\u3089\u304f AI \u30bf\u30a4\u30c8\u30eb \u751f\u6210\u306e\u6a5f\u80fd\u304c\u5b9f\u88c5\u3055\u308c\u3066\u3044\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装されてい。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装されてい。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装されてい。"}
- LOG  [RecordScreen] 中間結果を更新: これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装されてい。
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f \u6587\u5b57\u8d77\u3053\u3057\u306e\u30c6\u30b9\u30c8\u3067\u3059\u3002\u304a\u305d\u3089\u304f AI \u30bf\u30a4\u30c8\u30eb \u751f\u6210\u306e\u6a5f\u80fd\u304c\u5b9f\u88c5\u3055\u308c\u3066\u3044\u307e\u305b\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装されていませ。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装されていませ。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装されていませ。"}
- LOG  [RecordScreen] 中間結果を更新: これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装されていませ。
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f \u6587\u5b57\u8d77\u3053\u3057\u306e\u30c6\u30b9\u30c8\u3067\u3059\u3002\u304a\u305d\u3089\u304f AI \u30bf\u30a4\u30c8\u30eb \u751f\u6210\u306e\u6a5f\u80fd\u304c\u5b9f\u88c5\u3055\u308c\u3066\u3044\u307e\u305b\u3093\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装されていません。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装されていません。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装されていません。"}
- LOG  [RecordScreen] 中間結果を更新: これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装されていません。
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  Sending audio chunk size: 9472
- LOG  [RecordScreen] オーディオデータ受信: 9472 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 9472 バイト
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f \u6587\u5b57\u8d77\u3053\u3057\u306e\u30c6\u30b9\u30c8\u3067\u3059\u3002\u304a\u305d\u3089\u304f AI \u30bf\u30a4\u30c8\u30eb \u751f\u6210\u306e\u6a5f\u80fd\u304c\u5b9f\u88c5\u3055\u308c\u3066\u3044\u307e\u305b\u3093\u3002","confidence":0.0,"is_final":false,"stability":0.8999999761581421}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.8999999761581421, "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装されていません。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装されていません。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装されていません。"}
- LOG  [RecordScreen] 中間結果を更新: これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装されていません。
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f \u6587\u5b57\u8d77\u3053\u3057\u306e\u30c6\u30b9\u30c8\u3067\u3059\u3002\u304a\u305d\u3089\u304f AI \u30bf\u30a4\u30c8\u30eb \u751f\u6210\u306e\u6a5f\u80fd\u304c\u5b9f\u88c5\u3055\u308c\u3066\u3044\u307e\u305b\u3093\u3002","confidence":0.9769513010978699,"is_final":true,"stability":0.0}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0.9769513010978699, "is_final": true, "stability": 0, "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装されていません。"}
- LOG  [STTSocket] Converted data: {"confidence": 0.9769513010978699, "isFinal": true, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装されていません。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0.9769513010978699, "isFinal": true, "language": "ja-JP", "text": "これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装されていません。"}
- LOG  [RecordScreen] 最終結果を追加: これは 文字起こしのテストです。おそらく AI タイトル 生成の機能が実装されていません。
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\uff1f","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "これ？"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これ？"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これ？"}
- LOG  [RecordScreen] 中間結果を更新: これ？
- LOG  Sending audio chunk size: 9472
- LOG  [RecordScreen] オーディオデータ受信: 9472 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 9472 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f\uff1f","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "これは？"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは？"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これは？"}
- LOG  [RecordScreen] 中間結果を更新: これは？
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f\u30c6\u30b9\u30c8\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "これはテスト。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これはテスト。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これはテスト。"}
- LOG  [RecordScreen] 中間結果を更新: これはテスト。
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f\u30c6\u30b9\u30c8\u3067\u3059\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "これはテストです。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これはテストです。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これはテストです。"}
- LOG  [RecordScreen] 中間結果を更新: これはテストです。
- LOG  Sending audio chunk size: 9472
- LOG  [RecordScreen] オーディオデータ受信: 9472 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 9472 バイト
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  Sending audio chunk size: 9472
- LOG  [RecordScreen] オーディオデータ受信: 9472 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 9472 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f\u30c6\u30b9\u30c8\u3067\u3059\u3002","confidence":0.0,"is_final":false,"stability":0.8999999761581421}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.8999999761581421, "text": "これはテストです。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これはテストです。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これはテストです。"}
- LOG  [RecordScreen] 中間結果を更新: これはテストです。
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f\u30c6\u30b9\u30c8\u3067\u3059\u3002\u305f\u3060\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "これはテストです。ただ。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これはテストです。ただ。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これはテストです。ただ。"}
- LOG  [RecordScreen] 中間結果を更新: これはテストです。ただ。
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f\u30c6\u30b9\u30c8\u3067\u3059\u3002\u305f\u3060\u5358","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "これはテストです。ただ単"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これはテストです。ただ単"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これはテストです。ただ単"}
- LOG  [RecordScreen] 中間結果を更新: これはテストです。ただ単
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f\u30c6\u30b9\u30c8\u3067\u3059\u3002\u305f\u3060\u5358\u306b\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "これはテストです。ただ単に。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これはテストです。ただ単に。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これはテストです。ただ単に。"}
- LOG  [RecordScreen] 中間結果を更新: これはテストです。ただ単に。
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f\u30c6\u30b9\u30c8\u3067\u3059\u3002\u305f\u3060\u5358\u306b","confidence":0.0,"is_final":false,"stability":0.8999999761581421}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.8999999761581421, "text": "これはテストです。ただ単に"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これはテストです。ただ単に"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これはテストです。ただ単に"}
- LOG  [RecordScreen] 中間結果を更新: これはテストです。ただ単に
- LOG  [STTSocket] Raw event.data: {"text":" \u3067\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": " で。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " で。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " で。"}
- LOG  [RecordScreen] 中間結果を更新:  で。
- LOG  [STTSocket] Raw event.data: {"text":" \u3053\u308c\u306f\u30c6\u30b9\u30c8\u3067\u3059\u3002\u305f\u3060\u5358\u306b\u30c7\u30d0\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": " これはテストです。ただ単にデバ。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " これはテストです。ただ単にデバ。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " これはテストです。ただ単にデバ。"}
- LOG  [RecordScreen] 中間結果を更新:  これはテストです。ただ単にデバ。
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":" \u3053\u308c\u306f\u30c6\u30b9\u30c8\u3067\u3059\u3002\u305f\u3060\u5358\u306b","confidence":0.0,"is_final":false,"stability":0.8999999761581421}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.8999999761581421, "text": " これはテストです。ただ単に"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " これはテストです。ただ単に"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " これはテストです。ただ単に"}
- LOG  [RecordScreen] 中間結果を更新:  これはテストです。ただ単に
- LOG  [STTSocket] Raw event.data: {"text":" \u30c7\u30d0\u30c3\u30b0\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": " デバッグ。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " デバッグ。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " デバッグ。"}
- LOG  [RecordScreen] 中間結果を更新:  デバッグ。
- LOG  [STTSocket] Raw event.data: {"text":" \u3053\u308c\u306f\u30c6\u30b9\u30c8\u3067\u3059\u3002\u305f\u3060\u5358\u306b","confidence":0.0,"is_final":false,"stability":0.8999999761581421}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.8999999761581421, "text": " これはテストです。ただ単に"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " これはテストです。ただ単に"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " これはテストです。ただ単に"}
- LOG  [RecordScreen] 中間結果を更新:  これはテストです。ただ単に
- LOG  [STTSocket] Raw event.data: {"text":" \u30c7\u30d0\u30c3\u30b0\u30ed\u30b0\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": " デバッグログ。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " デバッグログ。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " デバッグログ。"}
- LOG  [RecordScreen] 中間結果を更新:  デバッグログ。
- LOG  Sending audio chunk size: 9472
- LOG  [RecordScreen] オーディオデータ受信: 9472 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 9472 バイト
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":" \u3053\u308c\u306f\u30c6\u30b9\u30c8\u3067\u3059\u3002\u305f\u3060\u5358\u306b \u30c7\u30d0\u30c3\u30b0\u30ed\u30b0","confidence":0.0,"is_final":false,"stability":0.8999999761581421}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.8999999761581421, "text": " これはテストです。ただ単に デバッグログ"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " これはテストです。ただ単に デバッグログ"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " これはテストです。ただ単に デバッグログ"}
- LOG  [RecordScreen] 中間結果を更新:  これはテストです。ただ単に デバッグログ
- LOG  [STTSocket] Raw event.data: {"text":" \u3092\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": " を。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " を。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " を。"}
- LOG  [RecordScreen] 中間結果を更新:  を。
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f\u30c6\u30b9\u30c8\u3067\u3059\u3002\u305f\u3060\u3001\u5358\u306b\u30c7\u30d0\u30c3\u30b0\u30ed\u30b0","confidence":0.0,"is_final":false,"stability":0.8999999761581421}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.8999999761581421, "text": "これはテストです。ただ、単にデバッグログ"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これはテストです。ただ、単にデバッグログ"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これはテストです。ただ、単にデバッグログ"}
- LOG  [RecordScreen] 中間結果を更新: これはテストです。ただ、単にデバッグログ
- LOG  [STTSocket] Raw event.data: {"text":" \u3092\u5165\u308c\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": " を入れ。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " を入れ。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " を入れ。"}
- LOG  [RecordScreen] 中間結果を更新:  を入れ。
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f\u30c6\u30b9\u30c8\u3067\u3059\u3002\u305f\u3060\u3001\u5358\u306b\u30c7\u30d0\u30c3\u30b0\u30ed\u30b0","confidence":0.0,"is_final":false,"stability":0.8999999761581421}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.8999999761581421, "text": "これはテストです。ただ、単にデバッグログ"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これはテストです。ただ、単にデバッグログ"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これはテストです。ただ、単にデバッグログ"}
- LOG  [RecordScreen] 中間結果を更新: これはテストです。ただ、単にデバッグログ
- LOG  [STTSocket] Raw event.data: {"text":" \u3092\u5165\u308c\u305f\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": " を入れた。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " を入れた。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " を入れた。"}
- LOG  [RecordScreen] 中間結果を更新:  を入れた。
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f\u30c6\u30b9\u30c8\u3067\u3059\u3002\u305f\u3060\u3001\u5358\u306b\u30c7\u30d0\u30c3\u30b0\u30ed\u30b0","confidence":0.0,"is_final":false,"stability":0.8999999761581421}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.8999999761581421, "text": "これはテストです。ただ、単にデバッグログ"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これはテストです。ただ、単にデバッグログ"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これはテストです。ただ、単にデバッグログ"}
- LOG  [RecordScreen] 中間結果を更新: これはテストです。ただ、単にデバッグログ
- LOG  [STTSocket] Raw event.data: {"text":" \u3092\u5165\u308c\u305f\u3060\u3051\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": " を入れただけ。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " を入れただけ。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " を入れただけ。"}
- LOG  [RecordScreen] 中間結果を更新:  を入れただけ。
- LOG  Sending audio chunk size: 9472
- LOG  [RecordScreen] オーディオデータ受信: 9472 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 9472 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f\u30c6\u30b9\u30c8\u3067\u3059\u3002\u305f\u3060\u3001\u5358\u306b\u30c7\u30d0\u30c3\u30b0\u30ed\u30b0","confidence":0.0,"is_final":false,"stability":0.8999999761581421}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.8999999761581421, "text": "これはテストです。ただ、単にデバッグログ"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これはテストです。ただ、単にデバッグログ"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "これはテストです。ただ、単にデバッグログ"}
- LOG  [RecordScreen] 中間結果を更新: これはテストです。ただ、単にデバッグログ
- LOG  [STTSocket] Raw event.data: {"text":" \u3092\u5165\u308c\u305f\u3060\u3051\u3067\u3059\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": " を入れただけです。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " を入れただけです。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " を入れただけです。"}
- LOG  [RecordScreen] 中間結果を更新:  を入れただけです。
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u3053\u308c\u306f\u30c6\u30b9\u30c8\u3067\u3059\u3002\u305f\u3060\u3001\u5358\u306b\u30c7\u30d0\u30c3\u30b0\u30ed\u30b0 \u3092\u5165\u308c\u305f\u3060\u3051\u3067\u3059\u3002","confidence":0.9802093505859375,"is_final":true,"stability":0.0}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0.9802093505859375, "is_final": true, "stability": 0, "text": "これはテストです。ただ、単にデバッグログ を入れただけです。"}
- LOG  [STTSocket] Converted data: {"confidence": 0.9802093505859375, "isFinal": true, "language": "ja-JP", "text": "これはテストです。ただ、単にデバッグログ を入れただけです。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0.9802093505859375, "isFinal": true, "language": "ja-JP", "text": "これはテストです。ただ、単にデバッグログ を入れただけです。"}
- LOG  [RecordScreen] 最終結果を追加: これはテストです。ただ、単にデバッグログ を入れただけです。
- LOG  Sending audio chunk size: 9472
- LOG  [RecordScreen] オーディオデータ受信: 9472 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 9472 バイト
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  Sending audio chunk size: 9472
- LOG  [RecordScreen] オーディオデータ受信: 9472 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 9472 バイト
- LOG  [STTSocket] Raw event.data: {"text":" \u4f55\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": " 何。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " 何。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " 何。"}
- LOG  [RecordScreen] 中間結果を更新:  何。
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u306a\u3093\uff1f","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "なん？"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "なん？"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "なん？"}
- LOG  [RecordScreen] 中間結果を更新: なん？
- LOG  [STTSocket] Raw event.data: {"text":" \u306a\u3093\u3067\uff1f","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": " なんで？"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " なんで？"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " なんで？"}
- LOG  [RecordScreen] 中間結果を更新:  なんで？
- LOG  [STTSocket] Raw event.data: {"text":" \u306a\u3093\u3067\u3053\u3093\u306a\uff1f","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": " なんでこんな？"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " なんでこんな？"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " なんでこんな？"}
- LOG  [RecordScreen] 中間結果を更新:  なんでこんな？
- LOG  [STTSocket] Raw event.data: {"text":"\u306a\u3093\u3067\u3053\u3093\u306a\u7c21\u5358\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "なんでこんな簡単。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "なんでこんな簡単。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "なんでこんな簡単。"}
- LOG  [RecordScreen] 中間結果を更新: なんでこんな簡単。
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  Sending audio chunk size: 9472
- LOG  [RecordScreen] オーディオデータ受信: 9472 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 9472 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u306a\u3093\u3067\u3053\u3093\u306a\u7c21\u5358\u306a\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "なんでこんな簡単な。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "なんでこんな簡単な。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "なんでこんな簡単な。"}
- LOG  [RecordScreen] 中間結果を更新: なんでこんな簡単な。
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u306a\u3093\u3067\u3053\u3093\u306a\u7c21\u5358\u306a\u51e6\u7406\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "なんでこんな簡単な処理。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "なんでこんな簡単な処理。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "なんでこんな簡単な処理。"}
- LOG  [RecordScreen] 中間結果を更新: なんでこんな簡単な処理。
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u306a\u3093\u3067\u3053\u3093\u306a\u7c21\u5358\u306a\u51e6\u7406\u3082\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "なんでこんな簡単な処理も。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "なんでこんな簡単な処理も。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "なんでこんな簡単な処理も。"}
- LOG  [RecordScreen] 中間結果を更新: なんでこんな簡単な処理も。
- LOG  [STTSocket] Raw event.data: {"text":"\u306a\u3093\u3067\u3053\u3093\u306a\u7c21\u5358\u306a\u51e6\u7406\u3082\u3067\u304d\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "なんでこんな簡単な処理もでき。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "なんでこんな簡単な処理もでき。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "なんでこんな簡単な処理もでき。"}
- LOG  [RecordScreen] 中間結果を更新: なんでこんな簡単な処理もでき。
- LOG  [STTSocket] Raw event.data: {"text":"\u306a\u3093\u3067\u3053\u3093\u306a\u7c21\u5358\u306a\u51e6\u7406\u3082\u3067\u304d\u306a\u3044\u3002","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "なんでこんな簡単な処理もできない。"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "なんでこんな簡単な処理もできない。"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "なんでこんな簡単な処理もできない。"}
- LOG  [RecordScreen] 中間結果を更新: なんでこんな簡単な処理もできない。
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":" \u306a\u3093\u3067\u3053\u3093\u306a\u7c21\u5358\u306a\u51e6\u7406\u3082\u3067\u304d\u306a\u3044\u3093\uff1f","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": " なんでこんな簡単な処理もできないん？"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " なんでこんな簡単な処理もできないん？"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " なんでこんな簡単な処理もできないん？"}
- LOG  [RecordScreen] 中間結果を更新:  なんでこんな簡単な処理もできないん？
- LOG  Sending audio chunk size: 9472
- LOG  [RecordScreen] オーディオデータ受信: 9472 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 9472 バイト
- LOG  [STTSocket] Raw event.data: {"text":" \u306a\u3093\u3067\u3053\u3093\u306a\u7c21\u5358\u306a\u51e6\u7406\u3082\u3067\u304d\u306a\u3044\u3093\u3067\u3057\u3087\u3046\uff1f","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": " なんでこんな簡単な処理もできないんでしょう？"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " なんでこんな簡単な処理もできないんでしょう？"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": " なんでこんな簡単な処理もできないんでしょう？"}
- LOG  [RecordScreen] 中間結果を更新:  なんでこんな簡単な処理もできないんでしょう？
- LOG  [STTSocket] Raw event.data: {"text":"\u306a\u3093\u3067\u3053\u3093\u306a\u7c21\u5358\u306a\u51e6\u7406\u3082\u3067\u304d\u306a\u3044\u3093\u3067\u3057\u3087\u3046\u304b\uff1f","confidence":0.0,"is_final":false,"stability":0.009999999776482582}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.009999999776482582, "text": "なんでこんな簡単な処理もできないんでしょうか？"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "なんでこんな簡単な処理もできないんでしょうか？"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "なんでこんな簡単な処理もできないんでしょうか？"}
- LOG  [RecordScreen] 中間結果を更新: なんでこんな簡単な処理もできないんでしょうか？
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  Sending audio chunk size: 9472
- LOG  [RecordScreen] オーディオデータ受信: 9472 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 9472 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u306a\u3093\u3067\u3053\u3093\u306a\u7c21\u5358\u306a\u51e6\u7406\u3082\u3067\u304d\u306a\u3044\u3093\u3067\u3057\u3087\u3046\u304b\uff1f","confidence":0.0,"is_final":false,"stability":0.8999999761581421}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0, "is_final": false, "stability": 0.8999999761581421, "text": "なんでこんな簡単な処理もできないんでしょうか？"}
- LOG  [STTSocket] Converted data: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "なんでこんな簡単な処理もできないんでしょうか？"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0, "isFinal": false, "language": "ja-JP", "text": "なんでこんな簡単な処理もできないんでしょうか？"}
- LOG  [RecordScreen] 中間結果を更新: なんでこんな簡単な処理もできないんでしょうか？
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  [STTSocket] Raw event.data: {"text":"\u306a\u3093\u3067\u3053\u3093\u306a\u7c21\u5358\u306a\u51e6\u7406\u3082\u3067\u304d\u306a\u3044\u3093\u3067\u3057\u3087\u3046\u304b\uff1f","confidence":0.9948673844337463,"is_final":true,"stability":0.0}
- LOG  [STTSocket] Parsed data (object): {"confidence": 0.9948673844337463, "is_final": true, "stability": 0, "text": "なんでこんな簡単な処理もできないんでしょうか？"}
- LOG  [STTSocket] Converted data: {"confidence": 0.9948673844337463, "isFinal": true, "language": "ja-JP", "text": "なんでこんな簡単な処理もできないんでしょうか？"}
- LOG  [RecordScreen] 文字起こし結果を受信: {"confidence": 0.9948673844337463, "isFinal": true, "language": "ja-JP", "text": "なんでこんな簡単な処理もできないんでしょうか？"}
- LOG  [RecordScreen] 最終結果を追加: なんでこんな簡単な処理もできないんでしょうか？
- LOG  Sending audio chunk size: 9472
- LOG  [RecordScreen] オーディオデータ受信: 9472 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 9472 バイト
- LOG  Sending audio chunk size: 10240
- LOG  [RecordScreen] オーディオデータ受信: 10240 バイト
- LOG  [RecordScreen] WebSocketでオーディオデータを送信
- LOG  [STTSocket] 送信するオーディオデータサイズ: 10240 バイト
- LOG  録音停止: file:///var/mobile/Containers/Data/Application/94AEC625-EDAB-4DD8-B1E7-21785524B652/Library/Caches/ExponentExperienceData/@anonymous/talknote-71d77e15-9367-4bcc-95d8-864f456c0a33/AV/recording-80B5FA35-1C6B-419B-A8DB-67660AF1480B.wav
- LOG  [STTSocket] EndOfStreamシグナルを送信します
- LOG  [STTSocket] WebSocket接続を閉じます (コード: 1000, 理由: Normal closure)
- LOG  Recording saved successfully
- LOG  録音データをデータベースに保存しました
- LOG  Cloud Storageへのアップロードを開始: file:///var/mobile/Containers/Data/Application/94AEC625-EDAB-4DD8-B1E7-21785524B652/Library/Caches/ExponentExperienceData/@anonymous/talknote-71d77e15-9367-4bcc-95d8-864f456c0a33/AV/recording-80B5FA35-1C6B-419B-A8DB-67660AF1480B.wav
- LOG  [STTSocket] WebSocketがコード 1000 で閉じました、理由: Normal closure
- LOG  [RecordScreen] STT WebSocket接続終了
- LOG  アップロード結果: {"gcs_result": {"file_path": "/tmp/talknote_storage/media/test-user-id/7e4b4af0-b677-45eb-a21a-0fb24c45acde.bin", "media_id": "7e4b4af0-b677-45eb-a21a-0fb24c45acde", "status": "success"}, "media_id": "7e4b4af0-b677-45eb-a21a-0fb24c45acde", "status": "success"}
- LOG  Recording updated successfully
+ERROR  Apple認証エラー: [Error: Apple認証が失敗しました。Apple IDが正しく設定されているか確認してください。]
+| 
+| 
+| Source path: undefined
+| Setting up new context...
+| Finding changed files: 1.64ms
+| Reading changed files: 6.531ms
+| Sorting candidates: 0.315ms
+| Generate rules: 2.72ms
+| Build stylesheet: 0.101ms
+| Potential classes:  264
+| Active contexts:  1
+| JIT TOTAL: 220.046ms
+| 
+| 
+| 
+| 
+| 
+| 
+| Source path: undefined
+| Setting up new context...
+| Source path: undefined
+| Setting up new context...
+| Finding changed files: 0.214ms
+| Reading changed files: 2.176ms
+| Sorting candidates: 0.162ms
+| Generate rules: 1.486ms
+| Build stylesheet: 0.246ms
+| Potential classes:  136
+| Active contexts:  1
+| JIT TOTAL: 80.448ms
+| 
+| 
+| Finding changed files: 0.281ms
+| Reading changed files: 3.614ms
+| Sorting candidates: 1.531ms
+| 
+| 
+| Generate rules: 18.569ms
+| Build stylesheet: 0.122ms
+| Potential classes:  684
+| Active contexts:  1
+| JIT TOTAL: 133.042ms
+| 
+| 
+| 
+| 
+| Source path: undefined
+| Setting up new context...
+| Source path: undefined
+| Setting up new context...
+| Finding changed files: 0.215ms
+| Reading changed files: 2.86ms
+| Sorting candidates: 0.177ms
+| Generate rules: 1.77ms
+| Build stylesheet: 0.118ms
+| Potential classes:  435
+| Active contexts:  1
+| JIT TOTAL: 79.601ms
+| 
+| 
+| Finding changed files: 0.621ms
+| Reading changed files: 2.926ms
+| Sorting candidates: 0.092ms
+| Generate rules: 4.906ms
+| Build stylesheet: 0.083ms
+| Potential classes:  220
+| Active contexts:  1
+| JIT TOTAL: 86.705ms
+| 
+| 
+| 
+| 
+| 
+| 
+| Source path: undefined
+| Setting up new context...
+| Source path: undefined
+| Setting up new context...
+| 
+| 
+| Source path: undefined
+| Setting up new context...
+| Finding changed files: 2.557ms
+| Reading changed files: 1.428ms
+| Sorting candidates: 0.047ms
+| Generate rules: 0.626ms
+| Build stylesheet: 0.086ms
+| Potential classes:  126
+| Active contexts:  1
+| JIT TOTAL: 112.176ms
+| 
+| 
+| Finding changed files: 0.241ms
+| Reading changed files: 2.087ms
+| Sorting candidates: 0.14ms
+| Generate rules: 1.134ms
+| Build stylesheet: 0.077ms
+| Potential classes:  302
+| Active contexts:  1
+| JIT TOTAL: 132.743ms
+| 
+| 
+| Finding changed files: 0.395ms
+| Reading changed files: 1.375ms
+| Sorting candidates: 0.056ms
+| Generate rules: 0.734ms
+| Build stylesheet: 0.078ms
+| Potential classes:  139
+| Active contexts:  1
+| JIT TOTAL: 89.095ms
+| 
+| 
+| 
+| 
+| Source path: undefined
+| Setting up new context...
+| 
+| 
+| Source path: undefined
+| Setting up new context...
+| 
+| 
+| 
+| 
+| 
+| 
+| Source path: undefined
+| Setting up new context...
+| Finding changed files: 0.306ms
+| Reading changed files: 4.313ms
+| Sorting candidates: 0.406ms
+| Generate rules: 2.502ms
+| Build stylesheet: 0.11ms
+| Potential classes:  843
+| Active contexts:  1
+| JIT TOTAL: 82.531ms
+| 
+| 
+| Source path: undefined
+| Setting up new context...
+| Source path: undefined
+| Setting up new context...
+| Finding changed files: 0.537ms
+| Reading changed files: 1.306ms
+| Sorting candidates: 0.125ms
+| Generate rules: 0.935ms
+| Build stylesheet: 0.176ms
+| Potential classes:  342
+| Active contexts:  1
+| JIT TOTAL: 100.893ms
+| 
+| 
+| Finding changed files: 0.209ms
+| Reading changed files: 5.512ms
+| Sorting candidates: 0.535ms
+| Finding changed files: 1.262ms
+| Reading changed files: 1.897ms
+| Sorting candidates: 0.148ms
+| Generate rules: 1.026ms
+| Build stylesheet: 0.084ms
+| Potential classes:  379
+| Active contexts:  1
+| JIT TOTAL: 85.478ms
+| 
+| 
+| Finding changed files: 0.768ms
+| Generate rules: 10.483ms
+| Build stylesheet: 0.2ms
+| Potential classes:  984
+| Active contexts:  1
+| JIT TOTAL: 97.537ms
+| 
+| 
+| Reading changed files: 4.72ms
+| Sorting candidates: 0.256ms
+| Generate rules: 2.963ms
+| Build stylesheet: 0.153ms
+| Potential classes:  317
+| Active contexts:  1
+| JIT TOTAL: 87.943ms
+| 
+| 
+| 
+| 
+| Source path: undefined
+| Setting up new context...
+| 
+| 
+| Finding changed files: 0.731ms
+| Reading changed files: 0.291ms
+| Sorting candidates: 0.028ms
+| Generate rules: 0.509ms
+| Build stylesheet: 0.069ms
+| Potential classes:  90
+| Active contexts:  1
+| JIT TOTAL: 87.101ms
+| 
+| 
+| Source path: undefined
+| Setting up new context...
+| Finding changed files: 0.273ms
+| Reading changed files: 2.902ms
+| Sorting candidates: 0.035ms
+| Generate rules: 0.566ms
+| Build stylesheet: 0.087ms
+| Potential classes:  104
+| Active contexts:  1
+| JIT TOTAL: 101.131ms
+| 
+| 
+| 
+| 
+| 
+| 
+| Source path: undefined
+| Setting up new context...
+| Source path: undefined
+| Setting up new context...
+| Finding changed files: 0.191ms
+| Reading changed files: 1.166ms
+| Sorting candidates: 0.097ms
+| Generate rules: 0.752ms
+| Build stylesheet: 0.071ms
+| Potential classes:  282
+| Active contexts:  1
+| JIT TOTAL: 111.526ms
+| 
+| 
+| Finding changed files: 0.927ms
+| Reading changed files: 3.55ms
+| Sorting candidates: 0.1ms
+| Generate rules: 1.291ms
+| Build stylesheet: 0.102ms
+| Potential classes:  235
+| Active contexts:  1
+| JIT TOTAL: 124.289ms
+| 
+| 
+| 
+| 
+| Source path: undefined
+| Setting up new context...
+| Finding changed files: 0.197ms
+| Reading changed files: 0.301ms
+| Sorting candidates: 0.028ms
+| Generate rules: 0.441ms
+| Build stylesheet: 0.086ms
+| Potential classes:  79
+| Active contexts:  1
+| JIT TOTAL: 71.711ms
+| 
+| 
+| 
+| 
+| Source path: undefined
+| Setting up new context...
+| Finding changed files: 1.051ms
+| Reading changed files: 1.065ms
+| Sorting candidates: 0.081ms
+| Generate rules: 1.543ms
+| Build stylesheet: 0.187ms
+| Potential classes:  162
+| Active contexts:  1
+| JIT TOTAL: 100.965ms
+| 
+| 
+| 
+| 
+| Source path: undefined
+| Setting up new context...
+| 
+| 
+| Source path: undefined
+| Setting up new context...
+| Finding changed files: 0.305ms
+| Reading changed files: 1.743ms
+| Sorting candidates: 0.059ms
+| Generate rules: 0.779ms
+| Build stylesheet: 0.08ms
+| Potential classes:  172
+| Active contexts:  1
+| JIT TOTAL: 101.437ms
+| 
+| 
+| Finding changed files: 0.153ms
+| Reading changed files: 0.702ms
+| Sorting candidates: 0.192ms
+| Generate rules: 1.126ms
+| Build stylesheet: 0.093ms
+| Potential classes:  187
+| Active contexts:  1
+| JIT TOTAL: 63.105ms
+| 
+| 
+| 
+| 
+| Source path: undefined
+| Setting up new context...
+| Finding changed files: 0.37ms
+| Reading changed files: 2.025ms
+| Sorting candidates: 0.135ms
+| Generate rules: 1.192ms
+| Build stylesheet: 0.232ms
+| Potential classes:  189
+| Active contexts:  1
+| JIT TOTAL: 74.835ms
+| 
+| 
+| 
+| 
+| Source path: undefined
+| Setting up new context...
+| Finding changed files: 1.348ms
+| Reading changed files: 0.66ms
+| Sorting candidates: 0.049ms
+| Generate rules: 0.508ms
+| Build stylesheet: 0.179ms
+| Potential classes:  136
+| Active contexts:  1
+| JIT TOTAL: 90.511ms
+| 
+| 
+| 
+| 
+| Source path: undefined
+| Setting up new context...
+| Finding changed files: 0.697ms
+| Reading changed files: 1.319ms
+| Sorting candidates: 0.081ms
+| Generate rules: 2.01ms
+| Build stylesheet: 0.09ms
+| Potential classes:  126
+| Active contexts:  1
+| JIT TOTAL: 85.003ms
+| 
+| 
+| 
+| 
+| Source path: undefined
+| Setting up new context...
+| Finding changed files: 0.607ms
+| Reading changed files: 4.608ms
+| Sorting candidates: 0.223ms
+| Generate rules: 2.007ms
+| Build stylesheet: 0.096ms
+| Potential classes:  524
+| Active contexts:  1
+| JIT TOTAL: 81.664ms
+| 
+| 
+ ERROR  ❌ Apple認証エラー - 詳細:
+{"code": "ERR_REQUEST_UNKNOWN", "message": "The authorization attempt failed for an unknown reason", "stack": "Error: The authorization attempt failed for an unknown reason
+
+  2 | var setPrototypeOf = require("./setPrototypeOf.js");
+  3 | function _construct(t, e, r) {
+> 4 |   if (isNativeReflectConstruct()) return Reflect.construct.apply(null, arguments);
+    |                                                                 ^
+  5 |   var o = [null];
+  6 |   o.push.apply(o, e);
+  7 |   var p = new (t.bind.apply(t, o))();
+
+Call Stack
+  construct (<native>)
+  apply (<native>)
+  _construct (node_modules/@babel/runtime/helpers/construct.js:4:65)
+  Wrapper (node_modules/@babel/runtime/helpers/wrapNativeSuper.js:15:23)
+  construct (<native>)
+  _callSuper (http:/192.168.0.46:8081/node_modules/expo/AppEntry.bundle)
+  CodedError (http:/192.168.0.46:8081/node_modules/expo/AppEntry.bundle)

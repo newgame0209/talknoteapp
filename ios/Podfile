@@ -11,6 +11,9 @@ platform :ios, podfile_properties['ios.deploymentTarget'] || '15.1'
 install! 'cocoapods',
   :deterministic_uuids => false
 
+# Xcodeプロジェクトの明示的指定
+project 'app.xcodeproj'
+
 prepare_react_native_project!
 
 target 'app' do

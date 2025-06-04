@@ -1,0 +1,27 @@
+env: load .env
+env: export PORT API_URL EXPO_PUBLIC_API_URL FIREBASE_API_KEY FIREBASE_AUTH_DOMAIN FIREBASE_PROJECT_ID FIREBASE_MESSAGING_SENDER_ID FIREBASE_APP_ID GOOGLE_APPLICATION_CREDENTIALS STT_PROVIDER OPENAI_API_KEY OPENAI_MODEL ANTHROPIC_API_KEY ANTHROPIC_MODEL RESEARCH_PROVIDER YAHOO_API_CLIENT_ID DATABASE_URL GCS_BUCKET GCS_UPLOAD_FOLDER FEATURE_OFFLINE_MODE FEATURE_OCR FEATURE_AI_CHAT FEATURE_RESEARCH TEST_USER_EMAIL TEST_USER_PASSWORD EXPO_DEBUG GCP_PROJECT_ID DEBUG BYPASS_AUTH EXPO_PUBLIC_GOOGLE_CLIENT_ID EXPO_PUBLIC_FIREBASE_API_KEY EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN EXPO_PUBLIC_FIREBASE_PROJECT_ID
+The ios project is malformed, project files will be cleared and reinitialized.
+- Clearing ios
+✔ Cleared ios code
+- Creating native directory (./ios)
+✔ Created native directory | reusing /ios
+- Updating package.json
+✔ Updated package.json | no changes
+ios.dangerous: withDefaultBaseMods ➜ withIosBaseMods ➜ withGeneratedBaseMods
+ios.dangerous: withIosExpoPlugins ➜ withPlugins ➜ withStaticPlugin ➜ withPlugin ➜ withDangerousMod
+» ios: icon: No icon is defined in the Expo config.
+Prebuild failed
+UnexpectedError: [ios.dangerous]: withIosDangerousBaseMod: Could not locate a valid AppDelegate at root: "/Users/mishimayu/Desktop/talknote"
+Please report this as an issue on https://github.com/expo/expo/issues
+UnexpectedError: [ios.dangerous]: withIosDangerousBaseMod: Could not locate a valid AppDelegate at root: "/Users/mishimayu/Desktop/talknote"
+Please report this as an issue on https://github.com/expo/expo/issues
+    at getAppDelegateFilePath (/Users/mishimayu/Desktop/talknote/node_modules/@expo/config-plugins/src/ios/Paths.ts:61:11)
+    at getAppDelegate (/Users/mishimayu/Desktop/talknote/node_modules/@expo/config-plugins/src/ios/Paths.ts:156:20)
+    at Object.getSourceRoot (/Users/mishimayu/Desktop/talknote/node_modules/@expo/config-plugins/src/ios/Paths.ts:161:23)
+    at getProjectName (/Users/mishimayu/Desktop/talknote/node_modules/@expo/config-plugins/src/ios/utils/Xcodeproj.ts:41:28)
+    at getIosNamedProjectPath (/Users/mishimayu/Desktop/talknote/node_modules/@expo/prebuild-config/src/plugins/icons/withIosIcons.ts:115:23)
+    at setIconsAsync (/Users/mishimayu/Desktop/talknote/node_modules/@expo/prebuild-config/src/plugins/icons/withIosIcons.ts:60:31)
+    at action (/Users/mishimayu/Desktop/talknote/node_modules/@expo/prebuild-config/src/plugins/icons/withIosIcons.ts:18:13)
+    at action (/Users/mishimayu/Desktop/talknote/node_modules/@expo/config-plugins/src/plugins/withMod.ts:228:29)
+    at nextMod (/Users/mishimayu/Desktop/talknote/node_modules/@expo/config-plugins/src/plugins/withMod.ts:109:27)
+    at action (/Users/mishimayu/Desktop/talknote/node_modules/@expo/config-plugins/src/plugins/createBaseMod.ts:82:27)

@@ -5,6 +5,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import { useDatabaseStore } from '../store/databaseStore';
 import DrawingCanvas, { DrawingPath } from '../components/DrawingCanvas';
+import AIChatWidget from '../components/AIChatWidget';
 
 // 画面遷移の型定義
 type RootStackParamList = {
@@ -1073,144 +1074,6 @@ const CanvasEditor: React.FC = () => {
             )}
         </View>
 
-        {/* AIチャットウィジェット（右下・吹き出し型） */}
-        <View style={styles.aiWidget} pointerEvents="box-none">
-          <View style={styles.aiWidgetBubble}>
-            {/* 星アイコンを吹き出しの上部中央に絶対配置 */}
-            <Image
-              source={require('../assets/ai_star.png')}
-              style={styles.aiStarIcon}
-              resizeMode="contain"
-            />
-            {/* 既存のAIアイコン */}
-            <Image
-              source={require('../assets/ai_recommendation.png')}
-              style={{ width: 40, height: 40 }}
-              resizeMode="contain"
-            />
-            <View style={styles.aiTail} />
-          </View>
-        </View>
-
-        {/* 文法選択ドロップダウン */}
-        {showTextTypeDropdown && (
-          <View style={styles.dropdownMenu}>
-            <TouchableOpacity 
-              style={[styles.dropdownItem, selectedTextType === 'body' && styles.selectedDropdownItem]}
-              onPress={() => {
-                handleTextTypeSelect('body');
-                setShowTextTypeDropdown(false);
-              }}
-            >
-              <Text style={styles.dropdownItemText}>本文</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.dropdownItem, selectedTextType === 'heading1' && styles.selectedDropdownItem]}
-              onPress={() => {
-                handleTextTypeSelect('heading1');
-                setShowTextTypeDropdown(false);
-              }}
-            >
-              <Text style={[styles.dropdownItemText, { fontSize: 18, fontWeight: 'bold' }]}>見出し1</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.dropdownItem, selectedTextType === 'heading2' && styles.selectedDropdownItem]}
-              onPress={() => {
-                handleTextTypeSelect('heading2');
-                setShowTextTypeDropdown(false);
-              }}
-            >
-              <Text style={[styles.dropdownItemText, { fontSize: 16, fontWeight: 'bold' }]}>見出し2</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.dropdownItem, selectedTextType === 'heading3' && styles.selectedDropdownItem]}
-              onPress={() => {
-                handleTextTypeSelect('heading3');
-                setShowTextTypeDropdown(false);
-              }}
-            >
-              <Text style={[styles.dropdownItemText, { fontSize: 14, fontWeight: 'bold' }]}>見出し3</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* フォント選択ドロップダウン */}
-        {showFontDropdown && (
-          <View style={styles.dropdownMenu}>
-            {availableFonts.map((font) => (
-              <TouchableOpacity 
-                key={font.key}
-                style={[styles.dropdownItem, selectedFont === font.key && styles.selectedDropdownItem]}
-                onPress={() => {
-                  handleFontSelect(font.key as FontType);
-                  setShowFontDropdown(false);
-                }}
-              >
-                <Text style={styles.dropdownItemText}>{font.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        {/* 文字色選択カラーピッカー - コンパクトサイズ */}
-        {showColorPicker && (
-          <View style={styles.colorPickerMenu}>
-            {['#000000', '#FF0000', '#0000FF', '#008000', '#FFA500', '#800080'].map((color, index) => (
-              <TouchableOpacity
-                key={`color-${index}`}
-                style={[
-                  styles.colorPickerOption,
-                  { backgroundColor: color },
-                  textColor === color && styles.selectedColorPickerOption,
-                ]}
-                onPress={() => {
-                  handleTextColorSelect(color);
-                  setShowColorPicker(false);
-                }}
-              />
-            ))}
-          </View>
-        )}
-
-        {/* 📏 線の太さ設定ドロップダウン - コンパクトサイズ */}
-        {showStrokeSettings && selectedPenTool !== 'eraser' && (
-          <View style={styles.strokeSettingsMenu}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' }}>
-              {Object.entries(strokeOptions).map(([type, option]) => {
-                const isSelected = getCurrentStrokeType() === type;
-                return (
-                  <TouchableOpacity
-                    key={type}
-                    style={[
-                      styles.strokeSettingsOption,
-                      isSelected && styles.selectedStrokeSettingsOption
-                    ]}
-                    onPress={() => handleStrokeTypeSelect(type as 'thin' | 'medium' | 'thick')}
-                  >
-                    <View style={styles.strokeSettingsVisualContainer}>
-                      <View
-                        style={[
-                          styles.strokeSettingsVisual,
-                          {
-                            height: Math.max(2, option.value / 2), // 視覚表示用に半分のサイズ
-                            backgroundColor: selectedColor,
-                          }
-                        ]}
-                      />
-                    </View>
-                    <Text style={[
-                      styles.strokeSettingsLabel,
-                      isSelected && styles.selectedStrokeSettingsLabel
-                    ]}>
-                      {option.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        )}
-
         {/* 🎨 ペンツール用カラー設定ドロップダウン - キーボードツールと同じ形式 */}
         {showColorSettings && selectedPenTool !== 'eraser' && (
           <View style={styles.colorPickerMenu}>
@@ -1229,9 +1092,19 @@ const CanvasEditor: React.FC = () => {
                   }}
                 />
               ))}
-            </View>
           </View>
+        </View>
         )}
+
+        {/* AIチャットウィジェット */}
+        <AIChatWidget
+          canvasText={content}
+          selectedText={''} // TODO: 選択されたテキストの実装
+          onTextUpdate={(newText) => {
+            setContent(newText);
+            handleContentSave();
+          }}
+        />
 
       </SafeAreaView>
     </TouchableWithoutFeedback>

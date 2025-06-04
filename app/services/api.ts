@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import { getCurrentIdToken } from './auth';
 
 // API設定
 const API_BASE_URL = __DEV__ 
@@ -8,8 +9,8 @@ const API_BASE_URL = __DEV__
   : 'https://api.talknote.app';  // 本番環境
 
 const WS_BASE_URL = __DEV__ 
-  ? 'ws://192.168.0.46:8002'  // 開発環境（実機用IPアドレス）
-  : 'wss://api.talknote.app';  // 本番環境
+  ? 'ws://192.168.0.46:8002/api/v1/stt/stream'  // 開発環境（実機用IPアドレス + 正しいパス）
+  : 'wss://api.talknote.app/api/v1/stt/stream';  // 本番環境
 
 // 開発環境でのIPアドレスを取得
 const getDevServerUrl = () => {
@@ -49,19 +50,20 @@ const api = axios.create({
 api.interceptors.request.use(
   async (config) => {
     try {
-      // Firebase authから直接IDトークンを取得
-      const { getAuth } = await import('firebase/auth');
-      const auth = getAuth();
+      // backend.mdc仕様に従ったID Token取得
+      const idToken = await getCurrentIdToken();
       
-      if (auth.currentUser) {
-        const idToken = await auth.currentUser.getIdToken();
+      if (idToken) {
+        // backend.mdc仕様：Authorization: Bearer <ID_TOKEN>
         config.headers.Authorization = `Bearer ${idToken}`;
+        console.log('🎫 API要求にID Token付与:', idToken.substring(0, 50) + '...');
       } else {
         // 認証されていない場合はデモトークンを使用（開発環境用）
         config.headers.Authorization = `Bearer demo_token_for_development`;
+        console.log('🔧 開発用デモトークンを使用');
       }
     } catch (error) {
-      console.error('認証トークン取得エラー:', error);
+      console.error('❌ ID Token取得エラー:', error);
       // フォールバックとしてデモトークンを使用
       config.headers.Authorization = `Bearer demo_token_for_development`;
     }

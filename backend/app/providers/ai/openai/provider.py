@@ -68,7 +68,7 @@ class OpenAIProvider(BaseAIProvider):
         except Exception as e:
             logger.error(f"Error in OpenAI summarize: {e}")
             return f"要約中にエラーが発生しました: {str(e)}"
-
+    
     async def generate_title(self, text: str, max_length: Optional[int] = None) -> str:
         """
         テキストからタイトルを生成する

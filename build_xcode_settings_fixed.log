@@ -1,0 +1,122 @@
+env: load .env
+env: export PORT API_URL EXPO_PUBLIC_API_URL FIREBASE_API_KEY FIREBASE_AUTH_DOMAIN FIREBASE_PROJECT_ID FIREBASE_MESSAGING_SENDER_ID FIREBASE_APP_ID GOOGLE_APPLICATION_CREDENTIALS STT_PROVIDER OPENAI_API_KEY OPENAI_MODEL ANTHROPIC_API_KEY ANTHROPIC_MODEL RESEARCH_PROVIDER YAHOO_API_CLIENT_ID DATABASE_URL GCS_BUCKET GCS_UPLOAD_FOLDER FEATURE_OFFLINE_MODE FEATURE_OCR FEATURE_AI_CHAT FEATURE_RESEARCH TEST_USER_EMAIL TEST_USER_PASSWORD EXPO_DEBUG GCP_PROJECT_ID DEBUG BYPASS_AUTH EXPO_PUBLIC_GOOGLE_CLIENT_ID EXPO_PUBLIC_FIREBASE_API_KEY EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN EXPO_PUBLIC_FIREBASE_PROJECT_ID
+Resolved port: 8081, start dev server: true
+› Using --device 00008120-0004553C36D8A01E
+› Auto signing app using team(s): L4Z8HV85H6
+  xcodebuild -workspace /Users/mishimayu/Desktop/talknote/ios/app.xcworkspace -configuration Debug -scheme app -destination id=00008120-0004553C36D8A01E
+› Planning build
+› Preparing Pods/glog-glog_privacy » ResourceBundle-glog_privacy-glog-Info.plist
+› Preparing Pods/RCT-Folly-RCT-Folly_privacy » ResourceBundle-RCT-Folly_privacy-RCT-Folly-Info.plist
+› Executing react-native Pods/hermes-engine » [CP-User] [Hermes] Replace Hermes for the right configuration, if needed
+› Preparing Pods/EXConstants-ExpoConstants_privacy » ResourceBundle-ExpoConstants_privacy-EXConstants-Info.plist
+› Preparing Pods/RNCAsyncStorage-RNCAsyncStorage_resources » ResourceBundle-RNCAsyncStorage_resources-RNCAsyncStorage-Info.plist
+› Preparing Pods/boost-boost_privacy » ResourceBundle-boost_privacy-boost-Info.plist
+› Preparing Pods/React-cxxreact-React-cxxreact_privacy » ResourceBundle-React-cxxreact_privacy-React-cxxreact-Info.plist
+› Preparing Pods/React-Core-React-Core_privacy » ResourceBundle-React-Core_privacy-React-Core-Info.plist
+› Preparing Pods/RNSVG-RNSVGFilters » ResourceBundle-RNSVGFilters-RNSVG-Info.plist
+› Preparing Pods/expo-dev-menu-EXDevMenu » ResourceBundle-EXDevMenu-expo-dev-menu-Info.plist
+› Preparing Pods/expo-dev-launcher-EXDevLauncher » ResourceBundle-EXDevLauncher-expo-dev-launcher-Info.plist
+› Preparing Pods/ExpoFileSystem-ExpoFileSystem_privacy » ResourceBundle-ExpoFileSystem_privacy-ExpoFileSystem-Info.plist
+› Preparing expo-constants Pods/EXConstants-EXConstants » ResourceBundle-EXConstants-EXConstants-Info.plist
+› Preparing Pods/EXApplication-ExpoApplication_privacy » ResourceBundle-ExpoApplication_privacy-EXApplication-Info.plist
+› Compiling react-native Pods/glog » demangle.cc
+› Compiling react-native Pods/Yoga » AbsoluteLayout.cpp
+› Compiling react-native Pods/React-rendererdebug » DebugStringConvertible.cpp
+› Compiling react-native Pods/React-perflogger » BridgeNativeModulePerfLogger.cpp
+› Compiling react-native Pods/React-oscompat » OSCompatPosix.cpp
+› Compiling react-native Pods/React-jsinspectortracing » EventLoopTaskReporter.cpp
+› Compiling react-native Pods/React-Mapbuffer » MapBuffer.cpp
+› Compiling react-native Pods/glog » vlog_is_on.cc
+› Compiling react-native Pods/glog » utilities.cc
+› Compiling react-native Pods/glog » symbolize.cc
+› Compiling react-native Pods/glog » signalhandler.cc
+› Compiling react-native Pods/glog » raw_logging.cc
+› Compiling react-native Pods/glog » logging.cc
+› Compiling react-native Pods/glog » glog-dummy.m
+› Compiling react-native Pods/Yoga » event.cpp
+› Compiling react-native Pods/Yoga » YGValue.cpp
+› Compiling react-native Pods/Yoga » YGPixelGrid.cpp
+› Compiling react-native Pods/Yoga » YGNodeStyle.cpp
+› Compiling react-native Pods/Yoga » YGNodeLayout.cpp
+› Compiling react-native Pods/Yoga » YGNode.cpp
+› Compiling react-native Pods/Yoga » YGEnums.cpp
+› Compiling react-native Pods/Yoga » YGConfig.cpp
+› Compiling react-native Pods/Yoga » PixelGrid.cpp
+› Compiling react-native Pods/Yoga » Node.cpp
+› Compiling react-native Pods/Yoga » Log.cpp
+› Compiling react-native Pods/Yoga » LayoutResults.cpp
+› Packaging react-native Pods/glog » libglog.a
+› Compiling react-native Pods/Yoga » FlexLine.cpp
+› Compiling react-native Pods/Yoga » Config.cpp
+› Compiling react-native Pods/Yoga » CalculateLayout.cpp
+› Compiling react-native Pods/Yoga » Cache.cpp
+› Compiling react-native Pods/Yoga » Baseline.cpp
+› Compiling react-native Pods/Yoga » AssertFatal.cpp
+› Compiling react-native Pods/React-rendererdebug » DebugStringConvertibleItem.cpp
+› Compiling react-native Pods/React-perflogger » ReactPerfettoLogger.cpp
+› Compiling react-native Pods/React-perflogger » ReactPerfettoCategories.cpp
+› Compiling react-native Pods/React-perflogger » ReactPerfetto.cpp
+› Compiling react-native Pods/React-perflogger » HermesPerfettoDataSource.cpp
+› Compiling react-native Pods/React-perflogger » FuseboxTracer.cpp
+
+⚠️  (node_modules/react-native/ReactCommon/reactperflogger/fusebox/FuseboxTracer.h:26:5)
+
+  24 | 
+  25 | /**
+> 26 |  * @deprecated Replaced by jsinspector_modern::PerformanceTracer and will be
+     |     ^ declaration is marked with '@deprecated' command but does not have a deprecation attribute [-Wdocumentation-deprecated-sync]
+  27 |  * removed when we delete FuseboxPerfettoDataSource.
+  28 |  */
+  29 | class FuseboxTracer {
+
+› Compiling react-native Pods/React-perflogger » FuseboxPerfettoDataSource.cpp
+› Compiling react-native Pods/React-oscompat » OSCompatWindows.cpp
+› Compiling react-native Pods/React-jsinspectortracing » RuntimeSamplingProfileTraceEventSerializer.cpp
+› Compiling react-native Pods/React-jsinspectortracing » PerformanceTracer.cpp
+› Compiling react-native Pods/React-featureflags » React-featureflags-dummy.m
+› Compiling react-native Pods/React-Mapbuffer » MapBufferBuilder.cpp
+› Compiling react-native Pods/RCTDeprecation » RCTDeprecation.m
+› Compiling react-native Pods/RCT-Folly » AtFork.cpp
+› Compiling react-native Pods/React-featureflags » ReactNativeFeatureFlagsAccessor.cpp
+› Compiling react-native Pods/React-featureflags » ReactNativeFeatureFlags.cpp
+› Compiling react-native Pods/DoubleConversion » bignum.cc
+› Compiling react-native Pods/DoubleConversion » strtod.cc
+› Compiling react-native Pods/fmt » format.cc
+› Compiling react-native Pods/fmt » fmt-dummy.m
+› Compiling react-native Pods/DoubleConversion » fixed-dtoa.cc
+› Compiling react-native Pods/DoubleConversion » fast-dtoa.cc
+› Compiling react-native Pods/DoubleConversion » double-conversion.cc
+› Compiling react-native Pods/DoubleConversion » diy-fp.cc
+› Compiling react-native Pods/DoubleConversion » cached-powers.cc
+› Compiling react-native Pods/DoubleConversion » bignum-dtoa.cc
+› Compiling react-native Pods/RCT-Folly » json_pointer.cpp
+› Compiling react-native Pods/RCT-Folly » json.cpp
+
+❌  (ios/Pods/RCT-Folly/folly/json/json.cpp:25:10)
+
+  23 | #include <type_traits>
+  24 | 
+> 25 | #include <boost/algorithm/string.hpp>
+     |          ^ 'boost/algorithm/string.hpp' file not found
+  26 | #include <glog/logging.h>
+  27 | 
+  28 | #include <folly/Conv.h>
+
+› Compiling react-native Pods/RCT-Folly » dynamic.cpp
+› Compiling react-native Pods/RCT-Folly » UniqueInstance.cpp
+› Compiling react-native Pods/RCT-Folly » Unicode.cpp
+› Compiling react-native Pods/RCT-Folly » ToAscii.cpp
+› Compiling react-native Pods/RCT-Folly » ThreadId.cpp
+› Packaging react-native Pods/fmt » libfmt.a
+› Compiling react-native Pods/RCT-Folly » SysUio.cpp
+› Compiling react-native Pods/RCT-Folly » String.cpp
+› Compiling react-native Pods/RCT-Folly » StaticSingletonManager.cpp
+› Compiling react-native Pods/RCT-Folly » SpookyHashV2.cpp
+› Compiling react-native Pods/RCT-Folly » SplitStringSimd.cpp
+› Compiling react-native Pods/RCT-Folly » SharedMutex.cpp
+    Run script build phase '[CP-User] [Hermes] Replace Hermes for the right configuration, if needed' will be run during every build because it does not specify any outputs. To address this issue, either add output dependencies to the script phase, or configure it to run in every build by unchecking "Based on dependency analysis" in the script phase. (in target 'hermes-engine' from project 'Pods')
+Exited with code: 65
+CommandError: Failed to build iOS project. "xcodebuild" exited with error code 65.
+CommandError: Failed to build iOS project. "xcodebuild" exited with error code 65.
+    at Object.buildAsync (/Users/mishimayu/Desktop/talknote/node_modules/@expo/cli/src/run/ios/XcodeBuild.ts:334:13)
+    at runIosAsync (/Users/mishimayu/Desktop/talknote/node_modules/@expo/cli/src/run/ios/runIosAsync.ts:124:25)

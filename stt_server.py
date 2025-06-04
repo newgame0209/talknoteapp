@@ -255,4 +255,4 @@ if __name__ == "__main__":
         logger.warning("GOOGLE_APPLICATION_CREDENTIALS environment variable is not set. STT will use mock responses.")
     
     # Run the server
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=8002, log_level="info")

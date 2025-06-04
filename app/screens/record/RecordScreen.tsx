@@ -162,19 +162,6 @@ const RecordScreen: React.FC = () => {
       const { status } = await Audio.requestPermissionsAsync();
       console.log(`[RecordScreen] マイク権限ステータス: ${status}`);
       
-      if (status !== 'granted') {
-        console.warn('[RecordScreen] マイク権限が許可されていません');
-        Alert.alert(
-          'マイクの権限が必要です',
-          '録音機能を使用するには、マイクへのアクセスを許可してください。',
-          [
-            { text: 'キャンセル', style: 'cancel' },
-            { text: '設定を開く', onPress: () => Linking.openSettings() }
-          ]
-        );
-        return;
-      }
-      
       // WebSocket接続を初期化
       console.log('[RecordScreen] WebSocket接続を初期化中...');
       await initializeSTTSocket();

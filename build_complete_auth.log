@@ -1,0 +1,149 @@
+env: load .env
+env: export PORT API_URL EXPO_PUBLIC_API_URL FIREBASE_API_KEY FIREBASE_AUTH_DOMAIN FIREBASE_PROJECT_ID FIREBASE_MESSAGING_SENDER_ID FIREBASE_APP_ID GOOGLE_APPLICATION_CREDENTIALS STT_PROVIDER OPENAI_API_KEY OPENAI_MODEL ANTHROPIC_API_KEY ANTHROPIC_MODEL RESEARCH_PROVIDER YAHOO_API_CLIENT_ID DATABASE_URL GCS_BUCKET GCS_UPLOAD_FOLDER FEATURE_OFFLINE_MODE FEATURE_OCR FEATURE_AI_CHAT FEATURE_RESEARCH TEST_USER_EMAIL TEST_USER_PASSWORD EXPO_DEBUG GCP_PROJECT_ID DEBUG BYPASS_AUTH EXPO_PUBLIC_GOOGLE_CLIENT_ID EXPO_PUBLIC_FIREBASE_API_KEY EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN EXPO_PUBLIC_FIREBASE_PROJECT_ID
+› Skipping dev server
+Resolved port: 8081, start dev server: false
+› Using --device 00008120-0004553C36D8A01E
+› Auto signing app using team(s): L4Z8HV85H6
+  xcodebuild -workspace /Users/mishimayu/Desktop/talknote/ios/app.xcworkspace -configuration Debug -scheme app -destination id=00008120-0004553C36D8A01E
+› Planning build
+› Preparing Pods/AppAuth-AppAuthCore_Privacy » ResourceBundle-AppAuthCore_Privacy-AppAuth-Info.plist
+› Preparing Pods/GTMAppAuth-GTMAppAuth_Privacy » ResourceBundle-GTMAppAuth_Privacy-GTMAppAuth-Info.plist
+› Preparing Pods/GTMSessionFetcher-GTMSessionFetcher_Core_Privacy » ResourceBundle-GTMSessionFetcher_Core_Privacy-GTMSessionFetcher-Info.plist
+    Run script build phase '[CP-User] [Hermes] Replace Hermes for the right configuration, if needed' will be run during every build because it does not specify any outputs. To address this issue, either add output dependencies to the script phase, or configure it to run in every build by unchecking "Based on dependency analysis" in the script phase. (in target 'hermes-engine' from project 'Pods')
+› Executing react-native Pods/hermes-engine » [CP-User] [Hermes] Replace Hermes for the right configuration, if needed
+› Preparing Pods/RCT-Folly-RCT-Folly_privacy » ResourceBundle-RCT-Folly_privacy-RCT-Folly-Info.plist
+› Preparing Pods/boost-boost_privacy » ResourceBundle-boost_privacy-boost-Info.plist
+› Preparing Pods/glog-glog_privacy » ResourceBundle-glog_privacy-glog-Info.plist
+› Preparing Pods/React-Core-React-Core_privacy » ResourceBundle-React-Core_privacy-React-Core-Info.plist
+› Preparing Pods/React-cxxreact-React-cxxreact_privacy » ResourceBundle-React-cxxreact_privacy-React-cxxreact-Info.plist
+› Executing react-native Pods/React-Fabric » [CP-User] [RN]Check rncore
+› Executing react-native Pods/React-FabricComponents » [CP-User] [RN]Check rncore
+› Executing react-native Pods/React-RCTFBReactNativeSpec » [CP-User] [RN]Check FBReactNativeSpec
+› Compiling talknote Pods/ReactCodegen » ComponentDescriptors.cpp
+› Compiling talknote Pods/ReactCodegen » ComponentDescriptors.cpp
+› Compiling talknote Pods/ReactCodegen » ComponentDescriptors.cpp
+› Compiling talknote Pods/ReactCodegen » ComponentDescriptors.cpp
+› Compiling talknote Pods/ReactCodegen » rnsvgJSI-generated.cpp
+› Compiling talknote Pods/ReactCodegen » safeareacontextJSI-generated.cpp
+› Compiling talknote Pods/ReactCodegen » rnsvg-generated.mm
+› Compiling talknote Pods/ReactCodegen » rnskiaJSI-generated.cpp
+› Compiling talknote Pods/ReactCodegen » safeareacontext-generated.mm
+› Compiling talknote Pods/ReactCodegen » rnskia-generated.mm
+› Compiling talknote Pods/ReactCodegen » rnscreensJSI-generated.cpp
+› Compiling talknote Pods/ReactCodegen » rnscreens-generated.mm
+› Compiling talknote Pods/ReactCodegen » rnreanimatedJSI-generated.cpp
+› Compiling talknote Pods/ReactCodegen » rnreanimated-generated.mm
+› Compiling talknote Pods/ReactCodegen » rngesturehandler_codegenJSI-generated.cpp
+› Compiling talknote Pods/ReactCodegen » rngesturehandler_codegen-generated.mm
+› Compiling talknote Pods/ReactCodegen » rnasyncstorageJSI-generated.cpp
+› Compiling talknote Pods/ReactCodegen » rnasyncstorage-generated.mm
+› Compiling talknote Pods/ReactCodegen » States.cpp
+› Compiling talknote Pods/ReactCodegen » States.cpp
+› Compiling talknote Pods/ReactCodegen » States.cpp
+› Compiling talknote Pods/ReactCodegen » States.cpp
+› Compiling talknote Pods/ReactCodegen » States.cpp
+› Compiling talknote Pods/ReactCodegen » States.cpp
+› Compiling talknote Pods/ReactCodegen » States.cpp
+› Compiling talknote Pods/ReactCodegen » ShadowNodes.cpp
+› Compiling talknote Pods/ReactCodegen » ShadowNodes.cpp
+› Compiling talknote Pods/ReactCodegen » ShadowNodes.cpp
+› Compiling talknote Pods/ReactCodegen » ShadowNodes.cpp
+› Compiling talknote Pods/ReactCodegen » ShadowNodes.cpp
+› Compiling talknote Pods/ReactCodegen » ShadowNodes.cpp
+› Compiling talknote Pods/ReactCodegen » ShadowNodes.cpp
+› Compiling talknote Pods/ReactCodegen » RNGoogleSignInCGenJSI-generated.cpp
+› Compiling talknote Pods/ReactCodegen » RNGoogleSignInCGen-generated.mm
+› Compiling talknote Pods/ReactCodegen » RNCWebViewSpecJSI-generated.cpp
+› Compiling talknote Pods/ReactCodegen » RNCWebViewSpec-generated.mm
+› Compiling talknote Pods/ReactCodegen » RCTThirdPartyComponentsProvider.mm
+› Compiling talknote Pods/ReactCodegen » RCTModulesConformingToProtocolsProvider.mm
+› Compiling talknote Pods/ReactCodegen » RCTModuleProviders.mm
+› Compiling talknote Pods/ReactCodegen » Props.cpp
+› Compiling talknote Pods/ReactCodegen » Props.cpp
+› Compiling talknote Pods/ReactCodegen » Props.cpp
+› Compiling talknote Pods/ReactCodegen » Props.cpp
+› Compiling talknote Pods/ReactCodegen » Props.cpp
+› Compiling talknote Pods/ReactCodegen » Props.cpp
+› Compiling talknote Pods/ReactCodegen » Props.cpp
+› Compiling talknote Pods/ReactCodegen » EventEmitters.cpp
+› Compiling talknote Pods/ReactCodegen » EventEmitters.cpp
+› Compiling talknote Pods/ReactCodegen » EventEmitters.cpp
+› Compiling talknote Pods/ReactCodegen » EventEmitters.cpp
+› Compiling talknote Pods/ReactCodegen » EventEmitters.cpp
+› Compiling talknote Pods/ReactCodegen » EventEmitters.cpp
+› Compiling talknote Pods/ReactCodegen » EventEmitters.cpp
+› Compiling talknote Pods/ReactCodegen » ComponentDescriptors.cpp
+› Compiling talknote Pods/ReactCodegen » ComponentDescriptors.cpp
+› Compiling talknote Pods/ReactCodegen » ComponentDescriptors.cpp
+› Packaging talknote Pods/ReactCodegen » libReactCodegen.a
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/ar.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/ar.lproj
+› Preparing @react-native-google-signin/google-signin Pods/GoogleSignIn-GoogleSignIn » ResourceBundle-GoogleSignIn-GoogleSignIn-Info.plist
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/cs.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/cs.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/ca.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/ca.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/da.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/da.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/hu.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/hu.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/zh_TW.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/zh_TW.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/id.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/id.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/zh_CN.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/zh_CN.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/vi.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/vi.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/uk.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/uk.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/tr.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/tr.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/th.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/th.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/sv.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/sv.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/sk.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/sk.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/ru.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/ru.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/ro.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/ro.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/pt_PT.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/pt_PT.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/pt_BR.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/pt_BR.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/pt.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/pt.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/pl.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/pl.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/nl.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/nl.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/nb.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/nb.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/ms.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/ms.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/ko.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/ko.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/ja.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/ja.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/it.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/it.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/hr.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/hr.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/hi.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/hi.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/he.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/he.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/fr_CA.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/fr_CA.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/fr.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/fr.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/fi.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/fi.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/es_MX.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/es_MX.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/es.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/es.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/en_GB.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/en_GB.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/en.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/en.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/el.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/el.lproj
+› Copying   @react-native-google-signin/google-signin GoogleSignIn/GoogleSignIn.bundle/de.lproj ➜ ios/Pods/GoogleSignIn/GoogleSignIn/Sources/Strings/de.lproj
+› Preparing Pods/RNSVG-RNSVGFilters » ResourceBundle-RNSVGFilters-RNSVG-Info.plist
+› Preparing Pods/RNCAsyncStorage-RNCAsyncStorage_resources » ResourceBundle-RNCAsyncStorage_resources-RNCAsyncStorage-Info.plist
+› Preparing Pods/ExpoFileSystem-ExpoFileSystem_privacy » ResourceBundle-ExpoFileSystem_privacy-ExpoFileSystem-Info.plist
+› Preparing Pods/EXApplication-ExpoApplication_privacy » ResourceBundle-ExpoApplication_privacy-EXApplication-Info.plist
+› Compiling talknote Pods/ReactAppDependencyProvider » RCTAppDependencyProvider.mm
+› Preparing expo-constants Pods/EXConstants-EXConstants » ResourceBundle-EXConstants-EXConstants-Info.plist
+› Preparing Pods/expo-dev-menu-EXDevMenu » ResourceBundle-EXDevMenu-expo-dev-menu-Info.plist
+› Preparing Pods/expo-dev-launcher-EXDevLauncher » ResourceBundle-EXDevLauncher-expo-dev-launcher-Info.plist
+› Preparing Pods/EXConstants-ExpoConstants_privacy » ResourceBundle-ExpoConstants_privacy-EXConstants-Info.plist
+› Executing expo-constants Pods/EXConstants » [CP-User] Generate app.config for prebuilt Constants.manifest
+› Packaging talknote Pods/ReactAppDependencyProvider » libReactAppDependencyProvider.a
+› Executing app » [Expo] Configure project
+› Linking   app » app.debug.dylib
+⚠️  ld: ignoring duplicate libraries: '-lc++'
+› Linking   app » app
+› Executing app » Bundle React Native code and images
+› Executing app » [CP] Copy Pods Resources
+› Preparing app » Info.plist
+› Generating debug app » app.app.dSYM
+› Generating debug app » app.app.dSYM
+› Signing   app » app.debug.dylib
+› Signing   app » __preview.dylib
+› Signing   app » app.app
+› Build Succeeded
+Exited with code: 0
+
+› 0 error(s), and 2 warning(s)
+
+Parse plist: /Users/mishimayu/Library/Developer/Xcode/DerivedData/app-eiuqlqytroswgeatwrbwkhactvxb/Build/Products/Debug-iphoneos/app.app/Info.plist
+Waiting on http://localhost:8081
+› Installing /Users/mishimayu/Library/Developer/Xcode/DerivedData/app-eiuqlqytroswgeatwrbwkhactvxb/Build/Products/Debug-iphoneos/app.app
+- Connecting to: iPhone (19)

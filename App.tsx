@@ -9,6 +9,10 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import { styled } from 'nativewind';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+// 認証関連のインポート
+import AuthGuard from './app/components/AuthGuard';
+import WelcomeLogin from './app/screens/WelcomeLogin';
+import { useAuthStore } from './app/store/authStore';
 
 // ストアのインポート
 import { useDatabaseStore } from './app/store/databaseStore';
@@ -21,6 +25,8 @@ import DashboardScreen from './app/screens/dashboard/DashboardScreen';
 import FilePickerArea from './app/components/import/FilePickerArea';
 import CanvasEditor from './app/screens/CanvasEditor';
 import { SkiaTest } from './app/components/SkiaTest';
+import StartupScreen from './app/components/StartupScreen';
+import Settings from './app/screens/Settings';
 // Skiaのインポートを修正
 // import { Canvas } from '@shopify/react-native-skia';
 
@@ -71,6 +77,7 @@ const HomeScreen = ({ navigation }: any) => (
 
 // ナビゲーションスタックの型定義
 type RootStackParamList = {
+  WelcomeLogin: undefined;
   Home: undefined;
   Dashboard: undefined;
   Record: undefined;
@@ -86,11 +93,15 @@ type RootStackParamList = {
   FileImportSheet: undefined;
   CanvasEditor: { noteId?: string };
   SkiaTest: undefined;
+  Settings: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
+  // 認証状態管理
+  const { user, isLoading: authLoading } = useAuthStore();
+  
   // データベース初期化状態管理
   const [isDbReady, setIsDbReady] = useState(false);
   const [dbError, setDbError] = useState<string | null>(null);
@@ -118,18 +129,31 @@ export default function App() {
     setupDatabase();
     */
   }, []);
+
+  // 認証状態のデバッグログ
+  useEffect(() => {
+    if (__DEV__) {
+      console.log('🔍 App.tsx 認証状態:', {
+        user: user ? `認証済み(${user.uid.slice(0, 8)}...)` : '未認証',
+        authLoading,
+        initialRoute: user ? 'Dashboard' : 'WelcomeLogin'
+      });
+    }
+  }, [user, authLoading]);
   
-  // データベース初期化中はローディング表示
-  if (!isDbReady && !dbError) {
+  // 認証確認中またはデータベース初期化中はローディング表示
+  if (authLoading || (!isDbReady && !dbError)) {
     return (
-      <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <StyledView className="flex-1 items-center justify-center bg-white">
-          <ActivityIndicator size="large" color="#4F46E5" />
-          <StyledText className="mt-4 text-gray-600">初期化中...</StyledText>
-        </StyledView>
-      </SafeAreaProvider>
-      </GestureHandlerRootView>
+      <>
+        <StartupScreen />
+        {__DEV__ && (
+          <GestureHandlerRootView style={{ position: 'absolute', bottom: 40, alignSelf: 'center' }}>
+            <StyledText className="text-xs text-white bg-black/50 px-3 py-1 rounded-full">
+              🔧 Debug: {authLoading ? 'Auth loading' : 'DB init'}
+            </StyledText>
+          </GestureHandlerRootView>
+        )}
+      </>
     );
   }
   
@@ -148,12 +172,56 @@ export default function App() {
     );
   }
   
-  // データベース初期化完了後、アプリを表示
+  // 初期化完了後、認証状態に基づいてナビゲーションを表示
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaProvider>
       <NavigationContainer>
-        <Stack.Navigator initialRouteName="Dashboard">
+        <Stack.Navigator initialRouteName={user ? "Dashboard" : "WelcomeLogin"}>
+          {/* 認証画面 */}
+          <Stack.Screen 
+            name="WelcomeLogin" 
+            component={WelcomeLogin} 
+            options={{ 
+              headerShown: false,
+            }} 
+          />
+          
+          {/* 保護されたコンテンツ - 認証が必要 */}
+          <Stack.Screen 
+            name="Dashboard" 
+            options={{ headerShown: false }}
+          >
+            {(props) => (
+              <AuthGuard fallback={<WelcomeLogin />}>
+                <DashboardScreen />
+              </AuthGuard>
+            )}
+          </Stack.Screen>
+          
+          <Stack.Screen 
+            name="Record" 
+            options={{ headerShown: false }}
+          >
+            {(props) => (
+              <AuthGuard fallback={<WelcomeLogin />}>
+                <RecordScreen />
+              </AuthGuard>
+            )}
+          </Stack.Screen>
+          
+          <Stack.Screen 
+            name="CanvasEditor" 
+            options={{ headerShown: false }}
+          >
+            {(props) => (
+              <AuthGuard fallback={<WelcomeLogin />}>
+                <CanvasEditor />
+              </AuthGuard>
+            )}
+          </Stack.Screen>
+          
+          {/* 以下は認証不要または開発用画面 */}
           <Stack.Screen 
             name="Home" 
             component={HomeScreen} 
@@ -168,20 +236,7 @@ export default function App() {
               },
             }} 
           />
-          <Stack.Screen 
-            name="Dashboard" 
-            component={DashboardScreen} 
-            options={{ 
-              headerShown: false,
-            }} 
-          />
-          <Stack.Screen 
-            name="Record" 
-            component={RecordScreen} 
-            options={{ 
-              headerShown: false,
-            }} 
-          />
+          
           <Stack.Screen 
             name="Import" 
             component={ImportScreen} 
@@ -196,6 +251,7 @@ export default function App() {
               },
             }} 
           />
+          
           <Stack.Screen 
             name="ImportProgress" 
             component={ImportProgressScreen} 
@@ -203,6 +259,7 @@ export default function App() {
               headerShown: false,
             }} 
           />
+          
           <Stack.Screen 
             name="FileImportSheet" 
             component={FilePickerArea} 
@@ -218,13 +275,7 @@ export default function App() {
               },
             }} 
           />
-          <Stack.Screen 
-            name="CanvasEditor" 
-            component={CanvasEditor} 
-            options={{ 
-              headerShown: false
-            }} 
-          />
+          
           <Stack.Screen 
             name="SkiaTest" 
             component={SkiaTest} 
@@ -232,6 +283,17 @@ export default function App() {
               headerShown: false
             }} 
           />
+          
+          <Stack.Screen 
+            name="Settings" 
+            options={{ headerShown: false }}
+          >
+            {(props) => (
+              <AuthGuard fallback={<WelcomeLogin />}>
+                <Settings />
+              </AuthGuard>
+            )}
+          </Stack.Screen>
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

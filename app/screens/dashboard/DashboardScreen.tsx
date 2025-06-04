@@ -696,7 +696,11 @@ const DashboardScreen: React.FC = () => {
           <Ionicons name="add" size={36} color="#FFFFFF" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.tabItem} disabled={refreshing}>
+        <TouchableOpacity 
+          style={styles.tabItem} 
+          disabled={refreshing}
+          onPress={() => navigation.navigate('Settings' as never)}
+        >
           <View style={styles.notificationBadge} />
           <Ionicons name="person" size={32} color="#589ff4" />
           <Text style={styles.tabText}>設定</Text>

@@ -428,15 +428,15 @@ export const updateNote = async (noteId: string, title: string, content?: string
     if (recordingResult) {
       // contentが指定されていない場合は、transcriptionを更新しない
       if (content !== undefined) {
-        await db.runAsync(
-          'UPDATE recordings SET title = ?, transcription = ? WHERE id = ?;',
+      await db.runAsync(
+        'UPDATE recordings SET title = ?, transcription = ? WHERE id = ?;',
           [title, content, noteId]
         );
       } else {
         await db.runAsync(
           'UPDATE recordings SET title = ? WHERE id = ?;',
           [title, noteId]
-        );
+      );
       }
       console.log('Recording updated successfully');
       return Promise.resolve();

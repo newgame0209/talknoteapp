@@ -64,6 +64,64 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
+### Development Build更新手順（Google認証有効化のため）
+
+#### 前提条件
+- EAS CLI がインストール済み
+- Apple Developer アカウント（iOS）
+- Google Play Console アカウント（Android）
+
+#### 手順
+
+1. **EAS Build実行**
+```bash
+# iOS Development Build作成
+eas build --profile development --platform ios
+
+# Android Development Build作成  
+eas build --profile development --platform android
+```
+
+2. **新しいBuildの実機インストール**
+- iOS: TestFlightまたは直接インストール
+- Android: 生成されたAPKファイルをダウンロード・インストール
+
+3. **Google認証の有効化**
+```bash
+# Google認証機能を有効化
+# app/utils/googleAuth.ts のコメントアウトを解除
+# app/screens/WelcomeLogin.tsx でGoogle認証ボタンを表示
+```
+
+#### 必要な環境変数
+```
+EXPO_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id
+EXPO_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+```
+
+## 現在の実装状況
+
+### ✅ 完了済み機能
+- Firebase Auth基盤（Email/Password, Apple認証）
+- AsyncStorage永続化
+- 認証ガード・保護ルート
+- キーボードツール完全実装
+- ペンツール基本実装
+- 音声録音・文字起こし
+- ノート作成・削除
+- SQLiteローカルキャッシュ
+
+### 🔄 一時的に無効化中
+- Google認証（Development Build更新待ち）
+
+### 🚀 次期実装予定
+- Notebooks/Pages CRUD API
+- AIチャットウィジェット
+- メディア挿入機能
+- 定規・リーディングルーラー
+
 ---
 
 ## 🔑 API キーの取得方法

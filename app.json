@@ -5,40 +5,70 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "scheme": "com.talknote.app",
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.talknote.app",
+      "developmentTeam": "26C27955TZ",
+      "jsEngine": "jsc",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "録音機能を利用するためにマイクへのアクセスを許可してください。",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLName": "google-auth",
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.309882614658-gql2t1kodc74bt80qeaqbq89gsguehm1"
+            ]
+          },
+          {
+            "CFBundleURLName": "talknote-auth",
+            "CFBundleURLSchemes": [
+              "com.talknote.app"
+            ]
+          },
+          {
+            "CFBundleURLName": "line-auth",
+            "CFBundleURLSchemes": [
+              "com.talknote.app"
+            ]
+          }
+        ]
       }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#4F46E5"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
       },
-      "package": "com.talknote.app",
-      "permissions": [
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.INTERNET"
-      ]
+      "package": "com.talknote.app"
+    },
+    "web": {
+      "bundler": "metro"
     },
     "plugins": [
-      "expo-font",
-      "expo-av",
-      "expo-file-system",
-      "expo-sqlite",
-      "expo-dev-client"
+      "expo-dev-client",
+      "@react-native-google-signin/google-signin",
+      "expo-apple-authentication",
+      "expo-build-properties",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.1"
+          },
+          "android": {
+            "minSdkVersion": 24
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {
-        "projectId": "289c2b35-e74b-4c11-abc4-d0c7e2f9df79"
+        "projectId": "9e7b1e8f-9d5c-40ab-9a45-13b1c6c7b4fa"
       }
     }
   }

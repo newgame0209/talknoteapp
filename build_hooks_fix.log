@@ -1,0 +1,43 @@
+env: load .env
+env: export PORT API_URL EXPO_PUBLIC_API_URL FIREBASE_API_KEY FIREBASE_AUTH_DOMAIN FIREBASE_PROJECT_ID FIREBASE_MESSAGING_SENDER_ID FIREBASE_APP_ID GOOGLE_APPLICATION_CREDENTIALS STT_PROVIDER OPENAI_API_KEY OPENAI_MODEL ANTHROPIC_API_KEY ANTHROPIC_MODEL RESEARCH_PROVIDER YAHOO_API_CLIENT_ID DATABASE_URL GCS_BUCKET GCS_UPLOAD_FOLDER FEATURE_OFFLINE_MODE FEATURE_OCR FEATURE_AI_CHAT FEATURE_RESEARCH TEST_USER_EMAIL TEST_USER_PASSWORD EXPO_DEBUG GCP_PROJECT_ID DEBUG BYPASS_AUTH EXPO_PUBLIC_GOOGLE_CLIENT_ID EXPO_PUBLIC_FIREBASE_API_KEY EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN EXPO_PUBLIC_FIREBASE_PROJECT_ID
+› Skipping dev server
+Resolved port: 8081, start dev server: false
+› Using --device 00008120-0004553C36D8A01E
+› Auto signing app using team(s): L4Z8HV85H6
+  xcodebuild -workspace /Users/mishimayu/Desktop/talknote/ios/app.xcworkspace -configuration Debug -scheme app -destination id=00008120-0004553C36D8A01E
+› Planning build
+    Run script build phase '[CP-User] [Hermes] Replace Hermes for the right configuration, if needed' will be run during every build because it does not specify any outputs. To address this issue, either add output dependencies to the script phase, or configure it to run in every build by unchecking "Based on dependency analysis" in the script phase. (in target 'hermes-engine' from project 'Pods')
+› Executing react-native Pods/hermes-engine » [CP-User] [Hermes] Replace Hermes for the right configuration, if needed
+› Preparing Pods/glog-glog_privacy » ResourceBundle-glog_privacy-glog-Info.plist
+› Preparing Pods/RCT-Folly-RCT-Folly_privacy » ResourceBundle-RCT-Folly_privacy-RCT-Folly-Info.plist
+› Preparing Pods/boost-boost_privacy » ResourceBundle-boost_privacy-boost-Info.plist
+› Preparing Pods/EXApplication-ExpoApplication_privacy » ResourceBundle-ExpoApplication_privacy-EXApplication-Info.plist
+› Preparing expo-constants Pods/EXConstants-EXConstants » ResourceBundle-EXConstants-EXConstants-Info.plist
+› Preparing Pods/React-Core-React-Core_privacy » ResourceBundle-React-Core_privacy-React-Core-Info.plist
+› Preparing Pods/expo-dev-menu-EXDevMenu » ResourceBundle-EXDevMenu-expo-dev-menu-Info.plist
+› Preparing Pods/expo-dev-launcher-EXDevLauncher » ResourceBundle-EXDevLauncher-expo-dev-launcher-Info.plist
+› Preparing Pods/React-cxxreact-React-cxxreact_privacy » ResourceBundle-React-cxxreact_privacy-React-cxxreact-Info.plist
+› Preparing Pods/RNSVG-RNSVGFilters » ResourceBundle-RNSVGFilters-RNSVG-Info.plist
+› Preparing Pods/RNCAsyncStorage-RNCAsyncStorage_resources » ResourceBundle-RNCAsyncStorage_resources-RNCAsyncStorage-Info.plist
+› Preparing Pods/EXConstants-ExpoConstants_privacy » ResourceBundle-ExpoConstants_privacy-EXConstants-Info.plist
+› Preparing Pods/ExpoFileSystem-ExpoFileSystem_privacy » ResourceBundle-ExpoFileSystem_privacy-ExpoFileSystem-Info.plist
+› Executing react-native Pods/React-Fabric » [CP-User] [RN]Check rncore
+› Executing react-native Pods/React-RCTFBReactNativeSpec » [CP-User] [RN]Check FBReactNativeSpec
+› Executing react-native Pods/React-FabricComponents » [CP-User] [RN]Check rncore
+› Executing expo-constants Pods/EXConstants » [CP-User] Generate app.config for prebuilt Constants.manifest
+› Executing app » [Expo] Configure project
+› Preparing app » Info.plist
+› Executing app » Bundle React Native code and images
+› Executing app » [CP] Copy Pods Resources
+› Signing   app » app.debug.dylib
+› Signing   app » __preview.dylib
+› Signing   app » app.app
+› Build Succeeded
+Exited with code: 0
+
+› 0 error(s), and 1 warning(s)
+
+Parse plist: /Users/mishimayu/Library/Developer/Xcode/DerivedData/app-eiuqlqytroswgeatwrbwkhactvxb/Build/Products/Debug-iphoneos/app.app/Info.plist
+Waiting on http://localhost:8081
+› Installing /Users/mishimayu/Library/Developer/Xcode/DerivedData/app-eiuqlqytroswgeatwrbwkhactvxb/Build/Products/Debug-iphoneos/app.app
+- Connecting to: iPhone (19)
