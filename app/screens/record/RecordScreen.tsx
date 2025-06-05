@@ -9,7 +9,7 @@ import { Audio } from 'expo-av';
 import { getWsUrl } from '../../config/env';
 import { STTSocket, STTResult } from '../../services/sttSocket'; // Ensure named import
 import { auth } from '../../services/firebase';
-import { saveRecording, generateAITitle } from '../../services/database';
+import { saveRecording, generateAITitle, getAllNotes } from '../../services/database';
 import { mediaApi } from '../../services/api';
 import * as Crypto from 'expo-crypto';
 import * as FileSystem from 'expo-file-system';
@@ -250,8 +250,38 @@ const RecordScreen: React.FC = () => {
       // 録音データをデータベースに保存
       const recordingId = Crypto.randomUUID();
       const finalTranscription = transcription + (interimTranscription ? ' ' + interimTranscription : '');
-      // AIタイトル生成のために仮タイトルをセット
-      const title = finalTranscription.length > 0 ? "AIがタイトルを生成中…" : `録音 ${new Date().toLocaleString('ja-JP')}`;
+      
+      // タイトル生成：文字起こしがある場合はAI生成、ない場合は日付ベース
+      let title: string;
+      if (finalTranscription.length > 0) {
+        // AIタイトル生成のために仮タイトルをセット
+        title = "AIがタイトルを生成中…";
+      } else {
+        // 文字起こしがない場合は日付ベースのタイトルを生成（重複チェック付き）
+        const today = new Date();
+        const baseTitleDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        const baseTitle = `録音 ${baseTitleDate}`;
+        
+        try {
+          // 既存のノートを取得して重複チェック
+          const existingNotes = await getAllNotes();
+          const existingTitles = existingNotes.map(note => note.title);
+          
+          title = baseTitle;
+          let counter = 1;
+          
+          // 同じベースタイトルが存在する場合は連番を付ける
+          while (existingTitles.includes(title)) {
+            title = `${baseTitle}（${counter}）`;
+            counter++;
+          }
+          
+          console.log('📝 録音タイトル重複チェック完了:', { baseTitle, finalTitle: title, existingCount: counter - 1 });
+        } catch (titleCheckError) {
+          console.log('⚠️ 録音タイトル重複チェックでエラー（デフォルトタイトル使用）:', titleCheckError);
+          title = `録音 ${new Date().toLocaleString('ja-JP')}`;
+        }
+      }
       
       try {
         await saveRecording(

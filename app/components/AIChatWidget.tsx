@@ -13,6 +13,7 @@ import {
   Modal,
   StyleSheet,
   Platform,
+  Image,
 } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import { Audio, AVPlaybackSource } from 'expo-av';
@@ -130,8 +131,8 @@ const AIChatWidget: React.FC<AIChatWidgetProps> = ({
   // 初期位置設定（画面右下）
   useEffect(() => {
     widgetPosition.setValue({
-      x: screenWidth - 80,
-      y: screenHeight - 150,
+      x: screenWidth - 94,
+      y: screenHeight - 200,
     });
   }, []);
 
@@ -491,7 +492,12 @@ const AIChatWidget: React.FC<AIChatWidgetProps> = ({
       style={styles.closedIcon}
       onPress={() => animateStateChange('minimized')}
     >
-      <Ionicons name="chatbubble-ellipses" size={28} color="#4A90E2" />
+      {/* 統合されたAIチャットアイコン */}
+      <Image 
+        source={require('../assets/aichat.png')} 
+        style={styles.aiChatIcon}
+        resizeMode="contain"
+      />
     </TouchableOpacity>
   );
 
@@ -749,17 +755,15 @@ const styles = StyleSheet.create({
   
   // クローズド状態
   closedIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#fff',
+    width: 100,
+    height: 100,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   
   // 最小化状態
@@ -974,6 +978,10 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: '#CCC',
+  },
+  aiChatIcon: {
+    width: 90,
+    height: 90,
   },
 });
 

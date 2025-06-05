@@ -3,33 +3,72 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { getCurrentIdToken } from './auth';
 
-// API設定
-const API_BASE_URL = __DEV__ 
-  ? 'http://192.168.0.46:8000'  // 開発環境（実機用IPアドレス）
-  : 'https://api.talknote.app';  // 本番環境
-
-const WS_BASE_URL = __DEV__ 
-  ? 'ws://192.168.0.46:8002/api/v1/stt/stream'  // 開発環境（実機用IPアドレス + 正しいパス）
-  : 'wss://api.talknote.app/api/v1/stt/stream';  // 本番環境
-
-// 開発環境でのIPアドレスを取得
-const getDevServerUrl = () => {
+// 環境変数から動的にAPIベースURLを取得
+const getApiBaseUrl = () => {
+  // 環境変数からAPIベースURLを取得
+  const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+  if (baseUrl) {
+    console.log('[API] 環境変数からベースURL取得:', baseUrl);
+    return baseUrl;
+  }
+  
+  // フォールバック：開発環境と本番環境
   if (__DEV__) {
     // Expo Goの場合、hostUriからIPアドレスを取得
     const hostUri = Constants.expoConfig?.hostUri;
     if (hostUri) {
       const host = hostUri.split(':')[0];
-      return `http://${host}:8000/api/v1`;
+      const devUrl = `http://${host}:8000`;
+      console.log('[API] Expo GoホストからURL生成:', devUrl);
+      return devUrl;
     }
     
-    // フォールバック
-    if (Platform.OS === 'android') {
-      return 'http://10.0.2.2:8000/api/v1'; // Android エミュレータ用
-    } else {
-      return 'http://localhost:8000/api/v1'; // iOS シミュレータ用
-    }
+    // デフォルトフォールバック
+    const fallbackUrl = Platform.OS === 'android' 
+      ? 'http://10.0.2.2:8000'  // Android エミュレータ用
+      : 'http://localhost:8000'; // iOS シミュレータ用
+    console.log('[API] フォールバックURL使用:', fallbackUrl);
+    return fallbackUrl;
   }
-  return 'https://api.talknote.app/api/v1'; // 本番環境用
+  
+  // 本番環境
+  const prodUrl = 'https://api.talknote.app';
+  console.log('[API] 本番環境URL使用:', prodUrl);
+  return prodUrl;
+};
+
+// API設定
+const API_BASE_URL = getApiBaseUrl();
+
+// WebSocket URL生成関数
+const getWsBaseUrl = () => {
+  // 環境変数からSTTベースURLを取得
+  const sttBaseUrl = process.env.EXPO_PUBLIC_STT_BASE_URL;
+  if (sttBaseUrl) {
+    // HTTPをWSに変換
+    const wsUrl = sttBaseUrl.replace('http:', 'ws:').replace('https:', 'wss:');
+    console.log('[WS] 環境変数からWebSocketURL取得:', `${wsUrl}/api/v1/stt/stream`);
+    return `${wsUrl}/api/v1/stt/stream`;
+  }
+  
+  // フォールバック
+  if (__DEV__) {
+    const fallbackWsUrl = 'ws://localhost:8002/api/v1/stt/stream';
+    console.log('[WS] フォールバックWebSocketURL使用:', fallbackWsUrl);
+    return fallbackWsUrl;
+  } else {
+    const prodWsUrl = 'wss://api.talknote.app/api/v1/stt/stream';
+    console.log('[WS] 本番WebSocketURL使用:', prodWsUrl);
+    return prodWsUrl;
+  }
+};
+
+const WS_BASE_URL = getWsBaseUrl();
+
+// 開発環境でのIPアドレスを取得
+const getDevServerUrl = () => {
+  // APIベースURLにAPIバージョンパスを追加
+  return `${API_BASE_URL}/api/v1`;
 };
 
 // APIのベースURLを環境に応じて設定
@@ -189,6 +228,89 @@ export const aiApi = {
       console.error('[aiApi.generateTitle] エラー:', error);
       throw error;
     }
+  },
+};
+
+// Notebooks関連のAPI
+export const notebooksApi = {
+  // ノートブック一覧の取得
+  getNotebooks: async (skip: number = 0, limit: number = 100, search?: string) => {
+    const params = new URLSearchParams({
+      skip: skip.toString(),
+      limit: limit.toString(),
+    });
+    if (search) {
+      params.append('search', search);
+    }
+    
+    const response = await api.get(`/api/v1/notebooks?${params.toString()}`);
+    return response.data;
+  },
+
+  // ノートブック作成
+  createNotebook: async () => {
+    const response = await api.post('/api/v1/notebooks');
+    return response.data;
+  },
+
+  // ノートブック取得
+  getNotebook: async (notebookId: string) => {
+    const response = await api.get(`/api/v1/notebooks/${notebookId}`);
+    return response.data;
+  },
+
+  // ノートブック更新
+  updateNotebook: async (notebookId: string, data: { title?: string; description?: string; folder?: string; tags?: string[] }) => {
+    const response = await api.patch(`/api/v1/notebooks/${notebookId}`, data);
+    return response.data;
+  },
+
+  // ノートブック削除（論理削除）
+  deleteNotebook: async (notebookId: string) => {
+    const response = await api.delete(`/api/v1/notebooks/${notebookId}`);
+    return response.data;
+  },
+};
+
+// Pages関連のAPI
+export const pagesApi = {
+  // ページ一覧の取得
+  getPages: async (notebookId: string, skip: number = 0, limit: number = 100) => {
+    const params = new URLSearchParams({
+      notebook_id: notebookId,
+      skip: skip.toString(),
+      limit: limit.toString(),
+    });
+    
+    const response = await api.get(`/api/v1/pages/?${params.toString()}`);
+    return response.data;
+  },
+
+  // ページ作成
+  createPage: async (notebookId: string, data: { title?: string; page_number?: number; canvas_data?: any }) => {
+    const response = await api.post('/api/v1/pages/', {
+      notebook_id: notebookId,
+      ...data
+    });
+    return response.data;
+  },
+
+  // ページ取得
+  getPage: async (pageId: string) => {
+    const response = await api.get(`/api/v1/pages/${pageId}`);
+    return response.data;
+  },
+
+  // ページ更新（キャンバスデータ保存を含む）
+  updatePage: async (pageId: string, data: { title?: string; page_number?: number; canvas_data?: any }) => {
+    const response = await api.patch(`/api/v1/pages/${pageId}`, data);
+    return response.data;
+  },
+
+  // ページ削除
+  deletePage: async (pageId: string) => {
+    const response = await api.delete(`/api/v1/pages/${pageId}`);
+    return response.data;
   },
 };
 

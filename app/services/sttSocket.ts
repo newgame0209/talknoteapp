@@ -1,9 +1,17 @@
 // app/services/sttSocket.ts
 
-// WebSocketの設定
-const WS_BASE_URL = __DEV__ 
-  ? 'ws://192.168.0.46:8002/api/v1/stt/stream'  // 開発環境（実機用IPアドレス + 正しいパス）
-  : 'wss://api.talknote.app/api/v1/stt/stream';  // 本番環境
+// WebSocketの設定を環境変数から取得
+const getSTTWebSocketURL = (): string => {
+  if (__DEV__) {
+    // 開発環境：EXPO_PUBLIC_STT_BASE_URLを使用
+    const sttBaseUrl = process.env.EXPO_PUBLIC_STT_BASE_URL || 'http://192.168.0.166:8002';
+    // HTTPをWSに変換してWebSocketパスを追加
+    return sttBaseUrl.replace('http://', 'ws://').replace('https://', 'wss://') + '/api/v1/stt/stream';
+  } else {
+    // 本番環境
+    return 'wss://api.talknote.app/api/v1/stt/stream';
+  }
+};
 
 // WebSocketの状態を表す型
 type WebSocketState = 'CONNECTING' | 'OPEN' | 'CLOSING' | 'CLOSED';
@@ -110,16 +118,16 @@ export class STTSocket {
         const rawData = JSON.parse(String(event.data));
         console.log('[STTSocket] Parsed data (object):', rawData); // For debugging
         
-        // サーバーからのデータをSTTResult型に変換
+        // サーバーからのデータをSTTResult型に変換（snake_case → camelCase）
         const parsedData: STTResult = {
-          text: rawData.text || '',
-          isFinal: rawData.is_final || false,
-          confidence: rawData.confidence,
+          text: rawData.text || rawData.transcript || '',  // Google STTは'transcript'、独自実装は'text'
+          isFinal: rawData.is_final || false,  // snake_case → camelCase
+          confidence: rawData.confidence || rawData.stability || 0.0,  // confidence または stability
           language: rawData.language_code || 'ja-JP'
         };
         
         console.log('[STTSocket] Converted data:', parsedData); // For debugging
-        if (this.onMessageCallback) {
+        if (this.onMessageCallback && parsedData.text) {  // textが空でない場合のみコールバック
           this.onMessageCallback(parsedData);
         }
       } catch (error) {

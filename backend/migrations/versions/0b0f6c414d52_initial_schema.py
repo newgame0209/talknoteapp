@@ -9,7 +9,6 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = '0b0f6c414d52'
@@ -26,80 +25,80 @@ def upgrade() -> None:
     sa.Column('name', sa.String(), nullable=True),
     sa.Column('picture', sa.String(), nullable=True),
     sa.Column('email_verified', sa.Boolean(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
-    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
     sa.PrimaryKeyConstraint('uid')
     )
     op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
     op.create_index(op.f('ix_users_uid'), 'users', ['uid'], unique=False)
     op.create_table('notebooks',
-    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('id', sa.String(), nullable=False),
     sa.Column('title', sa.String(), nullable=False),
     sa.Column('description', sa.Text(), nullable=True),
     sa.Column('user_id', sa.String(), nullable=False),
     sa.Column('folder', sa.String(), nullable=True),
     sa.Column('deleted', sa.Boolean(), nullable=True),
     sa.Column('deleted_at', sa.DateTime(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
-    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
     sa.ForeignKeyConstraint(['user_id'], ['users.uid'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('tags',
-    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('id', sa.String(), nullable=False),
     sa.Column('name', sa.String(), nullable=False),
     sa.Column('user_id', sa.String(), nullable=False),
     sa.Column('color', sa.String(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
-    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
     sa.ForeignKeyConstraint(['user_id'], ['users.uid'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_tags_name'), 'tags', ['name'], unique=False)
     op.create_table('notebook_tags',
-    sa.Column('notebook_id', sa.UUID(), nullable=False),
-    sa.Column('tag_id', sa.UUID(), nullable=False),
+    sa.Column('notebook_id', sa.String(), nullable=False),
+    sa.Column('tag_id', sa.String(), nullable=False),
     sa.ForeignKeyConstraint(['notebook_id'], ['notebooks.id'], ),
     sa.ForeignKeyConstraint(['tag_id'], ['tags.id'], ),
     sa.PrimaryKeyConstraint('notebook_id', 'tag_id')
     )
     op.create_table('pages',
-    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('id', sa.String(), nullable=False),
     sa.Column('title', sa.String(), nullable=True),
-    sa.Column('notebook_id', sa.UUID(), nullable=False),
+    sa.Column('notebook_id', sa.String(), nullable=False),
     sa.Column('page_number', sa.Integer(), nullable=False),
     sa.Column('canvas_data', sa.JSON(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
-    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
     sa.ForeignKeyConstraint(['notebook_id'], ['notebooks.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('media_assets',
-    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('id', sa.String(), nullable=False),
     sa.Column('filename', sa.String(), nullable=False),
     sa.Column('media_type', sa.Enum('AUDIO', 'IMAGE', 'PDF', 'URL', name='mediatype'), nullable=False),
     sa.Column('status', sa.Enum('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', name='processingstatus'), nullable=False),
     sa.Column('storage_path', sa.String(), nullable=False),
-    sa.Column('page_id', sa.UUID(), nullable=False),
+    sa.Column('page_id', sa.String(), nullable=False),
     sa.Column('duration', sa.Integer(), nullable=True),
     sa.Column('mime_type', sa.String(), nullable=True),
     sa.Column('error_message', sa.Text(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
-    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
     sa.Column('processed_at', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['page_id'], ['pages.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('transcripts',
-    sa.Column('id', sa.UUID(), nullable=False),
-    sa.Column('media_asset_id', sa.UUID(), nullable=False),
+    sa.Column('id', sa.String(), nullable=False),
+    sa.Column('media_asset_id', sa.String(), nullable=False),
     sa.Column('provider', sa.String(), nullable=False),
     sa.Column('text', sa.Text(), nullable=False),
     sa.Column('start_time', sa.Float(), nullable=True),
     sa.Column('end_time', sa.Float(), nullable=True),
     sa.Column('confidence', sa.Float(), nullable=True),
-    sa.Column('transcript_metadata', postgresql.JSONB(astext_type=sa.Text()), nullable=True, comment='文字起こしの追加メタデータ'),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+    sa.Column('transcript_metadata', sa.JSON(), nullable=True, comment='文字起こしの追加メタデータ'),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
     sa.ForeignKeyConstraint(['media_asset_id'], ['media_assets.id'], ),
     sa.PrimaryKeyConstraint('id')
     )

@@ -25,7 +25,7 @@ import * as Haptics from 'expo-haptics';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
-import { getRecordings, Recording, initDatabase, deleteNote, updateNoteTitle } from '../../services/database';
+import { getRecordings, Recording, initDatabase, deleteNote, updateNoteTitle, getAllNotes } from '../../services/database';
 
 // 仮のデータ型定義
 interface Note {
@@ -128,7 +128,7 @@ const DashboardScreen: React.FC = () => {
       
       // 録音データを取得
       console.log('[Dashboard] 録音データ取得中...');
-      const recordingData = await getRecordings();
+      const recordingData = await getAllNotes();
       console.log('[Dashboard] 録音データ取得完了:', recordingData.length, '件');
       setRecordings(recordingData);
 
@@ -146,7 +146,7 @@ const DashboardScreen: React.FC = () => {
   const startTitleGenerationMonitoring = () => {
     const intervalId = setInterval(async () => {
       try {
-        const currentRecordings = await getRecordings();
+        const currentRecordings = await getAllNotes();
         const hasGeneratingTitle = currentRecordings.some(recording => 
           recording.title === "AIがタイトルを生成中…"
         );
@@ -185,7 +185,7 @@ const DashboardScreen: React.FC = () => {
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', async () => {
       try {
-        const recordingData = await getRecordings();
+        const recordingData = await getAllNotes();
         setRecordings(recordingData);
         
         // タイトル生成中のノートがある場合、監視を開始
@@ -204,13 +204,110 @@ const DashboardScreen: React.FC = () => {
     return unsubscribe;
   }, [navigation]);
 
+  // キャンバスデータの表示用に処理する関数
+  const parseCanvasData = (transcription?: string) => {
+    if (!transcription) return { title: null, displayText: null };
+    
+    try {
+      // JSONデータとして解析を試行
+      const canvasData = JSON.parse(transcription);
+      if (canvasData && typeof canvasData === 'object') {
+        // ✨ 新しいキャンバスデータ構造に対応
+        if (canvasData.type === 'canvas') {
+          // 新しいキャンバスデータ構造の場合
+          const title = canvasData.title || null;
+          const content = canvasData.content || '';
+          const pathsCount = canvasData.drawingPaths ? canvasData.drawingPaths.length : 0;
+          
+          let displayText = '';
+          if (content.trim()) {
+            // テキストがある場合、最初の50文字を表示
+            displayText = content.trim().length > 50 
+              ? content.trim().substring(0, 50) + '...' 
+              : content.trim();
+          }
+          if (pathsCount > 0) {
+            const drawingText = `手書き ${pathsCount}個`;
+            displayText = displayText 
+              ? `${displayText}（${drawingText}）` 
+              : drawingText;
+          }
+          
+          // テキストも手書きもない場合
+          if (!displayText) {
+            displayText = '空のノート';
+          }
+          
+          return { 
+            title: title,
+            displayText: displayText,
+            isCanvas: true,
+            stats: { textLength: content.length, pathsCount }
+          };
+        } else {
+          // 古い形式のキャンバスデータ
+          const title = canvasData.title || null;
+          const content = canvasData.content || '';
+          const pathsCount = canvasData.drawingPaths ? canvasData.drawingPaths.length : 0;
+          
+          let displayText = '';
+          if (content.trim()) {
+            displayText = content.trim().length > 50 
+              ? content.trim().substring(0, 50) + '...' 
+              : content.trim();
+          }
+          if (pathsCount > 0) {
+            displayText += displayText ? `（手書き ${pathsCount}個）` : `手書き ${pathsCount}個`;
+          }
+          
+          return { 
+            title: title,
+            displayText: displayText || '空のノート',
+            isCanvas: true,
+            stats: { textLength: content.length, pathsCount }
+          };
+        }
+      } else {
+        // JSONだが、オブジェクトでない場合
+        return { title: null, displayText: null };
+      }
+    } catch (parseError) {
+      // JSONパースエラーの場合は通常のテキストとして扱う
+      const textLength = transcription.length;
+      if (textLength > 300) {
+        // 長いテキストの場合は文字起こしデータの可能性
+        const preview = transcription.substring(0, 50) + '...';
+        return { 
+          title: null, 
+          displayText: `📝 ${preview}`,
+          isTranscription: true,
+          stats: { textLength, pathsCount: 0 }
+        };
+      } else {
+        // 短いテキストはそのまま表示
+        return { 
+          title: null, 
+          displayText: transcription,
+          isText: true,
+          stats: { textLength, pathsCount: 0 }
+        };
+      }
+    }
+  };
+
   // 録音データをNote形式に変換
   const convertRecordingToNote = (recording: Recording): Note => {
+    // キャンバスデータの解析
+    const { title: canvasTitle, displayText } = parseCanvasData(recording.transcription);
+    
+    // タイトルの決定（キャンバスデータのタイトル優先、次に元のタイトル）
+    const finalTitle = canvasTitle || recording.title;
+    
     return {
       id: recording.id,
-      title: recording.title,
+      title: finalTitle,
       date: new Date(recording.created_at).toLocaleDateString('ja-JP'),
-      type: 'audio',
+      type: recording.duration > 0 ? 'audio' : 'document', // 手動ノートはdocument、録音はaudio
     };
   };
 
@@ -255,7 +352,7 @@ const DashboardScreen: React.FC = () => {
       {/* 新規ノート作成ボタン */}
       <TouchableOpacity 
         style={[styles.createNoteButton, refreshing && styles.createNoteButtonDisabled]} 
-        onPress={() => navigation.navigate('CanvasEditor')}
+        onPress={() => navigation.navigate('CanvasEditor', { noteId: 'new', isNewNote: true })}
         disabled={refreshing}
       >
         <Ionicons name="add" size={24} color="#FFFFFF" />
@@ -297,21 +394,31 @@ const DashboardScreen: React.FC = () => {
     const isSelected = selectedNotes.has(item.id);
     const isGeneratingTitle = item.title === "AIがタイトルを生成中…";
 
-    // スワイプジェスチャーのハンドラー
+    // 改善されたスワイプジェスチャーのハンドラー
     const onSwipeGesture = (event: any) => {
+      // ジェスチャーが終了した時のみ処理
       if (event.nativeEvent.state === State.END) {
-        const { translationX } = event.nativeEvent;
-        // 左方向に50px以上スワイプした場合
-        if (translationX < -50) {
+        const { translationX, velocityX } = event.nativeEvent;
+        
+        // 左方向に70px以上スワイプ、または速度が-400以上の場合
+        if (translationX < -70 || velocityX < -400) {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-          setIsSelectionMode(true);
-          setSelectedNotes(new Set([item.id]));
+          if (!isSelectionMode) {
+            setIsSelectionMode(true);
+            setSelectedNotes(new Set([item.id]));
+          }
         }
       }
     };
 
     return (
-      <PanGestureHandler onHandlerStateChange={onSwipeGesture}>
+      <PanGestureHandler 
+        onHandlerStateChange={onSwipeGesture}
+        activeOffsetX={[-20, 20]}  // 水平方向に20px以上動いた時のみアクティブ
+        failOffsetY={[-10, 10]}   // 垂直方向に10px以上動いたら失敗（スクロール優先）
+        minPointers={1}
+        maxPointers={1}
+      >
         <Animated.View>
           <TouchableOpacity
             style={[
@@ -319,7 +426,7 @@ const DashboardScreen: React.FC = () => {
               isSelected && styles.noteItemSelected,
               isGeneratingTitle && styles.noteItemGenerating
             ]}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
             onPress={() => {
               if (isSelectionMode) {
                 toggleNoteSelection(item.id);
@@ -329,10 +436,12 @@ const DashboardScreen: React.FC = () => {
             }}
             onLongPress={() => {
               if (!isSelectionMode) {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 setIsSelectionMode(true);
                 setSelectedNotes(new Set([item.id]));
               }
             }}
+            delayLongPress={600}  // 長押し検出時間を600msに延長
             disabled={refreshing}
           >
             <View style={styles.noteItemContent} pointerEvents="box-none">
@@ -650,6 +759,23 @@ const DashboardScreen: React.FC = () => {
     }
   };
 
+  // デバッグ情報をログ出力（安全に）
+  try {
+    console.log('[Dashboard] FlatList render debug:', {
+      recordingsLength: recordings?.length || 0,
+      recordingsType: typeof recordings,
+      isArray: Array.isArray(recordings),
+      recordingsSample: recordings?.slice(0, 2).map(r => ({
+        id: r?.id,
+        title: r?.title,
+        type: typeof r
+      })) || [],
+      shouldShowEmpty: recordings?.length === 0
+    });
+  } catch (debugError) {
+    console.error('[Dashboard] Debug log error:', debugError);
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -679,6 +805,29 @@ const DashboardScreen: React.FC = () => {
             progressViewOffset={60}
           />
         }
+        // パフォーマンス最適化の設定
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        initialNumToRender={20}
+        windowSize={10}
+        getItemLayout={(data, index) => ({
+          length: 88, // ノートアイテムの固定高さ
+          offset: 88 * index,
+          index,
+        })}
+        // スクロール感度の改善
+        scrollEventThrottle={16}
+        bounces={true}
+        bouncesZoom={false}
+        alwaysBounceVertical={true}
+        decelerationRate="normal"
+        // メモリ効率の改善
+        legacyImplementation={false}
+        maintainVisibleContentPosition={{
+          minIndexForVisible: 0,
+          autoscrollToTopThreshold: 10,
+        }}
       />
       {/* 下部タブバー */}
       <View style={styles.tabBar}>

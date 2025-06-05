@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { v4 as uuidv4 } from 'uuid';
-import databaseService from '../services/database';
+import * as databaseService from '../services/database';
+import { Recording, ImportFile, UploadQueueItem } from '../services/database';
+import * as Crypto from 'expo-crypto';
 
 // データベースストアの型定義
 interface DatabaseState {
@@ -89,7 +90,7 @@ export const useDatabaseStore = create<DatabaseState>()((set, get) => ({
       set({ isLoading: true, error: null });
       
       // 一意のIDを生成
-      const id = uuidv4();
+      const id = Crypto.randomUUID();
       
       // データベースに保存
       await databaseService.saveRecording(id, title, duration, filePath, transcription);
@@ -113,7 +114,7 @@ export const useDatabaseStore = create<DatabaseState>()((set, get) => ({
       set({ isLoading: true, error: null });
       
       // 一意のIDを生成
-      const id = uuidv4();
+      const id = Crypto.randomUUID();
       
       // データベースに保存
       await databaseService.saveImport(id, title, filePath, fileType, fileSize);
@@ -137,7 +138,7 @@ export const useDatabaseStore = create<DatabaseState>()((set, get) => ({
       set({ isLoading: true, error: null });
       
       // 一意のIDを生成
-      const id = uuidv4();
+      const id = Crypto.randomUUID();
       
       // アップロードキューに追加
       await databaseService.addToUploadQueue(id, type, itemId);

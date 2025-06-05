@@ -462,6 +462,35 @@ export const updateNote = async (noteId: string, title: string, content?: string
   }
 };
 
+// キャンバスデータ専用の更新関数
+export const updateCanvasData = async (noteId: string, canvasData: any): Promise<void> => {
+  try {
+    const db = getDatabase();
+    const canvasJson = JSON.stringify(canvasData);
+    
+    // 録音データテーブルから検索
+    const recordingResult = await db.getFirstAsync<Recording>(
+      'SELECT * FROM recordings WHERE id = ?;',
+      [noteId]
+    );
+    if (recordingResult) {
+      await db.runAsync(
+        'UPDATE recordings SET transcription = ? WHERE id = ?;',
+        [canvasJson, noteId]
+      );
+      console.log('Canvas data updated successfully');
+      return Promise.resolve();
+    }
+    
+    // インポートファイルテーブルには対応しない（キャンバスは録音専用）
+    throw new Error('Note not found or not a recording');
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Error updating canvas data:', errorMessage);
+    return Promise.reject(error);
+  }
+};
+
 // 録音データを削除する関数
 export const deleteRecording = async (recordingId: string): Promise<void> => {
   try {
@@ -529,6 +558,46 @@ export const deleteNote = async (noteId: string): Promise<void> => {
   }
 };
 
+// すべてのノート（録音 + インポート）を統合して取得
+export const getAllNotes = async (): Promise<Recording[]> => {
+  try {
+    const db = getDatabase();
+    
+    // 録音データとインポートファイルを統合してRecording型として返す
+    const result = await db.getAllAsync<Recording>(
+      `SELECT 
+        id,
+        title,
+        duration,
+        file_path,
+        created_at,
+        uploaded,
+        media_id,
+        transcription
+      FROM recordings
+      UNION ALL
+      SELECT 
+        id,
+        title,
+        0 as duration,
+        file_path,
+        created_at,
+        uploaded,
+        media_id,
+        NULL as transcription
+      FROM imports
+      ORDER BY created_at DESC;`
+    );
+    
+    console.log('[getAllNotes] 取得したノート数:', result.length);
+    return result || [];
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Error getting all notes:', errorMessage);
+    return Promise.reject(error);
+  }
+};
+
 export default {
   initDatabase,
   saveRecording,
@@ -542,8 +611,10 @@ export default {
   exportDatabase,
   getNoteById,
   updateNote,
+  updateCanvasData,
   updateNoteTitle,
   deleteRecording,
   deleteImport,
-  deleteNote
+  deleteNote,
+  getAllNotes
 };

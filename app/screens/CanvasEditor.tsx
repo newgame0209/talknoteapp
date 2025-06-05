@@ -155,13 +155,36 @@ const CanvasEditor: React.FC = () => {
           
           // デフォルトタイトル生成（ノート2025-06-04形式）
           const today = new Date();
-          const defaultTitle = `ノート${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-          setTitle(defaultTitle);
+          const baseTitleDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+          const baseTitle = `ノート${baseTitleDate}`;
+          
+          // 重複チェックと連番付与
+          let finalTitle = baseTitle;
+          let counter = 1;
+          
+          try {
+            // 既存のノートを取得して重複チェック
+            const existingNotes = await database.getAllNotes();
+            const existingTitles = existingNotes.map(note => note.title);
+            
+            // 同じベースタイトルが存在する場合は連番を付ける
+            while (existingTitles.includes(finalTitle)) {
+              finalTitle = `${baseTitle}（${counter}）`;
+              counter++;
+            }
+            
+            console.log('📝 タイトル重複チェック完了:', { baseTitle, finalTitle, existingCount: counter - 1 });
+          } catch (titleCheckError) {
+            console.log('⚠️ タイトル重複チェックでエラー（デフォルトタイトル使用）:', titleCheckError);
+            finalTitle = baseTitle;
+          }
+          
+          setTitle(finalTitle);
           
           // ローカルのダミーノートを作成（録音用のsaveRecording関数を利用）
           // ここでキャンバス用のローカルノートを確実に保存
           const savedNoteId = await saveRecording(
-            defaultTitle,
+            finalTitle,
             0, // duration: 0秒（キャンバスデータ用）
             '', // filePath: 空（キャンバスデータ用）
             '' // transcription: 空のコンテンツ（キャンバス用）
@@ -175,11 +198,12 @@ const CanvasEditor: React.FC = () => {
             console.log('⚠️ ノートID取得に失敗、ローカル編集のみ継続');
           }
           
-        } catch (error) {
+      } catch (error) {
           console.log('⚠️ ローカル新規ノート作成中にエラー:', error);
           // エラーでもローカル編集は継続
           const today = new Date();
-          const defaultTitle = `ノート${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+          const baseTitleDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+          const defaultTitle = `ノート${baseTitleDate}`;
           setTitle(defaultTitle);
         }
         
@@ -465,19 +489,19 @@ const CanvasEditor: React.FC = () => {
   // テキストタイプ選択ハンドラ
   const handleTextTypeSelect = (type: TextType) => {
     setSelectedTextType(type);
-    markAsChanged(); // 変更フラグのみ
+    markAsChanged(); // 🔥 追加
   };
 
   // フォント選択ハンドラ
   const handleFontSelect = (font: FontType) => { // 型を更新
     setSelectedFont(font);
-    markAsChanged(); // 変更フラグのみ
+    markAsChanged(); // 🔥 追加
   };
 
   // テキストカラー選択ハンドラ
   const handleTextColorSelect = (color: string) => {
     setTextColor(color);
-    markAsChanged(); // 変更フラグのみ
+    markAsChanged(); // 🔥 追加
   };
 
   // 音声ツール選択ハンドラ
@@ -505,22 +529,13 @@ const CanvasEditor: React.FC = () => {
   // ペンツール選択ハンドラ
   const handlePenToolSelect = (tool: PenToolType) => {
     setSelectedPenTool(tool);
-    
-    // 消しゴムが選択された場合は色と太さ設定を閉じる
-    if (tool === 'eraser') {
-      setShowColorSettings(false);
-      setShowStrokeSettings(false);
-    }
-    
-    markAsChanged(); // 変更フラグのみ
-    
-    // console.log('🎨 Pen sub-tool selected:', tool);
+    markAsChanged(); // 🔥 追加
   };
 
   // 色選択ハンドラ
   const handleColorSelect = (color: string) => {
     setSelectedColor(color);
-    markAsChanged(); // 変更フラグのみ
+    markAsChanged(); // 🔥 追加
   };
 
   // 色設定が必要なツールかどうかを判定
@@ -687,6 +702,7 @@ const CanvasEditor: React.FC = () => {
   // 線の太さ変更ハンドラー
   const handleStrokeWidthChange = (width: number) => {
     setStrokeWidth(width);
+    markAsChanged(); // 🔥 追加
   };
 
   // 📏 線の太さ設定表示の切り替え
@@ -704,7 +720,7 @@ const CanvasEditor: React.FC = () => {
   // 📏 線の太さ選択ハンドラー
   const handleStrokeTypeSelect = (type: 'thin' | 'medium' | 'thick') => {
     setStrokeWidth(strokeOptions[type].value);
-    setShowStrokeSettings(false); // 選択後に閉じる
+    markAsChanged(); // 🔥 追加
   };
 
   // テキストスタイルを動的に生成する関数を追加
@@ -777,9 +793,10 @@ const CanvasEditor: React.FC = () => {
 
   // フォントサイズ変更ハンドラ
   const handleFontSizeChange = (newSize: number) => {
-    // 最小8px、最大32pxに制限
-    const clampedSize = Math.max(8, Math.min(32, newSize));
-    setFontSize(clampedSize);
+    if (newSize >= 8 && newSize <= 32) {
+      setFontSize(newSize);
+      markAsChanged(); // 🔥 追加
+    }
   };
 
   // フォントサイズ増加ハンドラ
@@ -795,20 +812,23 @@ const CanvasEditor: React.FC = () => {
   // 太字トグルハンドラ
   const handleBoldToggle = () => {
     setIsBold(!isBold);
+    markAsChanged(); // 🔥 追加
   };
 
   // 行間調整ハンドラ
   const handleLineSpacingChange = (spacing: number) => {
-    // 0.8倍から2.0倍の範囲で制限
-    const clampedSpacing = Math.max(0.8, Math.min(2.0, spacing));
-    setLineSpacing(clampedSpacing);
+    if (spacing >= 0.8 && spacing <= 2.0) {
+      setLineSpacing(spacing);
+      markAsChanged(); // 🔥 追加
+    }
   };
 
   // 文字間隔調整ハンドラ
   const handleLetterSpacingChange = (spacing: number) => {
-    // -2pxから5pxの範囲で制限
-    const clampedSpacing = Math.max(-2, Math.min(5, spacing));
-    setLetterSpacing(clampedSpacing);
+    if (spacing >= -2 && spacing <= 5) {
+      setLetterSpacing(spacing);
+      markAsChanged(); // 🔥 追加
+    }
   };
 
   // ✨ シンプルな自動保存関数（5秒間隔）
@@ -1261,7 +1281,10 @@ const CanvasEditor: React.FC = () => {
                     ref={titleInputRef}
                     style={styles.titleInput}
                     value={title}
-                    onChangeText={setTitle}
+                    onChangeText={(text) => {
+                      setTitle(text);
+                      markAsChanged(); // 🔥 追加: タイトル変更時に変更フラグを立てる
+                    }}
                     onBlur={handleTitleSave}
                     autoFocus
                     placeholder="タイトルを入力"
@@ -1285,7 +1308,10 @@ const CanvasEditor: React.FC = () => {
                     selectedTool === 'pen' && styles.contentInputBackground
                   ]}
                   value={content}
-                  onChangeText={setContent}
+                  onChangeText={(text) => {
+                    setContent(text);
+                    markAsChanged(); // 🔥 追加: 本文変更時に変更フラグを立てる
+                  }}
                   placeholder="本文を入力"
                   multiline
                   textAlignVertical="top"
@@ -1410,8 +1436,8 @@ const CanvasEditor: React.FC = () => {
                 <View style={[styles.strokePreview, { width: 5, height: 20, backgroundColor: selectedColor }]} />
                 <Text style={styles.strokeOptionText}>太め</Text>
               </TouchableOpacity>
-            </View>
           </View>
+        </View>
         )}
 
         {/* AIチャットウィジェット */}

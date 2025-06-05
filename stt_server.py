@@ -116,9 +116,31 @@ async def stt_websocket(
         async def receive_audio():
             try:
                 while True:
-                    # Receive binary data from the client
-                    data = await websocket.receive_bytes()
-                    await audio_queue.put(data)
+                    # WebSocketメッセージの種類を判別して処理
+                    message = await websocket.receive()
+                    
+                    # テキストメッセージの場合（コントロールメッセージ）
+                    if "text" in message:
+                        text_data = message["text"]
+                        logger.info(f"Received text message: {text_data}")
+                        try:
+                            control_msg = json.loads(text_data)
+                            if control_msg.get("event") == "EOS":  # End of Stream
+                                logger.info("Received End of Stream signal")
+                                break
+                        except json.JSONDecodeError:
+                            logger.warning(f"Invalid control message: {text_data}")
+                        continue
+                    
+                    # バイナリデータの場合（音声データ）
+                    elif "bytes" in message:
+                        data = message["bytes"]
+                        if data:  # 空でないデータのみキューに追加
+                            await audio_queue.put(data)
+                    
+                    else:
+                        logger.warning(f"Unknown message type: {message.keys()}")
+                        
             except WebSocketDisconnect:
                 logger.info("Client disconnected")
             except Exception as e:
