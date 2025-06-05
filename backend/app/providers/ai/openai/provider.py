@@ -84,18 +84,42 @@ class OpenAIProvider(BaseAIProvider):
             return "APIキーが設定されていないため、タイトルを生成できません。"
         
         try:
-            # タイトル生成用のプロンプト作成
+            # 改善されたタイトル生成用のプロンプト
             system_prompt = """
-            あなたは優れたタイトル生成AIです。
-            与えられたテキストの内容を理解し、その内容を端的に表現するタイトルを生成してください。
-            タイトルは簡潔で、内容を正確に表現するものにしてください。
-            必ず日本語で生成してください。
+            あなたは学習支援AIで、ノートのタイトル生成のエキスパートです。
+            与えられたテキストの核心的な内容を理解し、以下の条件でタイトルを生成してください：
+
+            【タイトル生成のルール】
+            1. 内容の主要なテーマや概念を含む
+            2. 10-20文字程度の適切な長さ
+            3. 学習者が一目で内容を理解できる
+            4. 具体的で検索しやすい
+            5. 専門用語も含めて正確に表現
+
+            【生成例】
+            - 「りんごについて学習した」→「りんごの栄養素と健康効果」
+            - 「英語の勉強をしました」→「英語基本文法：現在完了形」
+            - 「今日の天気は晴れ」→「晴天の気象観測記録」
+
+            タイトルのみを出力してください。説明は不要です。
             """
             
             # プロンプトを作成
-            user_content = f"以下のテキストの内容を端的に表現するタイトルを生成してください：\n{text}"
-            if max_length:
-                user_content += f"\nタイトルは{max_length}文字以内にしてください。"
+            max_chars = max_length or 25
+            user_content = f"""
+            以下のテキスト内容から、学習ノートにふさわしい具体的で分かりやすいタイトルを生成してください：
+
+            【内容】
+            {text[:500]}  
+
+            【要求事項】
+            - {max_chars}文字以内
+            - 内容の核心を表現
+            - 学習者にとって有用
+            - 後で検索しやすい
+
+            タイトル：
+            """
             
             # OpenAI APIを呼び出し
             response = await self.client.chat.completions.create(
@@ -104,16 +128,22 @@ class OpenAIProvider(BaseAIProvider):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_content}
                 ],
-                temperature=0.3,  # タイトル生成は創造性より正確さを重視
-                max_tokens=100,  # タイトルなので短めに
+                temperature=0.4,  # 少し創造性を持たせつつ正確さも重視
+                max_tokens=50,   # タイトル用に短く設定
             )
             
             # レスポンスからタイトルを取得
             title = response.choices[0].message.content.strip()
             
-            # 余分な説明やマークダウンを削除
+            # 余分な説明やマークダウン、記号を削除
             title = title.replace("タイトル：", "").replace("タイトル:", "").strip()
-            title = title.replace('"', '').replace('"', '').strip()
+            title = title.replace('"', '').replace('"', '').replace("'", "").strip()
+            title = title.replace("【", "").replace("】", "").strip()
+            title = title.replace("## ", "").replace("# ", "").strip()
+            
+            # 長すぎる場合は切り詰め
+            if len(title) > max_chars:
+                title = title[:max_chars-1] + "…"
             
             return title
             

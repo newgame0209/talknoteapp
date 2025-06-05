@@ -4,12 +4,23 @@ import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import { useDatabaseStore } from '../store/databaseStore';
+import { notebooksApi, pagesApi } from '../services/api';
 import DrawingCanvas, { DrawingPath } from '../components/DrawingCanvas';
 import AIChatWidget from '../components/AIChatWidget';
+import database, { 
+  Recording, 
+  saveRecording, 
+  updateNote, 
+  updateCanvasData,
+  updateNoteTitle 
+} from '../services/database';
 
 // 画面遷移の型定義
 type RootStackParamList = {
-  CanvasEditor: { noteId: string };
+  CanvasEditor: { 
+    noteId: string; 
+    isNewNote?: boolean;
+  };
 };
 
 type CanvasEditorRouteProp = RouteProp<RootStackParamList, 'CanvasEditor'>;
@@ -26,8 +37,16 @@ type FontType = 'standard' | 'dyslexia' | 'serif' | 'gothic'; // フォントタ
 const CanvasEditor: React.FC = () => {
   const route = useRoute<CanvasEditorRouteProp>();
   const navigation = useNavigation<CanvasEditorNavigationProp>();
-  const { noteId } = route.params;
-  const { getNoteById, updateNote } = useDatabaseStore();
+  const { noteId, isNewNote } = route.params;
+  const { getNoteById, updateNote, saveRecording } = useDatabaseStore();
+
+  // ノートブック・ページ管理用の状態
+  const [notebookId, setNotebookId] = useState<string | null>(null);
+  const [pageId, setPageId] = useState<string | null>(null);
+  const [initialTitle, setInitialTitle] = useState<string | null>(null);
+  const [newNoteId, setNewNoteId] = useState<string | null>(null); // 新規作成時のノートID
+  // 実際に使用するノートIDを動的に決定
+  const actualNoteId = isNewNote ? newNoteId : noteId;
 
   const [title, setTitle] = useState<string>('');
   const [content, setContent] = useState<string>('');
@@ -71,6 +90,13 @@ const CanvasEditor: React.FC = () => {
   const [drawingPaths, setDrawingPaths] = useState<DrawingPath[]>([]);
   const [redoStack, setRedoStack] = useState<DrawingPath[]>([]); // 削除されたパスを保存
   const [strokeWidth, setStrokeWidth] = useState<number>(2); // デフォルト線の太さ（細め）
+
+  // 🚨 保存競合防止用フラグ
+  const [isSaving, setIsSaving] = useState(false);
+
+  // ✨ シンプルな自動保存タイマー（5秒間隔）
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // 📏 線の太さの定義（3段階）
   const strokeOptions = {
@@ -117,15 +143,145 @@ const CanvasEditor: React.FC = () => {
   const titleInputRef = useRef<TextInput>(null);
   const contentInputRef = useRef<TextInput>(null);
 
+  // 📝 ノートブック・ページの初期化（新規作成）
+  useEffect(() => {
+    const initializeNotebookAndPage = async () => {
+      if (notebookId && pageId) return; // 既に初期化済み
+      
+      // 新規作成の場合、ローカル用のダミーノートを作成
+      if (isNewNote) {
+        try {
+          console.log('🚀 新規ノート作成開始');
+          
+          // デフォルトタイトル生成（ノート2025-06-04形式）
+          const today = new Date();
+          const defaultTitle = `ノート${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+          setTitle(defaultTitle);
+          
+          // ローカルのダミーノートを作成（録音用のsaveRecording関数を利用）
+          // ここでキャンバス用のローカルノートを確実に保存
+          const savedNoteId = await saveRecording(
+            defaultTitle,
+            0, // duration: 0秒（キャンバスデータ用）
+            '', // filePath: 空（キャンバスデータ用）
+            '' // transcription: 空のコンテンツ（キャンバス用）
+          );
+          
+          if (savedNoteId) {
+            setNewNoteId(savedNoteId);
+            console.log('✅ 新規ノート作成完了 - noteId:', savedNoteId);
+            console.log('🔄 ダッシュボードで表示されるノートID:', savedNoteId);
+          } else {
+            console.log('⚠️ ノートID取得に失敗、ローカル編集のみ継続');
+          }
+          
+        } catch (error) {
+          console.log('⚠️ ローカル新規ノート作成中にエラー:', error);
+          // エラーでもローカル編集は継続
+          const today = new Date();
+          const defaultTitle = `ノート${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+          setTitle(defaultTitle);
+        }
+        
+        setContent(''); // 初期コンテンツは空
+        return;
+      }
+    };
+    
+    if (isNewNote) {
+      initializeNotebookAndPage();
+    }
+  }, [isNewNote, notebookId, pageId, saveRecording]);
+
+  // 📝 既存ノート読み込み（新規作成でない場合）
   useEffect(() => {
     setIsCanvasIconsVisible(true);
+    
+    // 新規作成の場合はノート読み込みをスキップ
+    if (isNewNote) {
+      return;
+    }
+    
     const loadNote = async () => {
       try {
         const note = await getNoteById(noteId);
         if (note) {
           setTitle(note.title);
+          
+          // ✨ 改善されたキャンバスデータ復元処理
           if ('transcription' in note) {
-            setContent(note.transcription || '');
+            // 録音データからの文字起こし結果
+            const transcriptionText = note.transcription || '';
+            
+            try {
+              // 録音データもJSON構造の可能性がある
+              const transcriptionData = JSON.parse(transcriptionText);
+              if (transcriptionData && typeof transcriptionData === 'object' && transcriptionData.type === 'canvas') {
+                // キャンバスデータ構造の録音結果
+                setContent(transcriptionData.content || '');
+                if (transcriptionData.drawingPaths && Array.isArray(transcriptionData.drawingPaths)) {
+                  setDrawingPaths(transcriptionData.drawingPaths);
+                  console.log('✅ 録音データのキャンバス復元完了:', { pathsCount: transcriptionData.drawingPaths.length });
+                }
+              } else {
+                // 通常のテキスト
+                setContent(transcriptionText);
+              }
+            } catch {
+              // JSONパースエラーの場合は通常のテキストとして扱う
+              setContent(transcriptionText);
+            }
+          } else if (note.content) {
+            try {
+              // JSONとして保存されたキャンバスデータを復元
+              const canvasData = JSON.parse(note.content);
+              if (canvasData && typeof canvasData === 'object' && canvasData.type === 'canvas') {
+                // ✨ 新しいキャンバスデータ構造での復元
+                setContent(canvasData.content || '');
+                
+                // 手書きデータの復元
+                if (canvasData.drawingPaths && Array.isArray(canvasData.drawingPaths)) {
+                  setDrawingPaths(canvasData.drawingPaths);
+                  console.log('✅ 手書きデータ復元完了:', { pathsCount: canvasData.drawingPaths.length });
+                }
+                
+                // ✨ キャンバス設定の復元
+                if (canvasData.canvasSettings) {
+                  const settings = canvasData.canvasSettings;
+                  
+                  // ツール設定復元
+                  if (settings.selectedTool) setSelectedTool(settings.selectedTool);
+                  if (settings.selectedPenTool) setSelectedPenTool(settings.selectedPenTool);
+                  if (settings.selectedColor) setSelectedColor(settings.selectedColor);
+                  if (settings.strokeWidth) setStrokeWidth(settings.strokeWidth);
+                  
+                  // テキスト設定復元
+                  if (settings.textSettings) {
+                    const textSettings = settings.textSettings;
+                    if (textSettings.fontSize) setFontSize(textSettings.fontSize);
+                    if (textSettings.textColor) setTextColor(textSettings.textColor);
+                    if (textSettings.selectedFont) setSelectedFont(textSettings.selectedFont);
+                    if (textSettings.selectedTextType) setSelectedTextType(textSettings.selectedTextType);
+                    if (typeof textSettings.isBold === 'boolean') setIsBold(textSettings.isBold);
+                    if (textSettings.lineSpacing) setLineSpacing(textSettings.lineSpacing);
+                    if (textSettings.letterSpacing) setLetterSpacing(textSettings.letterSpacing);
+                  }
+                  
+                  console.log('✅ キャンバス設定復元完了:', {
+                    tool: settings.selectedTool,
+                    penTool: settings.selectedPenTool,
+                    hasTextSettings: !!settings.textSettings
+                  });
+                }
+              } else {
+                // 古い形式または通常のテキストデータとして扱う
+                setContent(note.content);
+              }
+            } catch (parseError) {
+              // JSONパースエラーの場合は通常のテキストとして扱う
+              console.log('📝 通常のテキストデータとして読み込み:', parseError);
+              setContent(note.content);
+            }
           } else {
             setContent('');
           }
@@ -138,15 +294,36 @@ const CanvasEditor: React.FC = () => {
         navigation.goBack();
       }
     };
+    
+    // 既存ノートの場合のみ読み込み実行
     loadNote();
-  }, [noteId, getNoteById, navigation]);
+  }, [noteId, isNewNote, getNoteById, navigation]);
+
+  // 💾 ダッシュボード戻り時の最終保存
+  const handleGoBack = async () => {
+    try {
+      // 最終保存を実行
+      await performAutoSave();
+    } catch (error) {
+      console.log('⚠️ 最終保存でエラーが発生しましたが、ダッシュボードに戻ります:', error);
+    }
+    
+    // ダッシュボードに戻る
+    navigation.goBack();
+  };
 
   // コンポーネントのクリーンアップ
   useEffect(() => {
+    // 自動保存タイマー開始
+    startAutoSave();
+    
     return () => {
-      // コンポーネントがアンマウントされる際に録音タイマーをクリア
+      // コンポーネントがアンマウントされる際にタイマーをクリア
       if (recordingTimerRef.current) {
         clearInterval(recordingTimerRef.current);
+      }
+      if (autoSaveTimerRef.current) {
+        clearInterval(autoSaveTimerRef.current);
       }
     };
   }, []);
@@ -154,20 +331,63 @@ const CanvasEditor: React.FC = () => {
   // タイトル編集の保存
   const handleTitleSave = async () => {
     try {
-      await updateNote(noteId, title, content);
       setIsEditingTitle(false);
+      markAsChanged(); // 変更フラグのみ
     } catch (error) {
-      Alert.alert('エラー', 'タイトルの保存に失敗しました。');
+      console.log('⚠️ タイトル保存エラー（ローカル編集継続）:', error);
+      setIsEditingTitle(false);
     }
   };
 
   // 本文編集の保存（自動保存）
   const handleContentSave = async () => {
+    markAsChanged(); // 変更フラグのみ
+  };
+
+  // ✨ 新規追加：手書きデータの自動保存関数
+  const handleCanvasSave = async () => {
+    // 🚨 既に保存中の場合はスキップ
+    if (isSaving) {
+      console.log('⏳ 保存処理中のためスキップ');
+      return;
+    }
+
     try {
-      await updateNote(noteId, title, content);
-      // 自動保存のためアラートは表示しない
+      setIsSaving(true); // 保存開始フラグ
+      
+      const noteIdToUse = actualNoteId || newNoteId || noteId;
+      if (noteIdToUse) {
+        const canvasData = {
+          type: 'canvas',
+          version: '1.0',
+          title: title,
+          content: content,
+          drawingPaths: drawingPaths,
+          canvasSettings: {
+            selectedTool,
+            selectedPenTool,
+            selectedColor,
+            strokeWidth,
+            textSettings: {
+              fontSize,
+              textColor,
+              selectedFont,
+              selectedTextType,
+              isBold,
+              lineSpacing,
+              letterSpacing
+            }
+          },
+          lastModified: new Date().toISOString()
+        };
+        
+        await updateCanvasData(noteIdToUse, canvasData);
+        console.log('✅ キャンバス自動保存完了（改善版）:', { pathsCount: drawingPaths.length });
+      }
     } catch (error) {
-      Alert.alert('エラー', 'ノートの保存に失敗しました。');
+      console.log('⚠️ キャンバス保存エラー:', error);
+    } finally {
+      setIsSaving(false); // 保存完了フラグ
     }
   };
 
@@ -183,6 +403,9 @@ const CanvasEditor: React.FC = () => {
     setIsCanvasIconsVisible(false);
     setIsEditing(false);
     setIsEditingTitle(false);
+    
+    // ✨ フォーカス解除時に変更フラグのみ
+    markAsChanged();
   };
 
   // ツールバーアイコンタップ時のハンドラ（編集解除）
@@ -194,6 +417,9 @@ const CanvasEditor: React.FC = () => {
     setIsEditing(false);
     setIsEditingTitle(false);
     setIsCanvasIconsVisible(false);
+    
+    // ✨ ツールバーアイコンタップ時に変更フラグのみ
+    markAsChanged();
   };
 
   // ペンツール選択ハンドラ
@@ -239,16 +465,19 @@ const CanvasEditor: React.FC = () => {
   // テキストタイプ選択ハンドラ
   const handleTextTypeSelect = (type: TextType) => {
     setSelectedTextType(type);
+    markAsChanged(); // 変更フラグのみ
   };
 
   // フォント選択ハンドラ
   const handleFontSelect = (font: FontType) => { // 型を更新
     setSelectedFont(font);
+    markAsChanged(); // 変更フラグのみ
   };
 
   // テキストカラー選択ハンドラ
   const handleTextColorSelect = (color: string) => {
     setTextColor(color);
+    markAsChanged(); // 変更フラグのみ
   };
 
   // 音声ツール選択ハンドラ
@@ -283,12 +512,15 @@ const CanvasEditor: React.FC = () => {
       setShowStrokeSettings(false);
     }
     
+    markAsChanged(); // 変更フラグのみ
+    
     // console.log('🎨 Pen sub-tool selected:', tool);
   };
 
   // 色選択ハンドラ
   const handleColorSelect = (color: string) => {
     setSelectedColor(color);
+    markAsChanged(); // 変更フラグのみ
   };
 
   // 色設定が必要なツールかどうかを判定
@@ -394,34 +626,11 @@ const CanvasEditor: React.FC = () => {
     }
   };
 
-  // 描画パス変更ハンドラー
+  // ✨ 手書きパスの変更をハンドリング
   const handlePathsChange = (newPaths: DrawingPath[]) => {
-    // console.log('📝 CanvasEditor: handlePathsChange called', {
-    //   currentPathsLength: drawingPaths.length,
-    //   newPathsLength: newPaths.length,
-    //   currentPaths: drawingPaths.map((p, i) => ({ 
-    //     index: i, 
-    //     tool: p.tool, 
-    //     timestamp: p.timestamp,
-    //     pathLength: p.path.length
-    //   })),
-    //   newPaths: newPaths.map((p, i) => ({ 
-    //     index: i, 
-    //     tool: p.tool, 
-    //     timestamp: p.timestamp,
-    //     pathLength: p.path.length
-    //   }))
-    // });
-
-    // Redo履歴をクリア（新しいパスが追加された時）
-    if (newPaths.length > drawingPaths.length) {
-      setRedoStack([]);
-    }
-    
-    // 新しいパスを設定
     setDrawingPaths(newPaths);
-    
-    // console.log('✅ CanvasEditor: Paths updated in state');
+    setRedoStack([]); // 新しい手書きでRedoスタックをクリア
+    markAsChanged(); // 変更フラグのみ
   };
 
   // Undoハンドラー - 最後のパスを1つ削除
@@ -602,13 +811,73 @@ const CanvasEditor: React.FC = () => {
     setLetterSpacing(clampedSpacing);
   };
 
+  // ✨ シンプルな自動保存関数（5秒間隔）
+  const performAutoSave = async () => {
+    if (isSaving || !hasUnsavedChanges) return;
+
+    try {
+      setIsSaving(true);
+      
+      const noteIdToUse = actualNoteId || newNoteId || noteId;
+      if (noteIdToUse) {
+        const canvasData = {
+          type: 'canvas',
+          version: '1.0',
+          title: title,
+          content: content,
+          drawingPaths: drawingPaths,
+          canvasSettings: {
+            selectedTool,
+            selectedPenTool,
+            selectedColor,
+            strokeWidth,
+            textSettings: {
+              fontSize,
+              textColor,
+              selectedFont,
+              selectedTextType,
+              isBold,
+              lineSpacing,
+              letterSpacing
+            }
+          },
+          lastModified: new Date().toISOString()
+        };
+        
+        await updateCanvasData(noteIdToUse, canvasData);
+        setHasUnsavedChanges(false);
+        console.log('✅ 自動保存完了:', { pathsCount: drawingPaths.length, contentLength: content.length });
+      }
+    } catch (error) {
+      console.log('⚠️ 自動保存エラー:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // ✨ 5秒間隔自動保存の開始
+  const startAutoSave = () => {
+    if (autoSaveTimerRef.current) {
+      clearInterval(autoSaveTimerRef.current);
+    }
+    
+    autoSaveTimerRef.current = setInterval(() => {
+      performAutoSave();
+    }, 5000); // 5秒間隔
+  };
+
+  // ✨ 変更フラグを立てる関数
+  const markAsChanged = () => {
+    setHasUnsavedChanges(true);
+  };
+
   return (
     <TouchableWithoutFeedback onPress={() => setIsCanvasIconsVisible(false)}>
       <SafeAreaView style={styles.safeArea}>
         {/* 上部バー */}
         <View style={styles.topBar}>
           {/* 戻るボタン（左端） */}
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonContainer}>
+          <TouchableOpacity onPress={handleGoBack} style={styles.backButtonContainer}>
             <View style={styles.backButton}>
               <Ionicons name="arrow-back" size={20} color="#4F8CFF" />
             </View>
@@ -1094,6 +1363,55 @@ const CanvasEditor: React.FC = () => {
               ))}
           </View>
         </View>
+        )}
+
+        {/* 🖊️ ペンツール用太さ設定ドロップダウン */}
+        {showStrokeSettings && selectedPenTool !== 'eraser' && (
+          <View style={styles.strokePickerMenu}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 4 }}>
+              <TouchableOpacity
+                style={[
+                  styles.strokeOption,
+                  getCurrentStrokeType() === 'thin' && styles.selectedStrokeOption
+                ]}
+                onPress={() => {
+                  setStrokeWidth(strokeOptions.thin.value);
+                  setShowStrokeSettings(false);
+                }}
+              >
+                <View style={[styles.strokePreview, { width: 2, height: 20, backgroundColor: selectedColor }]} />
+                <Text style={styles.strokeOptionText}>細め</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.strokeOption,
+                  getCurrentStrokeType() === 'medium' && styles.selectedStrokeOption
+                ]}
+                onPress={() => {
+                  setStrokeWidth(strokeOptions.medium.value);
+                  setShowStrokeSettings(false);
+                }}
+              >
+                <View style={[styles.strokePreview, { width: 3, height: 20, backgroundColor: selectedColor }]} />
+                <Text style={styles.strokeOptionText}>普通</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.strokeOption,
+                  getCurrentStrokeType() === 'thick' && styles.selectedStrokeOption
+                ]}
+                onPress={() => {
+                  setStrokeWidth(strokeOptions.thick.value);
+                  setShowStrokeSettings(false);
+                }}
+              >
+                <View style={[styles.strokePreview, { width: 5, height: 20, backgroundColor: selectedColor }]} />
+                <Text style={styles.strokeOptionText}>太め</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         )}
 
         {/* AIチャットウィジェット */}
@@ -1769,15 +2087,16 @@ const styles = StyleSheet.create({
   },
   strokeOption: {
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 2,
+    padding: 6,
+    borderRadius: 6,
+    borderWidth: 1,
     borderColor: 'transparent',
-    minWidth: 80,
+    minWidth: 50,
   },
   selectedStrokeOption: {
     backgroundColor: '#E3F2FD',
     borderColor: '#4F8CFF',
+    borderWidth: 2,
   },
   strokeVisualContainer: {
     width: 50,
@@ -1817,6 +2136,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 6,
+  },
+  strokePickerMenu: {
+    position: 'absolute',
+    top: 96,
+    left: 16,
+    right: 16,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    padding: 8,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  strokeOptionText: {
+    color: '#333',
+    fontSize: 11,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  strokePreview: {
+    borderRadius: 2,
+    marginBottom: 2,
   },
 });
 

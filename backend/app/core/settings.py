@@ -24,11 +24,11 @@ class Settings(BaseSettings):
     PORT: int = 8000
 
     # Firebase Auth
-    FIREBASE_PROJECT_ID: str
-    GOOGLE_APPLICATION_CREDENTIALS: str
+    FIREBASE_PROJECT_ID: Optional[str] = "talknoteapp"  # デフォルト値を設定
+    GOOGLE_APPLICATION_CREDENTIALS: Optional[str] = None
 
     # Google Cloud
-    GCP_PROJECT_ID: str
+    GCP_PROJECT_ID: Optional[str] = "talknoteapp"  # デフォルト値を設定
     GCS_BUCKET_NAME: str = "talknote-media"
     GCS_UPLOAD_FOLDER: str = "uploads"
     
@@ -63,8 +63,8 @@ class Settings(BaseSettings):
     YAHOO_FURIGANA_API_URL: str = "https://jlp.yahooapis.jp/FuriganaService/V2/furigana"
     YAHOO_DICTIONARY_API_URL: str = "https://jlp.yahooapis.jp/DAService/V2/parse"
 
-    # Database
-    DATABASE_URL: str
+    # Database（開発環境では自動的にSQLiteを使用）
+    DATABASE_URL: Optional[str] = None
 
     # 機能フラグ
     FEATURE_OFFLINE_MODE: bool = False
@@ -85,8 +85,17 @@ class Settings(BaseSettings):
             return v
         raise ValueError(v)
 
+    @validator("DATABASE_URL", pre=True)
+    def validate_database_url(cls, v, values):
+        """開発環境では自動的にSQLiteを使用"""
+        if v is None:
+            # DEBUGモードまたはDATABASE_URLが未設定の場合はSQLiteを使用
+            debug_mode = values.get('DEBUG', False)
+            return "sqlite:///./talknote_dev.db"
+        return v
+
     model_config = {
-        "env_file": ".env",
+        "env_file": "../.env",
         "case_sensitive": True,
         "extra": "ignore"  # 余分な環境変数を無視する設定
     }
