@@ -49,14 +49,14 @@ const getWsBaseUrl = () => {
     const wsUrl = sttBaseUrl.replace('http:', 'ws:').replace('https:', 'wss:');
     console.log('[WS] 環境変数からWebSocketURL取得:', `${wsUrl}/api/v1/stt/stream`);
     return `${wsUrl}/api/v1/stt/stream`;
-  }
-  
-  // フォールバック
+    }
+    
+    // フォールバック
   if (__DEV__) {
     const fallbackWsUrl = 'ws://localhost:8002/api/v1/stt/stream';
     console.log('[WS] フォールバックWebSocketURL使用:', fallbackWsUrl);
     return fallbackWsUrl;
-  } else {
+    } else {
     const prodWsUrl = 'wss://api.talknote.app/api/v1/stt/stream';
     console.log('[WS] 本番WebSocketURL使用:', prodWsUrl);
     return prodWsUrl;

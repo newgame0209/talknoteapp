@@ -137,9 +137,9 @@ const CanvasEditor: React.FC = () => {
     } else {
       // ペン用カラーパレット（基本11色）
       return ['#000000', '#FF0000', '#0000FF', '#008000', '#FFA500', '#800080', '#FFD700', '#FF69B4', '#00FFFF', '#A52A2A', '#808080'];
-    }
-  };
-  
+      }
+    };
+
   const titleInputRef = useRef<TextInput>(null);
   const contentInputRef = useRef<TextInput>(null);
 
@@ -150,9 +150,9 @@ const CanvasEditor: React.FC = () => {
       
       // 新規作成の場合、ローカル用のダミーノートを作成
       if (isNewNote) {
-        try {
+      try {
           console.log('🚀 新規ノート作成開始');
-          
+        
           // デフォルトタイトル生成（ノート2025-06-04形式）
           const today = new Date();
           const baseTitleDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -166,7 +166,7 @@ const CanvasEditor: React.FC = () => {
             // 既存のノートを取得して重複チェック
             const existingNotes = await database.getAllNotes();
             const existingTitles = existingNotes.map(note => note.title);
-            
+        
             // 同じベースタイトルが存在する場合は連番を付ける
             while (existingTitles.includes(finalTitle)) {
               finalTitle = `${baseTitle}（${counter}）`;
@@ -177,10 +177,10 @@ const CanvasEditor: React.FC = () => {
           } catch (titleCheckError) {
             console.log('⚠️ タイトル重複チェックでエラー（デフォルトタイトル使用）:', titleCheckError);
             finalTitle = baseTitle;
-          }
+      }
           
           setTitle(finalTitle);
-          
+
           // ローカルのダミーノートを作成（録音用のsaveRecording関数を利用）
           // ここでキャンバス用のローカルノートを確実に保存
           const savedNoteId = await saveRecording(
@@ -197,7 +197,7 @@ const CanvasEditor: React.FC = () => {
           } else {
             console.log('⚠️ ノートID取得に失敗、ローカル編集のみ継続');
           }
-          
+        
       } catch (error) {
           console.log('⚠️ ローカル新規ノート作成中にエラー:', error);
           // エラーでもローカル編集は継続
@@ -209,9 +209,9 @@ const CanvasEditor: React.FC = () => {
         
         setContent(''); // 初期コンテンツは空
         return;
-      }
-    };
-    
+    }
+  };
+  
     if (isNewNote) {
       initializeNotebookAndPage();
     }

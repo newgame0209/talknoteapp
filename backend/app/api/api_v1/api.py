@@ -5,7 +5,7 @@
 from fastapi import APIRouter
 
 # 各エンドポイント用のルーター
-from app.api.api_v1.endpoints import notebooks, pages, media, transcripts, stt, pubsub, health
+from app.api.api_v1.endpoints import notebooks, pages, media, transcripts, stt, pubsub, health, ocr
 from app.api.api_v1.endpoints.ai.router import router as ai_router
 
 api_router = APIRouter()
@@ -24,6 +24,9 @@ api_router.include_router(pubsub.router, prefix="/pubsub", tags=["pubsub"])
 
 # AIエンドポイントの登録
 api_router.include_router(ai_router, prefix="/ai", tags=["ai"])
+
+# OCRエンドポイントの登録
+api_router.include_router(ocr.router, prefix="/ocr", tags=["ocr"])
 
 # ヘルスチェック・メトリクスエンドポイントの登録（認証不要）
 api_router.include_router(health.router, tags=["health"])

@@ -1,10 +1,10 @@
 import 'react-native-gesture-handler';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Text, View, TouchableOpacity, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { styled } from 'nativewind';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -27,8 +27,7 @@ import CanvasEditor from './app/screens/CanvasEditor';
 import { SkiaTest } from './app/components/SkiaTest';
 import StartupScreen from './app/components/StartupScreen';
 import Settings from './app/screens/Settings';
-// Skiaのインポートを修正
-// import { Canvas } from '@shopify/react-native-skia';
+import PhotoScanScreen from './app/screens/PhotoScanScreen';
 
 // NativeWindの設定
 import 'nativewind';
@@ -92,6 +91,7 @@ type RootStackParamList = {
   };
   FileImportSheet: undefined;
   CanvasEditor: { noteId?: string };
+  PhotoScan: undefined;
   SkiaTest: undefined;
   Settings: undefined;
 };
@@ -217,6 +217,17 @@ export default function App() {
             {(props) => (
               <AuthGuard fallback={<WelcomeLogin />}>
                 <CanvasEditor />
+              </AuthGuard>
+            )}
+          </Stack.Screen>
+          
+          <Stack.Screen 
+            name="PhotoScan" 
+            options={{ headerShown: false }}
+          >
+            {(props) => (
+              <AuthGuard fallback={<WelcomeLogin />}>
+                <PhotoScanScreen />
               </AuthGuard>
             )}
           </Stack.Screen>

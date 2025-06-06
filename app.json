@@ -16,6 +16,7 @@
       "jsEngine": "jsc",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "録音機能を利用するためにマイクへのアクセスを許可してください。",
+        "NSCameraUsageDescription": "写真スキャン機能を利用するためにカメラへのアクセスを許可してください。",
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleURLTypes": [
           {
@@ -37,14 +38,16 @@
             ]
           }
         ]
-      }
+      },
+      "appleTeamId": "26C27955TZ"
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "package": "com.talknote.app"
+      "package": "com.talknote.app",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.CAMERA"
+      ]
     },
     "web": {
       "bundler": "metro"
@@ -64,12 +67,17 @@
             "minSdkVersion": 24
           }
         }
-      ]
+      ],
+      "expo-audio",
+      "expo-sqlite",
+      "expo-video",
+      "expo-camera"
     ],
     "extra": {
       "eas": {
-        "projectId": "9e7b1e8f-9d5c-40ab-9a45-13b1c6c7b4fa"
+        "projectId": "289c2b35-e74b-4c11-abc4-d0c7e2f9df79"
       }
-    }
+    },
+    "owner": "yumishijikken"
   }
 }

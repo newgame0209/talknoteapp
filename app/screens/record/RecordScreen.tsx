@@ -254,7 +254,7 @@ const RecordScreen: React.FC = () => {
       // タイトル生成：文字起こしがある場合はAI生成、ない場合は日付ベース
       let title: string;
       if (finalTranscription.length > 0) {
-        // AIタイトル生成のために仮タイトルをセット
+      // AIタイトル生成のために仮タイトルをセット
         title = "AIがタイトルを生成中…";
       } else {
         // 文字起こしがない場合は日付ベースのタイトルを生成（重複チェック付き）

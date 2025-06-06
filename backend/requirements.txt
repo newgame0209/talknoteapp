@@ -16,6 +16,7 @@ google-cloud-pubsub==2.18.4
 openai==1.1.1
 anthropic==0.5.0
 prometheus-client==0.20.0
+Pillow==10.0.1
 
 # テスト用ライブラリ
 pytest==7.4.3

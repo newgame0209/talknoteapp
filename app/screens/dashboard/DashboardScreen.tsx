@@ -404,8 +404,8 @@ const DashboardScreen: React.FC = () => {
         if (translationX < -70 || velocityX < -400) {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
           if (!isSelectionMode) {
-            setIsSelectionMode(true);
-            setSelectedNotes(new Set([item.id]));
+          setIsSelectionMode(true);
+          setSelectedNotes(new Set([item.id]));
           }
         }
       }
@@ -718,20 +718,20 @@ const DashboardScreen: React.FC = () => {
     }
   };
 
-  // スキャン画面へ遷移（未実装）
+  // スキャン画面へ遷移
   const navigateToScan = () => {
     // 閉じるときにメニュー状態をリセットしてアイコン欠落バグを防止
     setIsCreateMenuVisible(false);
     setMenuOpen(false);
     anim.setValue(0); // reset anim value
-    // 未実装
-    console.log('Scan feature not implemented yet');
+    // PhotoScan画面に遷移
+    navigation.navigate('PhotoScan' as never);
   };
 
   // プル・トゥ・リフレッシュ機能の実装
   const onRefresh = async () => {
     console.log('[Dashboard] ★★★ onRefresh が呼ばれました！ ★★★');
-    setRefreshing(true);
+      setRefreshing(true);
     
     try {
       // 最低表示時間を確保（1.5秒）

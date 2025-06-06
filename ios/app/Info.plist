@@ -36,7 +36,15 @@
       </dict>
       <dict>
         <key>CFBundleURLName</key>
-        <string>app-scheme</string>
+        <string>talknote-auth</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>com.talknote.app</string>
+        </array>
+      </dict>
+      <dict>
+        <key>CFBundleURLName</key>
+        <string>line-auth</string>
         <key>CFBundleURLSchemes</key>
         <array>
           <string>com.talknote.app</string>
@@ -64,8 +72,12 @@
       <key>NSAllowsLocalNetworking</key>
       <true/>
     </dict>
+    <key>NSCameraUsageDescription</key>
+    <string>写真スキャン機能を利用するためにカメラへのアクセスを許可してください。</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>録音機能を利用するためにマイクへのアクセスを許可してください。</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Allow $(PRODUCT_NAME) to access your photos</string>
     <key>UILaunchStoryboardName</key>
     <string>SplashScreen</string>
     <key>UIRequiredDeviceCapabilities</key>

@@ -14,14 +14,14 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
 from starlette.websockets import WebSocketState
 from pydantic import BaseModel
 
-load_dotenv() # Call load_dotenv() early
+load_dotenv()  # Call load_dotenv() early
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__) # Initialize logger
+logger = logging.getLogger(__name__)  # Initialize logger
 
 # FastAPIアプリケーション
-app = FastAPI(title="STT WebSocket Server") # Initialize app
+app = FastAPI(title="STT WebSocket Server")  # Initialize app
 
 # Google Cloud Speech-to-Text SDKをインポート
 from google.auth.exceptions import DefaultCredentialsError
@@ -35,7 +35,7 @@ try:
     try:
         # This check can remain synchronous for simplicity, or also be async.
         # It's just to set a flag.
-        _ = speech_sync.SpeechClient() # Check if credentials load
+        _ = speech_sync.SpeechClient()  # Check if credentials load
         GOOGLE_STT_AVAILABLE = True
         logger.info("Google Cloud Speech-to-Text SDK is available and credentials likely found (via env or .env).")
     except DefaultCredentialsError:
@@ -57,12 +57,12 @@ class STTConfig(BaseModel):
 
 
 async def mock_recognize_stream(websocket: WebSocket):
-    # Simulate receiving audio data and sending back mock transcriptions
+    """Simulate receiving audio data and sending back mock transcriptions"""
     print("Using mock STT provider.")
     try:
         while True:
             # Simulate receiving audio data (though we don't process it in mock)
-            _ = await websocket.receive_bytes() 
+            _ = await websocket.receive_bytes()
             # Send a mock transcription
             mock_transcription = {
                 "transcript": "これはモックの文字起こし結果です。",
@@ -163,7 +163,7 @@ async def stt_websocket(
         # Process the audio stream
         if GOOGLE_STT_AVAILABLE:
             # Google STTを使用した実際の音声認識
-            client = SpeechAsyncClient() # Use Async Client
+            client = SpeechAsyncClient()  # Use Async Client
             
             # Configure streaming recognition
             # Types are now directly imported (e.g., RecognitionConfig instead of speech.RecognitionConfig)
@@ -173,7 +173,7 @@ async def stt_websocket(
                     sample_rate_hertz=config.sample_rate_hertz,
                     language_code=config.language_code,
                     enable_automatic_punctuation=config.enable_automatic_punctuation,
-                    model=config.model or "default", # Ensure model is not None
+                    model=config.model or "default",  # Ensure model is not None
                 ),
                 interim_results=config.interim_results,
             )
@@ -224,6 +224,7 @@ async def stt_websocket(
                         logger.info(f"Sent transcription to client: {alternative.transcript}")
                     else:
                         logger.warning("WebSocket no longer connected, cannot send transcription.")
+            
             if not response_received_from_google:
                 logger.warning("No responses received from Google STT stream.")
             else:
@@ -248,7 +249,7 @@ async def stt_websocket(
                 logger.info(f"Sent error to client: {str(e)}")
             else:
                 logger.warning("WebSocket no longer connected, cannot send error message.")
-        except Exception as send_err: # Catch error during sending error
+        except Exception as send_err:  # Catch error during sending error
             logger.error(f"Failed to send error to client: {send_err}")
     finally:
         # Ensure the WebSocket is closed

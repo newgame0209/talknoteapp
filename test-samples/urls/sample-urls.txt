@@ -1,0 +1,31 @@
+# テスト用サンプルURL一覧
+
+## ニュース記事
+https://www3.nhk.or.jp/news/
+https://www.asahi.com/
+https://mainichi.jp/
+
+## 技術記事
+https://qiita.com/
+https://zenn.dev/
+https://dev.to/
+
+## Wikipedia記事
+https://ja.wikipedia.org/wiki/人工知能
+https://ja.wikipedia.org/wiki/機械学習
+https://ja.wikipedia.org/wiki/自然言語処理
+
+## 教育コンテンツ
+https://www.coursera.org/
+https://www.edx.org/
+https://www.udemy.com/
+
+## ブログ記事
+https://medium.com/
+https://note.com/
+https://blog.google/
+
+## 使用方法
+1. 上記URLをコピー
+2. インポート機能でURLを入力
+3. テキスト変換とノート作成をテスト 

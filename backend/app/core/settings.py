@@ -2,6 +2,8 @@
 しゃべるノート - アプリケーション設定
 環境変数から設定を読み込み、型安全に管理します
 """
+import os
+from pathlib import Path
 from typing import Optional, Dict, Any, List, Union
 from pydantic_settings import BaseSettings
 from pydantic import validator
@@ -95,7 +97,11 @@ class Settings(BaseSettings):
         return v
 
     model_config = {
-        "env_file": "../.env",
+        "env_file": [
+            ".env",
+            "../.env", 
+            str(Path(__file__).parent.parent.parent / ".env"),  # 絶対パス
+        ],
         "case_sensitive": True,
         "extra": "ignore"  # 余分な環境変数を無視する設定
     }
