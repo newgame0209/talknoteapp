@@ -101,6 +101,9 @@ const apiClient = {
 export default function PhotoScanScreen() {
   const navigation = useNavigation<StackNavigationProp<any>>();
   
+  // 定数
+  const MAX_PHOTOS = 10; // 写真の最大枚数
+  
   // カメラ権限
   const [permission, requestPermission] = useCameraPermissions();
   
@@ -132,6 +135,28 @@ export default function PhotoScanScreen() {
       setEditedText(ocrResult.text);
     }
   }, [ocrResult]);
+
+  // 選択された写真のOCR結果を表示
+  useEffect(() => {
+    if (capturedPhotos.length > 0 && selectedPhotoIndex >= 0 && selectedPhotoIndex < capturedPhotos.length) {
+      const selectedPhoto = capturedPhotos[selectedPhotoIndex];
+      
+      if (selectedPhoto.ocrResult) {
+        setOcrResult(selectedPhoto.ocrResult);
+        setEditedText(selectedPhoto.ocrResult.text);
+      } else {
+        // OCR結果がない場合はクリア（遅延を追加して新しい結果を待つ）
+        setTimeout(() => {
+          // 再度確認してからクリア
+          const currentPhoto = capturedPhotos[selectedPhotoIndex];
+          if (!currentPhoto?.ocrResult) {
+            setOcrResult(null);
+            setEditedText('');
+          }
+        }, 200); // 200msに延長してOCR処理完了を待つ
+      }
+    }
+  }, [selectedPhotoIndex, capturedPhotos]);
 
   // 権限チェック
   useEffect(() => {
@@ -192,6 +217,29 @@ export default function PhotoScanScreen() {
   const takePicture = async () => {
     if (!cameraRef.current) return;
 
+    // 上限チェック
+    if (capturedPhotos.length >= MAX_PHOTOS) {
+      Alert.alert(
+        '📷 写真が上限に達しました',
+        `最大${MAX_PHOTOS}枚まで撮影できます。\n\n現在の写真でノートを作成してください。`,
+        [
+          {
+            text: '📄 ノートを作成する',
+            onPress: () => {
+              if (capturedPhotos.length > 0) {
+                setIsShowingPreview(true);
+              }
+            }
+          },
+          {
+            text: 'キャンセル',
+            style: 'cancel'
+          }
+        ]
+      );
+      return;
+    }
+
     try {
       setIsProcessing(true);
       const photo = await cameraRef.current.takePictureAsync({
@@ -214,11 +262,47 @@ export default function PhotoScanScreen() {
           timestamp: Date.now()
         };
         
+        const newIndex = capturedPhotos.length;
         setCapturedPhotos(prev => [...prev, newPhoto]);
-        setSelectedPhotoIndex(capturedPhotos.length);
+        setSelectedPhotoIndex(newIndex);
+        
+        // 上限警告（8枚目、9枚目）
+        const newCount = capturedPhotos.length + 1;
+        if (newCount === MAX_PHOTOS - 2) { // 8枚目
+          setTimeout(() => {
+            Alert.alert(
+              '⚠️ もうすぐ上限です',
+              `あと${MAX_PHOTOS - newCount}枚で上限（${MAX_PHOTOS}枚）に達します。`,
+              [{ text: '了解', style: 'default' }]
+            );
+          }, 1500);
+        } else if (newCount === MAX_PHOTOS - 1) { // 9枚目
+          setTimeout(() => {
+            Alert.alert(
+              '⚠️ 次が最後の1枚です',
+              `あと1枚で上限（${MAX_PHOTOS}枚）に達します。`,
+              [{ text: '了解', style: 'default' }]
+            );
+          }, 1500);
+        } else if (newCount === MAX_PHOTOS) { // 10枚目
+          setTimeout(() => {
+            Alert.alert(
+              '✅ 上限に達しました',
+              `${MAX_PHOTOS}枚の写真が撮影完了しました。\n\nノートを作成してください。`,
+              [
+                {
+                  text: '📄 ノートを作成する',
+                  onPress: () => setIsShowingPreview(true)
+                }
+              ]
+            );
+          }, 1500);
+        }
         
         // 撮影後は直接スキャン画面に遷移
         setIsShowingPreview(true);
+        
+        console.log('📷 撮影完了 - OCR処理開始');
         processOCR(croppedUri || photo.uri);
       }
     } catch (error) {
@@ -231,6 +315,29 @@ export default function PhotoScanScreen() {
 
   // ギャラリーから追加
   const addFromGallery = async () => {
+    // 上限チェック
+    if (capturedPhotos.length >= MAX_PHOTOS) {
+      Alert.alert(
+        '📷 写真が上限に達しました',
+        `最大${MAX_PHOTOS}枚まで追加できます。\n\n現在の写真でノートを作成してください。`,
+        [
+          {
+            text: '📄 ノートを作成する',
+            onPress: () => {
+              if (capturedPhotos.length > 0) {
+                setIsShowingPreview(true);
+              }
+            }
+          },
+          {
+            text: 'キャンセル',
+            style: 'cancel'
+          }
+        ]
+      );
+      return;
+    }
+
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
@@ -284,7 +391,7 @@ export default function PhotoScanScreen() {
         throw new Error('Base64変換に失敗しました');
       }
       
-      console.log('OCR処理開始:', `data:image/jpeg;base64,${manipResult.base64.substring(0, 100)}...`);
+      console.log('OCR処理開始');
       
       const token = await getAuthToken();
       const response = await apiClient.post('/api/v1/ocr/extract-text-base64', 
@@ -292,7 +399,7 @@ export default function PhotoScanScreen() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
-      console.log('OCR結果:', response.data);
+      console.log('OCR結果受信完了');
       
       if (response.data && response.data.text) {
         const result: OCRResult = {
@@ -303,19 +410,30 @@ export default function PhotoScanScreen() {
           bounding_boxes: response.data.bounding_boxes
         };
         
-        setOcrResult(result);
-        setEditedText(result.text);
-        setNotebookTitle(`スキャンノート ${new Date().toLocaleDateString()}`);
-        
         // 撮影した写真にOCR結果を関連付け
         setCapturedPhotos(prev => {
           const updated = [...prev];
-          const photoIndex = updated.findIndex(p => p.uri === imageUri);
+          // 元のURIまたは処理済みURIの両方で検索
+          const photoIndex = updated.findIndex(p => p.uri === imageUri || p.processedUri === imageUri);
+          console.log(`写真検索: imageUri=${imageUri.substring(0, 50)}..., 見つかったindex=${photoIndex}`);
+          
           if (photoIndex !== -1) {
             updated[photoIndex].ocrResult = result;
+            console.log(`OCR結果保存完了: index=${photoIndex}, textLength=${result.text.length}`);
+          } else {
+            console.warn('OCR対象の写真が見つかりませんでした');
           }
           return updated;
         });
+        
+        // 現在選択されている写真のOCR結果の場合のみ画面に反映
+        const currentPhotoIndex = capturedPhotos.findIndex(p => p.uri === imageUri || p.processedUri === imageUri);
+        if (currentPhotoIndex === selectedPhotoIndex) {
+          setOcrResult(result);
+          setEditedText(result.text);
+          setNotebookTitle(`スキャンノート ${new Date().toLocaleDateString()}`);
+          console.log(`✅ OCR処理完了: ${result.text.length}文字`);
+        }
       }
     } catch (error) {
       console.error('OCR処理エラー:', error);
@@ -437,6 +555,15 @@ export default function PhotoScanScreen() {
       
       setShowSkewModal(false);
       setSkewAngle(0);
+      
+      // スキュー修正後の画像でOCR処理を自動実行
+      console.log('🔄 スキュー修正完了 - OCR処理開始');
+      Alert.alert('🔄 スキュー修正完了', 'スキュー修正が完了しました。\nテキストを再抽出しています...', [
+        { text: '了解', style: 'default' }
+      ]);
+      
+      // スキュー修正後の画像でOCR処理を実行（結果を上書き）
+      processOCR(manipResult.uri);
     } catch (error) {
       console.error('スキュー修正エラー:', error);
       Alert.alert('エラー', 'スキュー修正に失敗しました');
@@ -455,16 +582,11 @@ export default function PhotoScanScreen() {
       const imageWidth = imageInfo.width;
       const imageHeight = imageInfo.height;
 
-      console.log('🖼️ 画像情報:', { imageWidth, imageHeight });
-      console.log('📐 cropArea:', cropArea);
-
       // クロップ領域を画像の実際のサイズに変換
       const cropX = Math.round((cropArea.x / 100) * imageWidth);
       const cropY = Math.round((cropArea.y / 100) * imageHeight);
       const cropWidth = Math.round((cropArea.width / 100) * imageWidth);
       const cropHeight = Math.round((cropArea.height / 100) * imageHeight);
-
-      console.log('✂️ 実際のクロップ領域:', { cropX, cropY, cropWidth, cropHeight });
 
       const manipResult = await ImageManipulator.manipulateAsync(
         imageUri,
@@ -487,7 +609,15 @@ export default function PhotoScanScreen() {
       });
       
       setShowCropModal(false);
-      Alert.alert('成功', 'トリミングが完了しました');
+      
+      // トリミング後の画像でOCR処理を自動実行
+      console.log('✂️ トリミング完了 - OCR処理開始');
+      Alert.alert('✂️ トリミング完了', 'トリミングが完了しました。\nテキストを再抽出しています...', [
+        { text: '了解', style: 'default' }
+      ]);
+      
+      // トリミング後の画像でOCR処理を実行（結果を上書き）
+      processOCR(manipResult.uri);
     } catch (error) {
       console.error('トリミングエラー:', error);
       Alert.alert('エラー', 'トリミングに失敗しました');
@@ -519,11 +649,7 @@ export default function PhotoScanScreen() {
       const cropWidth = Math.round(uiFrameWidth * scaleX);
       const cropHeight = Math.round(uiFrameHeight * scaleY);
 
-      console.log('🔄 自動切り取り:', {
-        imageSize: `${imageWidth}×${imageHeight}`,
-        uiFrame: `${uiFrameWidth}×${uiFrameHeight} at (${uiFrameLeft}, ${uiFrameTop})`,
-        cropPx: { x: cropX, y: cropY, width: cropWidth, height: cropHeight }
-      });
+      console.log('🔄 自動切り取り実行');
 
       // 切り取り実行
       const result = await ImageManipulator.manipulateAsync(
@@ -542,7 +668,7 @@ export default function PhotoScanScreen() {
         }
       );
 
-      console.log('✅ 切り取り完了:', result.uri);
+      console.log('✅ 切り取り完了');
       return result.uri;
     } catch (error) {
       console.error('❌ 自動切り取りエラー:', error);
@@ -642,7 +768,15 @@ export default function PhotoScanScreen() {
           >
             <Ionicons name="chevron-back" size={20} color={selectedPhotoIndex === 0 ? '#ccc' : '#00A1FF'} />
           </Pressable>
-          <Text style={styles.pageIndicator}>{selectedPhotoIndex + 1}枚目</Text>
+          <View style={{ alignItems: 'center' }}>
+            <Text style={styles.pageIndicator}>{selectedPhotoIndex + 1}枚目</Text>
+            <Text style={[styles.photoCountIndicator, 
+              capturedPhotos.length >= MAX_PHOTOS && { color: '#FFD700', fontWeight: 'bold' }
+            ]}>
+              📷 {capturedPhotos.length}/{MAX_PHOTOS}枚
+              {capturedPhotos.length >= MAX_PHOTOS && ' (上限)'}
+            </Text>
+          </View>
           <Pressable 
             onPress={() => {
               if (selectedPhotoIndex < capturedPhotos.length - 1) {
@@ -663,15 +797,40 @@ export default function PhotoScanScreen() {
               // カメラ画面に戻る
               setIsShowingPreview(false);
             }} 
-            style={styles.scanActionButton}
+            style={[
+              styles.scanActionButton,
+              capturedPhotos.length >= MAX_PHOTOS && styles.disabledButton
+            ]}
+            disabled={capturedPhotos.length >= MAX_PHOTOS}
           >
-            <Ionicons name="camera" size={24} color="#00A1FF" />
-            <Text style={styles.scanActionText}>写真追加</Text>
+            <Ionicons 
+              name="camera" 
+              size={24} 
+              color={capturedPhotos.length >= MAX_PHOTOS ? "#ccc" : "#00A1FF"} 
+            />
+            <Text style={[
+              styles.scanActionText,
+              capturedPhotos.length >= MAX_PHOTOS && { color: '#ccc' }
+            ]}>写真追加</Text>
           </Pressable>
 
-          <Pressable onPress={addFromGallery} style={styles.scanActionButton}>
-            <Ionicons name="image" size={24} color="#00A1FF" />
-            <Text style={styles.scanActionText}>ギャラリー</Text>
+          <Pressable 
+            onPress={addFromGallery} 
+            style={[
+              styles.scanActionButton,
+              capturedPhotos.length >= MAX_PHOTOS && styles.disabledButton
+            ]}
+            disabled={capturedPhotos.length >= MAX_PHOTOS}
+          >
+            <Ionicons 
+              name="image" 
+              size={24} 
+              color={capturedPhotos.length >= MAX_PHOTOS ? "#ccc" : "#00A1FF"} 
+            />
+            <Text style={[
+              styles.scanActionText,
+              capturedPhotos.length >= MAX_PHOTOS && { color: '#ccc' }
+            ]}>ギャラリー</Text>
           </Pressable>
 
           <Pressable onPress={() => {
@@ -824,7 +983,14 @@ export default function PhotoScanScreen() {
         <Pressable onPress={goBack} style={styles.headerButton}>
           <Ionicons name="close" size={28} color="#fff" />
         </Pressable>
-        <Text style={styles.cameraHeaderTitle}>写真をスキャン</Text>
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={styles.cameraHeaderTitle}>写真をスキャン</Text>
+          <Text style={[styles.photoCountText, 
+            capturedPhotos.length >= MAX_PHOTOS && { color: '#FFD700' }
+          ]}>
+            📷 {capturedPhotos.length}/{MAX_PHOTOS}枚
+          </Text>
+        </View>
         <Pressable onPress={toggleFlash} style={styles.headerButton}>
           <Ionicons name={getFlashIcon()} size={28} color="#fff" />
         </Pressable>
@@ -868,12 +1034,33 @@ export default function PhotoScanScreen() {
 
       {/* カメラコントロール - Absolute positioning */}
       <View style={styles.cameraControls}>
-        <Pressable onPress={addFromGallery} style={styles.galleryButton}>
-          <Ionicons name="images" size={28} color="#fff" />
+        <Pressable 
+          onPress={addFromGallery} 
+          style={[
+            styles.galleryButton,
+            capturedPhotos.length >= MAX_PHOTOS && styles.disabledButton
+          ]}
+          disabled={capturedPhotos.length >= MAX_PHOTOS}
+        >
+          <Ionicons 
+            name="images" 
+            size={28} 
+            color={capturedPhotos.length >= MAX_PHOTOS ? "#666" : "#fff"} 
+          />
         </Pressable>
 
-        <Pressable onPress={takePicture} style={styles.captureButton}>
-          <View style={styles.captureButtonInner} />
+        <Pressable 
+          onPress={takePicture} 
+          style={[
+            styles.captureButton,
+            capturedPhotos.length >= MAX_PHOTOS && styles.disabledCaptureButton
+          ]}
+          disabled={capturedPhotos.length >= MAX_PHOTOS}
+        >
+          <View style={[
+            styles.captureButtonInner,
+            capturedPhotos.length >= MAX_PHOTOS && styles.disabledCaptureButtonInner
+          ]} />
         </Pressable>
 
         <Pressable onPress={toggleCameraType} style={styles.flipButton}>
@@ -1108,6 +1295,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
+  photoCountText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 2,
+    opacity: 0.9,
+  },
   cameraGuideContainer: {
     position: 'absolute',
     top: 0,
@@ -1248,6 +1442,15 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     backgroundColor: '#fff',
   },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  disabledCaptureButton: {
+    opacity: 0.5,
+  },
+  disabledCaptureButtonInner: {
+    backgroundColor: '#666',
+  },
   flipButton: {
     width: 44,
     height: 44,
@@ -1318,6 +1521,11 @@ const styles = StyleSheet.create({
     color: '#333',
     fontSize: 14,
     fontWeight: '600',
+  },
+  photoCountIndicator: {
+    color: '#666',
+    fontSize: 12,
+    marginTop: 2,
   },
   navArrow: {
     padding: 8,
