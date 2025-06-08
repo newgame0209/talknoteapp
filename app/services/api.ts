@@ -186,6 +186,16 @@ export const mediaApi = {
     return response.data;
   },
 
+  // OCR: Base64画像からテキスト抽出
+  extractTextFromBase64: async (imageData: string, languageHints?: string[], provider?: string) => {
+    const response = await api.post('/api/v1/ocr/extract-text-base64', {
+      image_data: imageData,
+      language_hints: languageHints || ['ja', 'en'],
+      provider: provider || 'google_vision'
+    });
+    return response.data;
+  },
+
   // Expo Go対応: ファイルアップロード
   uploadFile: async (fileUri: string, fileType: string) => {
     const formData = new FormData();
@@ -215,13 +225,19 @@ export const aiApi = {
   },
 
   // テキストからタイトルを生成
-  generateTitle: async (text: string, maxLength?: number) => {
+  generateTitle: async (text: string, maxLength: number = 15) => {
     console.log('[aiApi.generateTitle] 開始 - text長:', text.length, 'maxLength:', maxLength);
+    
+    // API Tokenを取得
+    const token = await getCurrentIdToken();
+    console.log('🎫 API要求にID Token付与:', token ? `${token.substring(0, 50)}...` : 'トークンなし');
+    
     try {
       const response = await api.post('/api/v1/ai/generate-title', {
         text,
         max_length: maxLength
       });
+      
       console.log('[aiApi.generateTitle] 成功 - response:', response.data);
       return response.data;
     } catch (error) {
@@ -229,6 +245,41 @@ export const aiApi = {
       throw error;
     }
   },
+
+  // AI文章整形機能
+  enhanceScannedText: async (
+    text: string,
+    options: {
+      analyze_structure?: boolean;
+      correct_grammar?: boolean;
+      improve_readability?: boolean;
+      format_style?: string;
+      language?: string;
+    } = {}
+  ) => {
+    console.log('[aiApi.enhanceScannedText] 開始 - text長:', text.length);
+    
+    // API Tokenを取得
+    const token = await getCurrentIdToken();
+    console.log('🎫 API要求にID Token付与:', token ? `${token.substring(0, 50)}...` : 'トークンなし');
+    
+    try {
+      const response = await api.post('/api/v1/ai/enhance-scanned-text', {
+        text,
+        analyze_structure: options.analyze_structure ?? true,
+        correct_grammar: options.correct_grammar ?? true,
+        improve_readability: options.improve_readability ?? true,
+        format_style: options.format_style ?? 'structured',
+        language: options.language ?? 'ja'
+      });
+      
+      console.log('[aiApi.enhanceScannedText] 成功 - enhanced text長:', response.data.enhanced_text?.length || 0);
+      return response.data;
+    } catch (error) {
+      console.error('[aiApi.enhanceScannedText] エラー:', error);
+      throw error;
+    }
+  }
 };
 
 // Notebooks関連のAPI

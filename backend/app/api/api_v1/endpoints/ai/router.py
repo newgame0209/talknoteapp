@@ -104,8 +104,7 @@ class TextConvertRequest(BaseModel):
 
 class TextConvertResponse(BaseModel):
     """テキスト変換レスポンス"""
-    converted_text: str = Field(..., description="変換されたテキスト")
-    error: Optional[str] = Field(None, description="エラーメッセージ（存在する場合）")
+    converted_text: str = Field(..., description="変換済みテキスト")
 
 
 class DictionaryRequest(BaseModel):
@@ -139,6 +138,27 @@ class GenerateTitleRequest(BaseModel):
 class GenerateTitleResponse(BaseModel):
     """タイトル生成レスポンス"""
     title: str = Field(..., description="生成されたタイトル")
+
+
+class EnhanceScannedTextRequest(BaseModel):
+    """AI文章整形リクエスト"""
+    text: str = Field(..., description="OCRで抽出されたテキスト")
+    analyze_structure: bool = Field(True, description="文章構造を解析するか")
+    correct_grammar: bool = Field(True, description="文法修正を行うか")
+    improve_readability: bool = Field(True, description="読みやすさを向上させるか")
+    format_style: str = Field("structured", description="整形スタイル（structured, narrative, bullet_points）")
+    language: str = Field("ja", description="処理言語（ja, en）")
+
+
+class EnhanceScannedTextResponse(BaseModel):
+    """AI文章整形レスポンス"""
+    enhanced_text: str = Field(..., description="整形済み高品質テキスト")
+    confidence: float = Field(..., description="整形信頼度（0.0-1.0）")
+    improvements: List[str] = Field(default_factory=list, description="修正・改善内容のリスト")
+    structure_analysis: str = Field(..., description="文章構造の分析結果")
+    original_text: str = Field(..., description="元のテキスト")
+    original_preserved: bool = Field(..., description="元の内容が保持されているか")
+    error: Optional[str] = Field(None, description="エラーメッセージ（存在する場合）")
 
 
 # エンドポイント
@@ -309,6 +329,37 @@ async def convert_text(
     except Exception as e:
         logger.error(f"Error in convert_text endpoint: {e}")
         raise HTTPException(status_code=500, detail=f"テキスト変換中にエラーが発生しました: {str(e)}")
+
+
+@router.post("/enhance-scanned-text", response_model=EnhanceScannedTextResponse, tags=["ai"])
+async def enhance_scanned_text(
+    request: EnhanceScannedTextRequest,
+    current_user: Dict = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    OCRで抽出されたテキストを文章構造・文法・スタイル解析で高品質なテキストに整形する
+    
+    Args:
+        request: AI文章整形リクエスト
+        current_user: 現在のユーザー情報
+        
+    Returns:
+        AI文章整形レスポンス
+    """
+    try:
+        ai_service = AIService()
+        result = await ai_service.enhance_scanned_text(
+            text=request.text,
+            analyze_structure=request.analyze_structure,
+            correct_grammar=request.correct_grammar,
+            improve_readability=request.improve_readability,
+            format_style=request.format_style,
+            language=request.language
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error in enhance_scanned_text endpoint: {e}")
+        raise HTTPException(status_code=500, detail=f"AI文章整形中にエラーが発生しました: {str(e)}")
 
 
 @router.post("/dictionary", response_model=DictionaryResponse, tags=["ai"])

@@ -318,3 +318,156 @@ class AIService:
                 "word": word,
                 "error": f"辞書検索中にエラーが発生しました: {str(e)}"
             }
+
+    async def enhance_scanned_text(
+        self, 
+        text: str, 
+        analyze_structure: bool = True,
+        correct_grammar: bool = True,
+        improve_readability: bool = True,
+        format_style: str = 'structured',
+        language: str = 'ja'
+    ) -> Dict[str, Any]:
+        """
+        OCRで抽出されたテキストを文章構造・文法・スタイル解析で高品質なテキストに整形する
+        
+        Args:
+            text: OCRで抽出された元のテキスト
+            analyze_structure: 文章構造を解析するか
+            correct_grammar: 文法修正を行うか
+            improve_readability: 読みやすさを向上させるか
+            format_style: 整形スタイル（'structured', 'narrative', 'bullet_points'）
+            language: 処理言語（'ja'、'en'）
+            
+        Returns:
+            整形結果（enhanced_text、confidence、original_text）
+        """
+        try:
+            # 整形用のシステムプロンプト作成
+            system_prompt = f"""
+            あなたは優秀な文章解析・整形専門家です。OCR（光学文字認識）で抽出されたテキストを、
+            高品質で読みやすい文章に整形してください。
+
+            処理要件：
+            - 言語: {language}
+            - 文章構造解析: {'有効' if analyze_structure else '無効'}
+            - 文法修正: {'有効' if correct_grammar else '無効'}
+            - 読みやすさ向上: {'有効' if improve_readability else '無効'}
+            - 整形スタイル: {format_style}
+
+            OCRテキストによくある問題：
+            1. 文字認識ミス（類似文字の誤認識）
+            2. 改行や段落の構造が崩れている
+            3. 句読点や記号の配置がおかしい
+            4. 文脈に合わない文字変換
+
+            整形ガイドライン：
+            1. 明らかな誤字・脱字を修正
+            2. 適切な段落分けと改行を追加
+            3. 読みやすい文章構造に再構成
+            4. 重要な情報を見やすく整理
+            5. 元の意味・内容は絶対に変更しない
+
+            結果は以下のJSON形式で返してください：
+            {{
+                "enhanced_text": "整形済み高品質テキスト",
+                "confidence": 0.95,
+                "improvements": [
+                    "修正・改善内容1",
+                    "修正・改善内容2"
+                ],
+                "structure_analysis": "文章構造の分析結果",
+                "original_preserved": true
+            }}
+            """
+            
+            # ユーザープロンプト作成
+            user_prompt = f"""
+            以下のOCRテキストを整形してください：
+
+            【OCR抽出テキスト】
+            {text}
+
+            【整形要求】
+            - スタイル: {format_style}
+            - 元の内容・意味を保持しながら、読みやすく整形してください
+            - 明らかな文字認識ミスは適切に修正してください
+            - 段落構成を見直し、情報を整理してください
+            """
+            
+            # AIプロバイダーで整形処理を実行
+            result = await self.provider.chat(
+                [{"role": "user", "content": user_prompt}],
+                system_prompt
+            )
+            
+            # JSONレスポンスをパース
+            import json
+            try:
+                # JSONブロックを抽出（マークダウンコードブロックも考慮）
+                json_text = result
+                if "```json" in result:
+                    json_text = result.split("```json")[1].split("```")[0].strip()
+                elif "```" in result:
+                    json_text = result.split("```")[1].split("```")[0].strip()
+                
+                parsed_result = json.loads(json_text)
+                
+                # 結果の検証
+                if "enhanced_text" not in parsed_result:
+                    raise ValueError("enhanced_text field missing in response")
+                
+                # デフォルト値の設定
+                parsed_result.setdefault("confidence", 0.8)
+                parsed_result.setdefault("improvements", [])
+                parsed_result.setdefault("structure_analysis", "構造解析が実行されました")
+                parsed_result.setdefault("original_preserved", True)
+                
+                logger.info(f"Text enhancement completed successfully. Original: {len(text)} chars, Enhanced: {len(parsed_result['enhanced_text'])} chars")
+                
+                return {
+                    "enhanced_text": parsed_result["enhanced_text"],
+                    "confidence": parsed_result["confidence"],
+                    "improvements": parsed_result["improvements"],
+                    "structure_analysis": parsed_result["structure_analysis"],
+                    "original_text": text,
+                    "original_preserved": parsed_result["original_preserved"],
+                    "error": None
+                }
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON parsing failed in enhance_scanned_text: {e}")
+                # JSONパースに失敗した場合は、AIの回答をそのまま整形テキストとして使用
+                return {
+                    "enhanced_text": result.strip(),
+                    "confidence": 0.7,
+                    "improvements": ["AI整形処理が完了しました"],
+                    "structure_analysis": "整形処理が実行されました",
+                    "original_text": text,
+                    "original_preserved": True,
+                    "error": f"JSON解析エラー（整形は実行済み）: {str(e)}"
+                }
+            except ValueError as e:
+                logger.error(f"Response validation failed in enhance_scanned_text: {e}")
+                # 基本的なフォールバック処理
+                return {
+                    "enhanced_text": text,  # 元のテキストをそのまま返す
+                    "confidence": 0.5,
+                    "improvements": [],
+                    "structure_analysis": "解析に失敗しました",
+                    "original_text": text,
+                    "original_preserved": True,
+                    "error": f"レスポンス検証エラー: {str(e)}"
+                }
+                
+        except Exception as e:
+            logger.error(f"Error in enhance_scanned_text: {e}")
+            return {
+                "enhanced_text": text,  # エラー時は元のテキストを返す
+                "confidence": 0.0,
+                "improvements": [],
+                "structure_analysis": "エラーにより解析できませんでした",
+                "original_text": text,
+                "original_preserved": True,
+                "error": f"テキスト整形中にエラーが発生しました: {str(e)}"
+            }

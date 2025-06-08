@@ -303,11 +303,21 @@ const DashboardScreen: React.FC = () => {
     // タイトルの決定（キャンバスデータのタイトル優先、次に元のタイトル）
     const finalTitle = canvasTitle || recording.title;
     
+    // ファイルタイプの判定（写真スキャンデータの場合）
+    let noteType: 'document' | 'audio' | 'image';
+    if (recording.file_path === 'photo_scan') {
+      noteType = 'image';
+    } else if (recording.duration > 0) {
+      noteType = 'audio';
+    } else {
+      noteType = 'document';
+    }
+    
     return {
       id: recording.id,
       title: finalTitle,
       date: new Date(recording.created_at).toLocaleDateString('ja-JP'),
-      type: recording.duration > 0 ? 'audio' : 'document', // 手動ノートはdocument、録音はaudio
+      type: noteType,
     };
   };
 
@@ -459,6 +469,8 @@ const DashboardScreen: React.FC = () => {
               )}
               {item.type === 'audio' ? (
                 <Ionicons name="mic" size={24} color="#4F46E5" />
+              ) : item.type === 'image' ? (
+                <Ionicons name="camera" size={24} color="#4F46E5" />
               ) : (
                 <MaterialCommunityIcons
                   name="file-document-outline"

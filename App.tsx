@@ -17,13 +17,20 @@ import { useAuthStore } from './app/store/authStore';
 // ストアのインポート
 import { useDatabaseStore } from './app/store/databaseStore';
 
+// 自動保存プロバイダーのインポート
+import { AutoSaveProvider } from './app/hooks/useAutoSaveProvider';
+import { withAutoSave } from './app/decorators/AutoSaveDecorator';
+
 // 画面のインポート
 import RecordScreen from './app/screens/record/RecordScreen';
 import ImportScreen from './app/screens/import/ImportScreen';
 import ImportProgressScreen from './app/screens/import/ImportProgressScreen';
 import DashboardScreen from './app/screens/dashboard/DashboardScreen';
 import FilePickerArea from './app/components/import/FilePickerArea';
-import CanvasEditor from './app/screens/CanvasEditor';
+import CanvasEditorBase from './app/screens/CanvasEditor';
+
+// AutoSaveDecoratorでラップしたCanvasEditor
+const CanvasEditor = withAutoSave(CanvasEditorBase);
 import { SkiaTest } from './app/components/SkiaTest';
 import StartupScreen from './app/components/StartupScreen';
 import Settings from './app/screens/Settings';
@@ -176,7 +183,8 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaProvider>
-      <NavigationContainer>
+      <AutoSaveProvider globalEnabled={true} debugMode={__DEV__}>
+        <NavigationContainer>
         <Stack.Navigator initialRouteName={user ? "Dashboard" : "WelcomeLogin"}>
           {/* 認証画面 */}
           <Stack.Screen 
@@ -307,6 +315,7 @@ export default function App() {
           </Stack.Screen>
         </Stack.Navigator>
       </NavigationContainer>
+      </AutoSaveProvider>
     </SafeAreaProvider>
     </GestureHandlerRootView>
   );

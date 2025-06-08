@@ -41,6 +41,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { getAuth } from 'firebase/auth';
 import { COLORS } from '../constants/colors';
+import { savePhotoScan, generatePhotoScanAITitle } from '../services/database';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -465,56 +466,103 @@ export default function PhotoScanScreen() {
     }
   };
 
+  // AI文章解析・整形処理
+  const enhanceTextWithAI = async (rawText: string): Promise<string> => {
+    try {
+      const token = await getAuthToken();
+      
+      // AI APIで文章解析・整形
+      const response = await apiClient.post('/api/v1/ai/enhance-scanned-text', {
+        text: rawText,
+        options: {
+          analyze_structure: true,    // 文章構造解析
+          correct_grammar: true,      // 文法修正
+          improve_readability: true,  // 読みやすさ向上
+          format_style: 'structured', // 構造化スタイル
+          language: 'ja'              // 日本語
+        }
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (response.data && response.data.enhanced_text) {
+        console.log('✅ AI文章整形完了:', {
+          originalLength: rawText.length,
+          enhancedLength: response.data.enhanced_text.length
+        });
+        return response.data.enhanced_text;
+      } else {
+        console.warn('AI整形APIレスポンスが空です');
+        return rawText; // フォールバック
+      }
+    } catch (error) {
+      console.error('AI文章整形エラー:', error);
+      return rawText; // エラー時は元のテキストを返す
+    }
+  };
+
   // ノートで開く
   const openInNote = async () => {
     try {
-      if (!editedText.trim()) {
-        Alert.alert('エラー', 'テキストが抽出されていません');
-        return;
-      }
-      
-      const currentPhoto = capturedPhotos[selectedPhotoIndex];
-      if (!currentPhoto) {
+      if (capturedPhotos.length === 0) {
         Alert.alert('エラー', '写真が選択されていません');
         return;
       }
       
       setIsProcessing(true);
       
-      // ノートブック作成
-      const notebookResponse = await createNotebook({
-        title: notebookTitle || `スキャンノート ${new Date().toLocaleDateString()}`
-      });
+      // OCRテキストを結合
+      const rawOcrText = capturedPhotos
+        .map(photo => photo.ocrResult?.text || '')
+        .filter(text => text.trim().length > 0)
+        .join('\n\n');
       
-      if (!notebookResponse.data?.id) {
-        throw new Error('ノートブック作成に失敗しました');
+      if (rawOcrText.trim().length === 0) {
+        Alert.alert('エラー', 'テキストが検出されていません');
+        setIsProcessing(false);
+        return;
       }
       
-      // ページ作成（写真とテキストを含む）
-      const pageData = {
-        notebook_id: notebookResponse.data.id,
-        title: notebookTitle || 'スキャンページ',
-        content: {
-          type: 'mixed',
-          image: {
-            uri: currentPhoto.processedUri || currentPhoto.uri,
-            timestamp: currentPhoto.timestamp
-          },
-          text: editedText,
-          ocr_result: currentPhoto.ocrResult
-        }
-      };
+      console.log('🔍 AI文章解析・整形処理開始...');
       
-      const pageResponse = await createPage(pageData);
+      // AI文章解析・整形処理
+      const enhancedText = await enhanceTextWithAI(rawOcrText);
       
-      if (pageResponse.data?.id) {
-        // Canvas Editorに遷移
-        navigation.navigate('CanvasEditor', {
-          notebookId: notebookResponse.data.id,
-          pageId: pageResponse.data.id,
-          initialContent: pageData.content
+      // 写真スキャンデータをSQLiteに保存（新仕様：整形済みテキスト付き）
+      const photoScanId = `photo_scan_${Date.now()}`;
+      const defaultTitle = "AIがタイトルを生成中…";
+      
+      // キャプチャした写真データを整理（整形済みテキストを追加）
+      const photoData = capturedPhotos.map((photo, index) => ({
+        uri: photo.uri,
+        processedUri: photo.processedUri,
+        ocrResult: photo.ocrResult ? {
+          text: photo.ocrResult.text,
+          confidence: photo.ocrResult.confidence,
+          enhancedText: index === 0 ? enhancedText : undefined // 最初の写真に整形済みテキストを保存
+        } : undefined
+      }));
+      
+      // SQLiteに保存
+      await savePhotoScan(photoScanId, defaultTitle, photoData);
+      console.log('写真スキャンデータを保存しました:', photoScanId);
+      
+      // AIタイトル生成（整形済みテキストを使用）
+      if (enhancedText.trim().length > 0) {
+        generatePhotoScanAITitle(photoScanId, enhancedText).catch((error) => {
+          console.error('[PhotoScan] AIタイトル生成エラー:', error);
         });
       }
+      
+      // ダッシュボードに戻る
+      navigation.goBack();
+      
+      console.log('✅ AI整形ノート作成完了:', {
+        photoScanId,
+        originalTextLength: rawOcrText.length,
+        enhancedTextLength: enhancedText.length
+      });
+      
     } catch (error) {
       console.error('ノート作成エラー:', error);
       Alert.alert('エラー', 'ノートの作成に失敗しました');

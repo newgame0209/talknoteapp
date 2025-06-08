@@ -33,9 +33,27 @@ export interface ImportFile {
   media_id?: string;
 }
 
+// 写真スキャン用の新しいインターフェース
+export interface PhotoScan {
+  id: string;
+  title: string;
+  photos: {
+    uri: string;
+    processedUri?: string;
+    ocrResult?: {
+      text: string;
+      confidence: number;
+      enhancedText?: string; // AI整形済みテキスト
+    };
+  }[];
+  created_at: number;
+  uploaded: number;
+  media_id?: string;
+}
+
 export interface UploadQueueItem {
   id: string;
-  type: 'recording' | 'import';
+  type: 'recording' | 'import' | 'photo_scan';
   item_id: string;
   status: 'pending' | 'uploading' | 'success' | 'error';
   attempts: number;
@@ -105,6 +123,17 @@ export const initDatabase = async (): Promise<void> => {
         created_at INTEGER NOT NULL
     );`);
     console.log('Upload queue table created successfully');
+    
+    // 写真スキャンデータテーブル
+    await db.execAsync(`CREATE TABLE IF NOT EXISTS photo_scans (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        photos TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        uploaded INTEGER DEFAULT 0,
+        media_id TEXT
+    );`);
+    console.log('Photo scans table created successfully');
     
     console.log('Database initialized successfully');
     return Promise.resolve();
@@ -194,10 +223,76 @@ export const saveImport = async (
   }
 };
 
+// 写真スキャンデータの保存
+export const savePhotoScan = async (
+  id: string,
+  title: string = "AIがタイトルを生成中…",
+  photos: PhotoScan['photos']
+): Promise<void> => {
+  try {
+    const db = getDatabase();
+    const now = Date.now();
+    
+    // 既存レコードをチェック
+    const existing = await db.getFirstAsync<{id: string}>(
+      `SELECT id FROM photo_scans WHERE id = ?;`,
+      [id]
+    );
+    
+    if (existing) {
+      // 既存の場合はphotosのみ更新
+      await db.runAsync(
+        `UPDATE photo_scans SET photos = ? WHERE id = ?;`,
+        [JSON.stringify(photos), id]
+      );
+      console.log('Photo scan updated successfully');
+    } else {
+      // 新規の場合はINSERT
+      await db.runAsync(
+        `INSERT INTO photo_scans (id, title, photos, created_at)
+         VALUES (?, ?, ?, ?);`,
+        [id, title, JSON.stringify(photos), now]
+      );
+      console.log('Photo scan saved successfully');
+    }
+    
+    return Promise.resolve();
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Error saving photo scan:', errorMessage);
+    return Promise.reject(error);
+  }
+};
+
+// 写真スキャン用AIタイトル生成
+export const generatePhotoScanAITitle = async (photoScanId: string, ocrText: string): Promise<void> => {
+  try {
+    console.log('[generatePhotoScanAITitle] 開始 - photoScanId:', photoScanId, 'ocrText長:', ocrText.length);
+    
+    // AI APIでタイトル生成
+    console.log('[generatePhotoScanAITitle] AI APIを呼び出し中...');
+    const response = await aiApi.generateTitle(ocrText, 15); // 最大15文字
+    console.log('[generatePhotoScanAITitle] AI APIレスポンス:', response);
+    
+    const generatedTitle = response.title;
+    console.log('[generatePhotoScanAITitle] 生成されたタイトル:', generatedTitle);
+
+    // 写真スキャンのタイトルを更新
+    console.log('[generatePhotoScanAITitle] データベース更新中...');
+    await updatePhotoScanTitle(photoScanId, generatedTitle);
+    console.log('[generatePhotoScanAITitle] AI title generated and updated successfully');
+    return Promise.resolve();
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[generatePhotoScanAITitle] Error generating AI title:', errorMessage);
+    return Promise.reject(error);
+  }
+};
+
 // アップロードキューに追加
 export const addToUploadQueue = async (
   id: string,
-  type: 'recording' | 'import',
+  type: 'recording' | 'import' | 'photo_scan',
   itemId: string
 ): Promise<void> => {
   try {
@@ -249,6 +344,32 @@ export const getImports = async (): Promise<ImportFile[]> => {
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Error getting imports:', errorMessage);
+    return Promise.reject(error);
+  }
+};
+
+// 写真スキャンの取得（最新順）
+export const getPhotoScans = async (): Promise<PhotoScan[]> => {
+  try {
+    const db = getDatabase();
+    
+    const result = await db.getAllAsync<{
+      id: string;
+      title: string;
+      photos: string;
+      created_at: number;
+      uploaded: number;
+      media_id?: string;
+    }>('SELECT * FROM photo_scans ORDER BY created_at DESC;');
+    
+    // photosフィールドをJSONパースして返す
+    return (result || []).map(row => ({
+      ...row,
+      photos: JSON.parse(row.photos)
+    }));
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Error getting photo scans:', errorMessage);
     return Promise.reject(error);
   }
 };
@@ -416,6 +537,23 @@ export const updateNoteTitle = async (noteId: string, title: string): Promise<vo
   }
 };
 
+// 写真スキャンのタイトルを更新する関数
+export const updatePhotoScanTitle = async (photoScanId: string, title: string): Promise<void> => {
+  try {
+    const db = getDatabase();
+    await db.runAsync(
+      'UPDATE photo_scans SET title = ? WHERE id = ?;',
+      [title, photoScanId]
+    );
+    console.log('Photo scan title updated successfully');
+    return Promise.resolve();
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Error updating photo scan title:', errorMessage);
+    return Promise.reject(error);
+  }
+};
+
 // ノート詳細画面用：noteIdでノートを更新する関数（後方互換性のため残す）
 export const updateNote = async (noteId: string, title: string, content?: string): Promise<void> => {
   try {
@@ -478,12 +616,42 @@ export const updateCanvasData = async (noteId: string, canvasData: any): Promise
         'UPDATE recordings SET transcription = ? WHERE id = ?;',
         [canvasJson, noteId]
       );
-      console.log('Canvas data updated successfully');
+      console.log('Canvas data updated successfully (recording)');
       return Promise.resolve();
     }
     
-    // インポートファイルテーブルには対応しない（キャンバスは録音専用）
-    throw new Error('Note not found or not a recording');
+    // 写真スキャンテーブルから検索
+    const photoScanResult = await db.getFirstAsync<PhotoScan>(
+      'SELECT * FROM photo_scans WHERE id = ?;',
+      [noteId]
+    );
+    if (photoScanResult) {
+      // 🔥 写真スキャンノート専用の保存処理改善
+      try {
+        const currentPhotos = JSON.parse(photoScanResult.photos as unknown as string);
+        
+        // キャンバスデータを写真の最初の要素のcanvasDataフィールドに保存
+        if (currentPhotos.length > 0) {
+          currentPhotos[0].canvasData = canvasData;
+          
+          await db.runAsync(
+            'UPDATE photo_scans SET photos = ? WHERE id = ?;',
+            [JSON.stringify(currentPhotos), noteId]
+          );
+          console.log('Canvas data updated successfully (photo scan)');
+          return Promise.resolve();
+        } else {
+          console.error('写真スキャンデータが空です');
+          throw new Error('No photos in photo scan data');
+        }
+      } catch (parseError) {
+        console.error('写真スキャンデータのJSON解析エラー:', parseError);
+        throw new Error('Failed to parse photo scan data');
+      }
+    }
+    
+    // インポートファイルテーブルには対応しない（将来拡張可能）
+    throw new Error('Note not found or not a recording/photo scan');
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Error updating canvas data:', errorMessage);
@@ -525,7 +693,24 @@ export const deleteImport = async (importId: string): Promise<void> => {
   }
 };
 
-// ノートを削除する統合関数（Recording または ImportFile）
+// 写真スキャンを削除する関数
+export const deletePhotoScan = async (photoScanId: string): Promise<void> => {
+  try {
+    const db = getDatabase();
+    await db.runAsync(
+      'DELETE FROM photo_scans WHERE id = ?;',
+      [photoScanId]
+    );
+    console.log('Photo scan deleted successfully');
+    return Promise.resolve();
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Error deleting photo scan:', errorMessage);
+    return Promise.reject(error);
+  }
+};
+
+// ノートを削除する統合関数（Recording、ImportFile、PhotoScan対応）
 export const deleteNote = async (noteId: string): Promise<void> => {
   try {
     const db = getDatabase();
@@ -550,6 +735,16 @@ export const deleteNote = async (noteId: string): Promise<void> => {
       return Promise.resolve();
     }
     
+    // 写真スキャンテーブルから検索
+    const photoScanResult = await db.getFirstAsync<PhotoScan>(
+      'SELECT * FROM photo_scans WHERE id = ?;',
+      [noteId]
+    );
+    if (photoScanResult) {
+      await deletePhotoScan(noteId);
+      return Promise.resolve();
+    }
+    
     throw new Error('Note not found');
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -558,12 +753,12 @@ export const deleteNote = async (noteId: string): Promise<void> => {
   }
 };
 
-// すべてのノート（録音 + インポート）を統合して取得
+// すべてのノート（録音 + インポート + 写真スキャン）を統合して取得
 export const getAllNotes = async (): Promise<Recording[]> => {
   try {
     const db = getDatabase();
     
-    // 録音データとインポートファイルを統合してRecording型として返す
+    // 録音データ、インポートファイル、写真スキャンを統合してRecording型として返す
     const result = await db.getAllAsync<Recording>(
       `SELECT 
         id,
@@ -586,6 +781,17 @@ export const getAllNotes = async (): Promise<Recording[]> => {
         media_id,
         NULL as transcription
       FROM imports
+      UNION ALL
+      SELECT 
+        id,
+        title,
+        0 as duration,
+        'photo_scan' as file_path,
+        created_at,
+        uploaded,
+        media_id,
+        photos as transcription
+      FROM photo_scans
       ORDER BY created_at DESC;`
     );
     
@@ -603,9 +809,12 @@ export default {
   saveRecording,
   generateAITitle,
   saveImport,
+  savePhotoScan,
+  generatePhotoScanAITitle,
   addToUploadQueue,
   getRecordings,
   getImports,
+  getPhotoScans,
   getUploadQueue,
   updateUploadStatus,
   exportDatabase,
@@ -613,8 +822,10 @@ export default {
   updateNote,
   updateCanvasData,
   updateNoteTitle,
+  updatePhotoScanTitle,
   deleteRecording,
   deleteImport,
+  deletePhotoScan,
   deleteNote,
   getAllNotes
 };

@@ -7,8 +7,6 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-  Animated,
-  PanResponder,
   Dimensions,
   Modal,
   StyleSheet,
@@ -17,6 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import { Audio, AVPlaybackSource } from 'expo-av';
+import withAutoSave, { WithAutoSaveProps, ToolbarFunction } from '../decorators/AutoSaveDecorator';
 
 /**
  * AIチャットウィジェット
@@ -57,7 +56,7 @@ type AIFunction = 'chat' | 'proofread' | 'summarize' | 'furigana' | 'dictionary'
 // 文字変換タイプ
 type ConvertType = 'hiragana' | 'katakana' | 'kanji';
 
-interface AIChatWidgetProps {
+interface AIChatWidgetProps extends WithAutoSaveProps {
   // キャンバスのテキスト内容（校正・要約で使用）
   canvasText?: string;
   // 選択されたテキスト（特定の機能で使用）
@@ -70,6 +69,7 @@ const AIChatWidget: React.FC<AIChatWidgetProps> = ({
   canvasText = '',
   selectedText = '',
   onTextUpdate,
+  autoSave,
 }) => {
   // 状態管理
   const [chatState, setChatState] = useState<ChatState>('closed');
@@ -79,10 +79,11 @@ const AIChatWidget: React.FC<AIChatWidgetProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [selectedFunction, setSelectedFunction] = useState<AIFunction>('chat');
 
-  // アニメーション用の値
-  const widgetPosition = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
-  const widgetScale = useRef(new Animated.Value(1)).current;
-  const widgetOpacity = useRef(new Animated.Value(1)).current;
+  // 🔥 修正: 固定位置にするため、Animatedではなく通常のstateに変更
+  const [widgetPosition, setWidgetPosition] = useState({
+    right: 16,  // 画面右端から16px
+    bottom: 100, // 画面下端から100px（キーボードエリアを考慮）
+  });
 
   // 音声録音用
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
@@ -91,93 +92,8 @@ const AIChatWidget: React.FC<AIChatWidgetProps> = ({
   // スクロールビュー用
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // ドラッグ操作用のPanResponder
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (evt, gestureState) => {
-        // 小さなタップは無視
-        return Math.abs(gestureState.dx) > 10 || Math.abs(gestureState.dy) > 10;
-      },
-      onPanResponderGrant: () => {
-        // ドラッグ開始時の処理
-        widgetPosition.setOffset({
-          x: (widgetPosition.x as any)._value,
-          y: (widgetPosition.y as any)._value,
-        });
-      },
-      onPanResponderMove: Animated.event(
-        [null, { dx: widgetPosition.x, dy: widgetPosition.y }],
-        { useNativeDriver: false }
-      ),
-      onPanResponderRelease: () => {
-        // ドラッグ終了時の処理
-        widgetPosition.flattenOffset();
-        
-        // 画面端に近い場合は画面内に戻す
-        const currentX = (widgetPosition.x as any)._value;
-        const currentY = (widgetPosition.y as any)._value;
-        
-        let newX = Math.max(-50, Math.min(screenWidth - 100, currentX));
-        let newY = Math.max(50, Math.min(screenHeight - 200, currentY));
-        
-        Animated.spring(widgetPosition, {
-          toValue: { x: newX, y: newY },
-          useNativeDriver: false,
-        }).start();
-      },
-    })
-  ).current;
-
-  // 初期位置設定（画面右下）
-  useEffect(() => {
-    widgetPosition.setValue({
-      x: screenWidth - 94,
-      y: screenHeight - 200,
-    });
-  }, []);
-
-  // チャット状態変更アニメーション
-  const animateStateChange = (newState: ChatState) => {
-    if (newState === 'closed') {
-      // 閉じる
-      Animated.parallel([
-        Animated.spring(widgetScale, {
-          toValue: 0.8,
-          useNativeDriver: false,
-        }),
-        Animated.timing(widgetOpacity, {
-          toValue: 0.7,
-          duration: 200,
-          useNativeDriver: false,
-        })
-      ]).start();
-    } else if (newState === 'minimized') {
-      // 最小化
-      Animated.parallel([
-        Animated.spring(widgetScale, {
-          toValue: 0.9,
-          useNativeDriver: false,
-        }),
-        Animated.timing(widgetOpacity, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: false,
-        })
-      ]).start();
-    } else {
-      // 拡大
-      Animated.parallel([
-        Animated.spring(widgetScale, {
-          toValue: 1,
-          useNativeDriver: false,
-        }),
-        Animated.timing(widgetOpacity, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: false,
-        })
-      ]).start();
-    }
+  // 🔥 修正: アニメーション関数を削除して、シンプルな状態変更関数に変更
+  const changeState = (newState: ChatState) => {
     setChatState(newState);
   };
 
@@ -213,6 +129,11 @@ const AIChatWidget: React.FC<AIChatWidgetProps> = ({
       return;
     }
 
+    // 🎯 AI処理競合防止 - AI処理開始通知
+    if (autoSave) {
+      autoSave.startAIProcessing('correct_grammar', 'current-note');
+    }
+
     setIsLoading(true);
     try {
       const textToProofread = selectedText || canvasText;
@@ -235,6 +156,11 @@ const AIChatWidget: React.FC<AIChatWidgetProps> = ({
       Alert.alert('エラー', '校正処理に失敗しました。');
     } finally {
       setIsLoading(false);
+      
+      // 🎯 AI処理競合防止 - AI処理終了通知
+      if (autoSave) {
+        autoSave.endAIProcessing('correct_grammar', 'current-note');
+      }
     }
   };
 
@@ -490,7 +416,7 @@ const AIChatWidget: React.FC<AIChatWidgetProps> = ({
   const renderClosedIcon = () => (
     <TouchableOpacity
       style={styles.closedIcon}
-      onPress={() => animateStateChange('minimized')}
+      onPress={() => changeState('minimized')}
     >
       {/* 統合されたAIチャットアイコン */}
       <Image 
@@ -508,10 +434,10 @@ const AIChatWidget: React.FC<AIChatWidgetProps> = ({
         <Ionicons name="sparkles" size={16} color="#4A90E2" />
         <Text style={styles.minimizedTitle}>AI</Text>
         <View style={styles.minimizedActions}>
-          <TouchableOpacity onPress={() => animateStateChange('expanded')}>
+          <TouchableOpacity onPress={() => changeState('expanded')}>
             <Ionicons name="expand" size={16} color="#666" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => animateStateChange('closed')}>
+          <TouchableOpacity onPress={() => changeState('closed')}>
             <Ionicons name="close" size={16} color="#666" />
           </TouchableOpacity>
         </View>
@@ -541,10 +467,10 @@ const AIChatWidget: React.FC<AIChatWidgetProps> = ({
           <Text style={styles.expandedTitle}>AI アシスタント</Text>
         </View>
         <View style={styles.headerActions}>
-          <TouchableOpacity onPress={() => animateStateChange('minimized')}>
+          <TouchableOpacity onPress={() => changeState('minimized')}>
             <Ionicons name="remove" size={20} color="#666" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => animateStateChange('closed')}>
+          <TouchableOpacity onPress={() => changeState('closed')}>
             <Ionicons name="close" size={20} color="#666" />
           </TouchableOpacity>
         </View>
@@ -726,24 +652,19 @@ const AIChatWidget: React.FC<AIChatWidgetProps> = ({
 
   // メインレンダリング
   return (
-    <Animated.View
+    <View
       style={[
         styles.widgetContainer,
         {
-          transform: [
-            { translateX: widgetPosition.x },
-            { translateY: widgetPosition.y },
-            { scale: widgetScale },
-          ],
-          opacity: widgetOpacity,
+          right: widgetPosition.right,
+          bottom: widgetPosition.bottom,
         },
       ]}
-      {...(chatState !== 'expanded' ? panResponder.panHandlers : {})}
     >
       {chatState === 'closed' && renderClosedIcon()}
       {chatState === 'minimized' && renderMinimized()}
       {chatState === 'expanded' && renderExpanded()}
-    </Animated.View>
+    </View>
   );
 };
 
@@ -755,8 +676,9 @@ const styles = StyleSheet.create({
   
   // クローズド状態
   closedIcon: {
-    width: 100,
-    height: 100,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -980,9 +902,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#CCC',
   },
   aiChatIcon: {
-    width: 90,
-    height: 90,
+    width: 70,
+    height: 70,
   },
 });
 
-export default AIChatWidget; 
+export default withAutoSave(AIChatWidget, {
+  enabledFunctions: ['ai_chat_widget'],
+  aiConflictPrevention: true,
+  debugMode: true
+}); 
