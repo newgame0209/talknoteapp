@@ -82,7 +82,7 @@ const AIChatWidget: React.FC<AIChatWidgetProps> = ({
   // 🔥 修正: 固定位置にするため、Animatedではなく通常のstateに変更
   const [widgetPosition, setWidgetPosition] = useState({
     right: 16,  // 画面右端から16px
-    bottom: 100, // 画面下端から100px（キーボードエリアを考慮）
+    bottom: 150, // 画面下端から150px（上に移動）
   });
 
   // 音声録音用

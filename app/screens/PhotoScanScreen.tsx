@@ -474,13 +474,18 @@ export default function PhotoScanScreen() {
       // AI APIで文章解析・整形
       const response = await apiClient.post('/api/v1/ai/enhance-scanned-text', {
         text: rawText,
-        options: {
-          analyze_structure: true,    // 文章構造解析
-          correct_grammar: true,      // 文法修正
-          improve_readability: true,  // 読みやすさ向上
-          format_style: 'structured', // 構造化スタイル
-          language: 'ja'              // 日本語
-        }
+        analyze_structure: true,         // 文章構造解析
+        correct_grammar: true,           // 文法修正
+        improve_readability: true,       // 読みやすさ向上
+        format_style: 'visual_preserve', // 🆕 視覚的構造保持スタイル
+        language: 'ja',                  // 日本語
+        // 🆕 写真スキャン専用の高度な整形オプション
+        preserve_visual_structure: true, // 元画像の視覚的構造を保持
+        preserve_formatting: true,       // 太字、見出し等の書式を保持
+        enhance_layout: true,           // レイアウトの改善
+        detect_headings: true,          // 見出しの自動検出
+        preserve_lists: true,           // リスト構造の保持
+        improve_spacing: true           // 適切な行間・段落間隔
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });

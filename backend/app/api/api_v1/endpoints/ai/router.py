@@ -146,8 +146,25 @@ class EnhanceScannedTextRequest(BaseModel):
     analyze_structure: bool = Field(True, description="文章構造を解析するか")
     correct_grammar: bool = Field(True, description="文法修正を行うか")
     improve_readability: bool = Field(True, description="読みやすさを向上させるか")
-    format_style: str = Field("structured", description="整形スタイル（structured, narrative, bullet_points）")
+    format_style: str = Field("structured", description="整形スタイル（structured, visual_preserve, speech_to_text）")
     language: str = Field("ja", description="処理言語（ja, en）")
+    
+    # 🆕 写真スキャン専用の高度な整形オプション
+    preserve_visual_structure: bool = Field(False, description="元画像の視覚的構造を保持するか")
+    preserve_formatting: bool = Field(False, description="太字、見出し等の書式を保持するか")
+    enhance_layout: bool = Field(False, description="レイアウトの改善を行うか")
+    detect_headings: bool = Field(False, description="見出しの自動検出を行うか")
+    preserve_lists: bool = Field(False, description="リスト構造の保持を行うか")
+    improve_spacing: bool = Field(False, description="適切な行間・段落間隔を追加するか")
+    
+    # 🆕 音声文字起こし専用の高度な整形オプション
+    add_natural_breaks: bool = Field(False, description="自然な改行・段落分けを追加するか")
+    improve_flow: bool = Field(False, description="文章の流れを改善するか")
+    remove_filler_words: bool = Field(False, description="「えー」「あのー」等の除去を行うか")
+    add_punctuation: bool = Field(False, description="適切な句読点の追加を行うか")
+    organize_content: bool = Field(False, description="内容の論理的整理を行うか")
+    enhance_clarity: bool = Field(False, description="明瞭性の向上を行うか")
+    preserve_speaker_intent: bool = Field(False, description="話者の意図を保持するか")
 
 
 class EnhanceScannedTextResponse(BaseModel):
@@ -348,13 +365,29 @@ async def enhance_scanned_text(
     """
     try:
         ai_service = AIService()
+        # 🆕 拡張されたパラメータを含むリクエスト処理
         result = await ai_service.enhance_scanned_text(
             text=request.text,
             analyze_structure=request.analyze_structure,
             correct_grammar=request.correct_grammar,
             improve_readability=request.improve_readability,
             format_style=request.format_style,
-            language=request.language
+            language=request.language,
+            # 写真スキャン専用オプション
+            preserve_visual_structure=getattr(request, 'preserve_visual_structure', False),
+            preserve_formatting=getattr(request, 'preserve_formatting', False),
+            enhance_layout=getattr(request, 'enhance_layout', False),
+            detect_headings=getattr(request, 'detect_headings', False),
+            preserve_lists=getattr(request, 'preserve_lists', False),
+            improve_spacing=getattr(request, 'improve_spacing', False),
+            # 音声文字起こし専用オプション
+            add_natural_breaks=getattr(request, 'add_natural_breaks', False),
+            improve_flow=getattr(request, 'improve_flow', False),
+            remove_filler_words=getattr(request, 'remove_filler_words', False),
+            add_punctuation=getattr(request, 'add_punctuation', False),
+            organize_content=getattr(request, 'organize_content', False),
+            enhance_clarity=getattr(request, 'enhance_clarity', False),
+            preserve_speaker_intent=getattr(request, 'preserve_speaker_intent', False)
         )
         return result
     except Exception as e:

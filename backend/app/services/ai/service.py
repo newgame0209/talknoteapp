@@ -326,7 +326,23 @@ class AIService:
         correct_grammar: bool = True,
         improve_readability: bool = True,
         format_style: str = 'structured',
-        language: str = 'ja'
+        language: str = 'ja',
+        # 🆕 写真スキャン専用の高度な整形オプション
+        preserve_visual_structure: bool = False,
+        preserve_formatting: bool = False,
+        enhance_layout: bool = False,
+        detect_headings: bool = False,
+        preserve_lists: bool = False,
+        improve_spacing: bool = False,
+        # 🆕 音声文字起こし専用の高度な整形オプション
+        add_natural_breaks: bool = False,
+        improve_flow: bool = False,
+        remove_filler_words: bool = False,
+        add_punctuation: bool = False,
+        organize_content: bool = False,
+        enhance_clarity: bool = False,
+        preserve_speaker_intent: bool = False,
+        **kwargs  # 将来の拡張用
     ) -> Dict[str, Any]:
         """
         OCRで抽出されたテキストを文章構造・文法・スタイル解析で高品質なテキストに整形する
@@ -343,30 +359,64 @@ class AIService:
             整形結果（enhanced_text、confidence、original_text）
         """
         try:
-            # 整形用のシステムプロンプト作成
+            # 🆕 より詳細で高機能なシステムプロンプト作成
             system_prompt = f"""
-            あなたは優秀な文章解析・整形専門家です。OCR（光学文字認識）で抽出されたテキストを、
+            あなたは優秀な文章解析・整形専門家です。OCR（光学文字認識）または音声文字起こしで抽出されたテキストを、
             高品質で読みやすい文章に整形してください。
 
-            処理要件：
+            ## 基本処理要件
             - 言語: {language}
             - 文章構造解析: {'有効' if analyze_structure else '無効'}
             - 文法修正: {'有効' if correct_grammar else '無効'}
             - 読みやすさ向上: {'有効' if improve_readability else '無効'}
             - 整形スタイル: {format_style}
 
-            OCRテキストによくある問題：
+            ## 写真スキャン専用処理（format_style='visual_preserve'時）
+            - 視覚的構造保持: {'有効' if preserve_visual_structure else '無効'}
+            - 書式保持（太字・見出し等）: {'有効' if preserve_formatting else '無効'}
+            - レイアウト改善: {'有効' if enhance_layout else '無効'}
+            - 見出し自動検出: {'有効' if detect_headings else '無効'}
+            - リスト構造保持: {'有効' if preserve_lists else '無効'}
+            - 行間・段落間隔改善: {'有効' if improve_spacing else '無効'}
+
+            ## 音声文字起こし専用処理（format_style='speech_to_text'時）
+            - 自然な改行・段落分け: {'有効' if add_natural_breaks else '無効'}
+            - 文章の流れ改善: {'有効' if improve_flow else '無効'}
+            - フィラーワード除去: {'有効' if remove_filler_words else '無効'}
+            - 句読点追加: {'有効' if add_punctuation else '無効'}
+            - 内容の論理的整理: {'有効' if organize_content else '無効'}
+            - 明瞭性向上: {'有効' if enhance_clarity else '無効'}
+            - 話者意図保持: {'有効' if preserve_speaker_intent else '無効'}
+
+            ## 処理対象の問題点
+            ### OCRテキストによくある問題：
             1. 文字認識ミス（類似文字の誤認識）
             2. 改行や段落の構造が崩れている
             3. 句読点や記号の配置がおかしい
             4. 文脈に合わない文字変換
+            5. 表や箇条書きの構造が失われている
 
-            整形ガイドライン：
-            1. 明らかな誤字・脱字を修正
-            2. 適切な段落分けと改行を追加
-            3. 読みやすい文章構造に再構成
-            4. 重要な情報を見やすく整理
-            5. 元の意味・内容は絶対に変更しない
+            ### 音声文字起こしによくある問題：
+            1. 「えー」「あのー」「まあ」等のフィラーワード
+            2. 句読点の不足・不適切な配置
+            3. 改行や段落分けがない
+            4. 話し言葉と書き言葉の混在
+            5. 論理的な流れが分かりにくい
+
+            ## 高品質整形ガイドライン
+            ### 写真スキャン時（visual_preserve）：
+            1. **太字・見出し構造の再現**: 元画像で太字や大きな文字だった箇所は**太字**で表現
+            2. **視覚的階層の保持**: 見出し1 > 見出し2 > 本文の階層構造を明確化
+            3. **リスト・表構造の再現**: 箇条書きや番号付きリストを適切に整形
+            4. **レイアウト改善**: 読みやすい行間・段落間隔を追加
+            5. **元の意味・内容は絶対に変更しない**
+
+            ### 音声文字起こし時（speech_to_text）：
+            1. **自然な改行**: 意味のまとまりで適切に段落分け
+            2. **フィラーワード処理**: 「えー」「あのー」等は文脈を損なわない範囲で除去
+            3. **句読点の追加**: 話の区切りに適切な句読点を追加
+            4. **文章の流れ改善**: 論理的で読みやすい構造に再構成
+            5. **話者の意図保持**: 元の発言の趣旨や感情を完全に保持**
 
             結果は以下のJSON形式で返してください：
             {{
@@ -381,19 +431,62 @@ class AIService:
             }}
             """
             
-            # ユーザープロンプト作成
-            user_prompt = f"""
-            以下のOCRテキストを整形してください：
+            # 🆕 format_styleに応じた詳細なユーザープロンプト作成
+            if format_style == 'speech_to_text':
+                # 音声文字起こし専用プロンプト
+                user_prompt = f"""
+                以下の音声文字起こしテキストを、読みやすい文章に整形してください：
 
-            【OCR抽出テキスト】
-            {text}
+                【音声文字起こしテキスト】
+                {text}
 
-            【整形要求】
-            - スタイル: {format_style}
-            - 元の内容・意味を保持しながら、読みやすく整形してください
-            - 明らかな文字認識ミスは適切に修正してください
-            - 段落構成を見直し、情報を整理してください
-            """
+                【音声文字起こし専用整形要求】
+                1. **自然な改行・段落分け**: 意味のまとまりごとに適切に改行し、読みやすい段落を作成
+                2. **句読点の追加**: 話の区切りに「。」「、」を適切に配置
+                3. **フィラーワード除去**: 「えー」「あのー」「まあ」等は文脈を損なわない範囲で除去
+                4. **文章の流れ改善**: 論理的で自然な文章構造に整理
+                5. **話し言葉の調整**: 必要に応じて書き言葉に調整（話者の意図は保持）
+                6. **視覚的読みやすさ**: 1文が長すぎる場合は適切に分割
+
+                【重要】
+                - 改行を多用して、1つの文や段落が長くなりすぎないようにする
+                - 各段落は2-3文程度に収める
+                - 話者の意図や感情は完全に保持する
+                - 内容の追加や削除は行わない
+
+                音声文字起こしの特徴を考慮し、**段落分けと改行を重視**して整形してください。
+                """
+            elif format_style == 'visual_preserve':
+                # 写真スキャン専用プロンプト
+                user_prompt = f"""
+                以下の写真スキャンテキストを、元画像の視覚的構造を保持しながら整形してください：
+
+                【写真スキャンテキスト】
+                {text}
+
+                【写真スキャン専用整形要求】
+                1. **視覚的構造保持**: 元画像の太字、見出し、リスト構造を再現
+                2. **階層構造明確化**: 見出し1 > 見出し2 > 本文の階層を**太字**で表現
+                3. **リスト・表構造**: 箇条書きや番号付きリストを適切に整形
+                4. **レイアウト改善**: 読みやすい行間・段落間隔を追加
+                5. **書式の再現**: 重要な部分は**太字**で強調
+
+                元画像の構造を最大限に再現してください。
+                """
+            else:
+                # 汎用プロンプト
+                user_prompt = f"""
+                以下のテキストを整形してください：
+
+                【テキスト】
+                {text}
+
+                【整形要求】
+                - スタイル: {format_style}
+                - 元の内容・意味を保持しながら、読みやすく整形してください
+                - 明らかな誤字・脱字は適切に修正してください
+                - 段落構成を見直し、情報を整理してください
+                """
             
             # AIプロバイダーで整形処理を実行
             result = await self.provider.chat(

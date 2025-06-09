@@ -13,7 +13,7 @@ export const getDevWsBaseUrl = (): string => {
   }
 
   // 開発環境では環境変数から取得
-  const sttBaseUrl = process.env.EXPO_PUBLIC_STT_BASE_URL || 'http://192.168.0.166:8002';
+  const sttBaseUrl = process.env.EXPO_PUBLIC_STT_BASE_URL || 'http://192.168.0.46:8002';
   const wsUrl = sttBaseUrl.replace('http://', 'ws://').replace('https://', 'wss://') + '/api/v1/stt/stream';
   
   // デバッグログ
@@ -37,7 +37,7 @@ export const getApiBaseUrl = (): string => {
   }
 
   // 開発環境では環境変数から取得
-  const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.0.166:8000';
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.0.46:8000';
   console.log(`[ENV] API URL: ${apiUrl}`);
   
   return apiUrl;

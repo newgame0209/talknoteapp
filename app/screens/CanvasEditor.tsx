@@ -10,12 +10,18 @@ import DrawingCanvas, { DrawingPath } from '../components/DrawingCanvas';
 import AIChatWidget from '../components/AIChatWidget';
 import database, { 
   Recording, 
+  ManualNote,
+  PhotoScan,
   saveRecording, 
+  saveManualNote,
   updateNote, 
   updateCanvasData,
   updateNoteTitle,
+  updateManualNoteTitle,
   getPhotoScans,
-  PhotoScan 
+  getManualNotes,
+  generateManualNoteAITitle,
+  getDatabase
 } from '../services/database';
   import { useAutoSave, ToolbarFunction } from '../hooks/useAutoSave';
   import { UniversalNoteService } from '../services/UniversalNoteService';
@@ -127,9 +133,34 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
 
   // 🆕 ノートタイプ判定関数（早期定義）
   const determineNoteType = (): NoteType => {
-    if (recordingState !== 'idle') return 'recording';
-    if (noteId?.includes('photo_scan')) return 'photo_scan';
-    if (noteId?.includes('import')) return 'import';
+    console.log('🔍🔍🔍 CRITICAL noteType判定:', {
+      noteId,
+      actualNoteId,
+      newNoteId,
+      recordingState,
+      routeParamsNoteId: route.params?.noteId,
+      includesPhotoScan: noteId?.includes('photo_scan'),
+      startsWithPhotoScan: noteId?.startsWith('photo_scan_'),
+      includesImport: noteId?.includes('import'),
+      判定結果: recordingState !== 'idle' ? 'recording' :
+                noteId?.includes('photo_scan') || noteId?.startsWith('photo_scan_') ? 'photo_scan' :
+                noteId?.includes('import') ? 'import' : 'manual'
+    });
+    
+    // 🚨 写真スキャンノートの判定を最優先に
+    if (noteId?.includes('photo_scan') || noteId?.startsWith('photo_scan_')) {
+      console.log('✅ 写真スキャンノートとして判定');
+      return 'photo_scan';
+    }
+    if (recordingState !== 'idle') {
+      console.log('✅ 録音ノートとして判定');
+      return 'recording';
+    }
+    if (noteId?.includes('import')) {
+      console.log('✅ インポートノートとして判定');
+      return 'import';
+    }
+    console.log('✅ 手動ノートとして判定');
     return 'manual';
   };
 
@@ -311,14 +342,81 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
               setIsPhotoScanNote(true);
               setTitle(targetPhotoScan.title);
               
-              // 新仕様：AI整形済みテキストを優先的に読み込み
+              // 🔥 CRITICAL: Step1でもキャンバス設定復元を追加
+              const firstPhoto = targetPhotoScan.photos?.[0];
+              
+              // まずcanvasDataがあるかチェック（設定復元）
+              if (firstPhoto?.canvasData) {
+                console.log('📸 Step1 - キャンバス設定復元開始:', {
+                  hasCanvasData: !!firstPhoto.canvasData,
+                  canvasDataType: typeof firstPhoto.canvasData
+                });
+                
+                try {
+                  const canvasData = typeof firstPhoto.canvasData === 'string' 
+                    ? JSON.parse(firstPhoto.canvasData) 
+                    : firstPhoto.canvasData;
+                  
+                  if (canvasData && typeof canvasData === 'object' && canvasData.type === 'canvas') {
+                    // コンテンツ復元
+                    if (canvasData.content) {
+                      setContent(canvasData.content);
+                      console.log('📸 Step1 - コンテンツ復元完了:', canvasData.content.substring(0, 50) + '...');
+                    }
+                    
+                    // 手書きデータ復元
+                    if (canvasData.drawingPaths && Array.isArray(canvasData.drawingPaths)) {
+                      setDrawingPaths(canvasData.drawingPaths);
+                      console.log('📸 Step1 - 描画パス復元完了:', canvasData.drawingPaths.length);
+                    }
+                    
+                    // 🔥 CRITICAL: キャンバス設定復元
+                    if (canvasData.canvasSettings) {
+                      const settings = canvasData.canvasSettings;
+                      console.log('🔍🔍🔍 Step1 - 写真スキャン設定復元:', settings);
+                      
+                      // ツール設定復元
+                      if (settings.selectedTool) setSelectedTool(settings.selectedTool);
+                      if (settings.selectedPenTool) setSelectedPenTool(settings.selectedPenTool);
+                      if (settings.selectedColor) setSelectedColor(settings.selectedColor);
+                      if (settings.strokeWidth) setStrokeWidth(settings.strokeWidth);
+                      
+                      // テキスト設定復元
+                      if (settings.textSettings) {
+                        const textSettings = settings.textSettings;
+                        console.log('🔍🔍🔍 Step1 - textSettings復元:', textSettings);
+                        
+                        if (textSettings.fontSize) {
+                          console.log('📏 Step1 - フォントサイズ復元:', { 前: fontSize, 復元値: textSettings.fontSize });
+                          setFontSize(textSettings.fontSize);
+                        }
+                        if (textSettings.textColor) setTextColor(textSettings.textColor);
+                        if (textSettings.selectedFont) setSelectedFont(textSettings.selectedFont);
+                        if (textSettings.selectedTextType) setSelectedTextType(textSettings.selectedTextType);
+                        if (typeof textSettings.isBold === 'boolean') {
+                          console.log('💪 Step1 - 太字設定復元:', { 前: isBold, 復元値: textSettings.isBold });
+                          setIsBold(textSettings.isBold);
+                        }
+                        if (textSettings.lineSpacing) setLineSpacing(textSettings.lineSpacing);
+                        if (textSettings.letterSpacing) setLetterSpacing(textSettings.letterSpacing);
+                      }
+                      
+                      console.log('✅ Step1 - キャンバス設定復元完了');
+                    }
+                    
+                    return; // キャンバスデータがある場合は処理完了
+                  }
+                } catch (canvasError) {
+                  console.log('⚠️ Step1 - キャンバスデータ解析エラー:', canvasError);
+                }
+              }
+              
+              // フォールバック：AI整形済みテキストまたは通常のOCRテキストを使用
               let displayText = '';
               
-              // まずAI整形済みテキストを探す
-              const firstPhoto = targetPhotoScan.photos?.[0];
               if (firstPhoto?.ocrResult?.enhancedText) {
                 displayText = firstPhoto.ocrResult.enhancedText;
-                console.log('✅ AI整形済みテキスト読み込み完了:', {
+                console.log('✅ Step1 - AI整形済みテキスト読み込み:', {
                   id: targetPhotoScan.id,
                   title: targetPhotoScan.title,
                   textLength: displayText.length
@@ -336,7 +434,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                   }
                 }
                 displayText = ocrTexts.join('\n\n');
-                console.log('⚠️ 通常のOCRテキストを使用:', {
+                console.log('⚠️ Step1 - 通常のOCRテキストを使用:', {
                   id: targetPhotoScan.id,
                   photosCount: targetPhotoScan.photos.length,
                   textLength: displayText.length
@@ -361,6 +459,109 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
 
         // 📝 Step2: 通常のノート読み込み処理
         const note = await getNoteById(noteId);
+        
+        // 🆕 Step2.1: 通常ノート（manual）専用処理を追加
+        if (noteId === 'new' || note?.file_path === 'manual') {
+          console.log('📝 通常ノート（manual）検出:', { noteId, note: !!note });
+          
+          try {
+            const db = getDatabase();
+            
+            // 新規ノートまたは既存の通常ノートを処理
+            let manualNote: ManualNote | null = null;
+            
+            if (noteId === 'new') {
+              // 新規ノート作成時は空のManualNoteを作成
+              const newNoteId = `manual_${Date.now()}`;
+              await saveManualNote(newNoteId, "無題のノート", "");
+              manualNote = await db.getFirstAsync<ManualNote>(
+                'SELECT * FROM manual_notes WHERE id = ?;',
+                [newNoteId]
+              );
+              
+              // noteIdを更新（次回からの読み込み用）
+              setNewNoteId(newNoteId);
+              console.log('📝 新規通常ノート作成完了:', { oldNoteId: noteId, newNoteId });
+            } else {
+              // 既存の通常ノートを読み込み
+              manualNote = await db.getFirstAsync<ManualNote>(
+                'SELECT * FROM manual_notes WHERE id = ?;',
+                [noteId]
+              );
+            }
+            
+            if (manualNote) {
+              setTitle(manualNote.title);
+              
+              // キャンバスデータの復元処理
+              if (manualNote.canvas_data) {
+                try {
+                  const canvasData = typeof manualNote.canvas_data === 'string' 
+                    ? JSON.parse(manualNote.canvas_data) 
+                    : manualNote.canvas_data;
+                  
+                  if (canvasData && typeof canvasData === 'object' && canvasData.type === 'canvas') {
+                    // コンテンツ復元
+                    if (canvasData.content) {
+                      setContent(canvasData.content);
+                      console.log('✅ 通常ノート - コンテンツ復元完了:', canvasData.content.substring(0, 50) + '...');
+                    }
+                    
+                    // 手書きデータ復元
+                    if (canvasData.drawingPaths && Array.isArray(canvasData.drawingPaths)) {
+                      setDrawingPaths(canvasData.drawingPaths);
+                      console.log('✅ 通常ノート - 描画パス復元完了:', canvasData.drawingPaths.length);
+                    }
+                    
+                    // 🔥 通常ノートのキャンバス設定復元
+                    if (canvasData.canvasSettings) {
+                      const settings = canvasData.canvasSettings;
+                      console.log('✅ 通常ノート - キャンバス設定復元開始:', settings);
+                      
+                      // ツール設定復元
+                      if (settings.selectedTool) setSelectedTool(settings.selectedTool);
+                      if (settings.selectedPenTool) setSelectedPenTool(settings.selectedPenTool);
+                      if (settings.selectedColor) setSelectedColor(settings.selectedColor);
+                      if (settings.strokeWidth) setStrokeWidth(settings.strokeWidth);
+                      
+                      // テキスト設定復元
+                      if (settings.textSettings) {
+                        const textSettings = settings.textSettings;
+                        console.log('✅ 通常ノート - textSettings復元:', textSettings);
+                        
+                        if (textSettings.fontSize) {
+                          console.log('📏 通常ノート - フォントサイズ復元:', { 前: fontSize, 復元値: textSettings.fontSize });
+                          setFontSize(textSettings.fontSize);
+                        }
+                        if (textSettings.textColor) setTextColor(textSettings.textColor);
+                        if (textSettings.selectedFont) setSelectedFont(textSettings.selectedFont);
+                        if (textSettings.selectedTextType) setSelectedTextType(textSettings.selectedTextType);
+                        if (typeof textSettings.isBold === 'boolean') {
+                          console.log('💪 通常ノート - 太字設定復元:', { 前: isBold, 復元値: textSettings.isBold });
+                          setIsBold(textSettings.isBold);
+                        }
+                        if (textSettings.lineSpacing) setLineSpacing(textSettings.lineSpacing);
+                        if (textSettings.letterSpacing) setLetterSpacing(textSettings.letterSpacing);
+                      }
+                      
+                      console.log('✅ 通常ノート - 全設定復元完了');
+                    }
+                  }
+                } catch (canvasError) {
+                  console.log('⚠️ 通常ノート - キャンバスデータ解析エラー:', canvasError);
+                }
+              } else {
+                // 初期化時のデフォルトコンテンツ
+                setContent(manualNote.content || '');
+              }
+              
+              return; // 通常ノート処理完了
+            }
+          } catch (manualError) {
+            console.error('❌ 通常ノート読み込みエラー:', manualError);
+          }
+        }
+        
         if (note) {
           console.log('🔍🔍🔍 ノートデータ構造確認:', {
             hasTranscription: 'transcription' in note,
@@ -727,9 +928,9 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
   // キャンバスをタップした時のハンドラ（テキスト編集開始）
   const handleCanvasPress = () => {
     setIsEditing(true);
-    // ✅ 修正: キャンバスタッチで罫線アイコン非表示 → 音声プレイヤー表示
+    // ✅ 修正: キャンバスタッチで罫線アイコン非表示、テキスト編集開始で音声プレイヤー非表示
     setIsCanvasIconsVisible(false);
-    setShowAudioPlayer(true);
+    setShowAudioPlayer(false); // テキスト編集開始時は音声プレイヤーを非表示
     markAsChanged(); // 🔥 追加: キャンバスタッチ時も変更フラグを立てる
   };
 
@@ -908,11 +1109,11 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     setIsCanvasIconsVisible(false);
   };
 
-  // 本文エリアをタップした時のハンドラ（アイコン表示）
+  // 本文エリアをタップした時のハンドラ（テキスト編集開始）
   const handleContentAreaPress = () => {
-    // ✅ 追加修正: 本文エリアタッチで罫線アイコン非表示 → 音声プレイヤー表示
+    // ✅ 修正: 本文エリアタッチで罫線アイコン非表示、テキスト編集開始で音声プレイヤー非表示
     setIsCanvasIconsVisible(false);
-    setShowAudioPlayer(true);
+    setShowAudioPlayer(false); // テキスト編集開始時は音声プレイヤーを非表示
     setIsEditing(true);
   };
 
@@ -1158,7 +1359,15 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
       fontFamily,
       color: textColor,
       fontWeight: isBold ? 'bold' as const : (typeStyle.fontWeight || 'normal' as const),
-      lineHeight: fontSize * lineSpacing,
+      // 🩹 iOS の下線を隠さないための調整
+      ...(Platform.OS === 'ios'
+        ? {
+            lineHeight: undefined,      // ← 行高さカスタムを無効化
+            paddingVertical: 4,         // ← 下線が切れないよう余白
+          }
+        : {
+            lineHeight: fontSize * lineSpacing, // Android は従来通り
+          }),
       letterSpacing: selectedFont === 'dyslexia' ? Math.max(letterSpacing, 0.5) : letterSpacing, // UDフォント時は最低0.5px間隔
     };
     
@@ -1281,9 +1490,18 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
         console.log('🚀 UniversalNoteService統一自動保存開始');
         
         // UniversalNote形式でデータ構築
+        const determinedType = determineNoteType();
+        console.log('🚨🚨🚨 CRITICAL performAutoSave noteType判定:', {
+          noteId: noteIdToUse,
+          determinedType,
+          route_params: route.params,
+          includesPhotoScan: noteIdToUse.includes('photo_scan'),
+          startsWithPhotoScan: noteIdToUse.startsWith('photo_scan_')
+        });
+        
         const universalNote: UniversalNote = {
           id: noteIdToUse,
-          type: determineNoteType(),
+          type: determinedType,
           title: title,
           pages: [{
             pageId: `${noteIdToUse}_page_1`,
@@ -1941,7 +2159,11 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
 
         {/* ノートエリア全体 */}
         <View style={styles.flex1}>
-          <View style={styles.noteArea}>
+                      <View style={[
+              styles.noteArea,
+              // ✅ テキスト編集中は音声プレイヤー分の高さをキャンバスに追加
+              isEditing && { paddingBottom: 50 }
+            ]}>
               {/* タイトルエリア */}
               <View style={styles.titleRow}>
                 {isEditingTitle ? (
@@ -1994,13 +2216,18 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                     multiline
                     textAlignVertical="top"
                     placeholderTextColor="#B0B0B0"
-                    onBlur={handleContentSave}
+                    onBlur={() => {
+                      setIsEditing(false);
+                      // ✅ テキスト編集終了時に音声プレイヤーを再表示
+                      setShowAudioPlayer(true);
+                      handleContentSave();
+                    }}
                     editable={selectedTool !== 'pen'} // ペンツール時は編集不可
                     onFocus={() => {
                       setIsEditing(true);
-                      // ✅ 修正: キャンバスフォーカス時に音声プレイヤー表示
+                      // ✅ 修正: テキスト編集中は音声プレイヤーを非表示
                       setIsCanvasIconsVisible(false);
-                      setShowAudioPlayer(true);
+                      setShowAudioPlayer(false);
                     }}
                     onSelectionChange={(event) => {
                       // ✨ 選択範囲を追跡
@@ -2009,6 +2236,13 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                     }}
                     pointerEvents={selectedTool === 'pen' ? 'none' : 'auto'} // ペンツール時はタッチイベントを無効
                     scrollEnabled={false} // TextInputのスクロールを無効化（ScrollViewが代行）
+                    // 🇯🇵 日本語入力の下線表示に最適化された設定
+                    keyboardType="default"
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    // 🎯 下線表示のために削除: textContentType, clearButtonMode
+                    selectionColor="#4F8CFF"
                   />
                 </ScrollView>
                 
@@ -2036,8 +2270,8 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
             </View>
 
             {/* noteArea直下にアイコンを配置 */}
-            {/* 🎵 Phase 4: 全ノート共通 音声プレイヤー表示 */}
-            {showAudioPlayer ? (
+            {/* 🎵 Phase 4: 全ノート共通 音声プレイヤー表示（テキスト編集中は非表示） */}
+            {showAudioPlayer && !isEditing ? (
               <View style={styles.audioPlayerContainer}>
                 {/* 音声設定ボタン（左端） */}
                 <TouchableOpacity style={styles.audioButton}>
@@ -2759,6 +2993,7 @@ const styles = StyleSheet.create({
   contentInputBackground: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
+
   detailSettingsGroup: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -3019,9 +3254,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     backgroundColor: '#fff',
     borderRadius: 8,
-    marginHorizontal: 10,
+    marginHorizontal: 20, // 左右マージンを増やして幅を縮小
     marginVertical: 8,
-    marginBottom: 20, // 🔧 修正: 下部マージンを増やしてスクロールバーとの被りを防止
+    marginBottom: 30, // 下部マージンをさらに増やす
     elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },

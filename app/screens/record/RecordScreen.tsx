@@ -11,6 +11,8 @@ import { STTSocket, STTResult } from '../../services/sttSocket'; // Ensure named
 import { auth } from '../../services/firebase';
 import { saveRecording, generateAITitle, getAllNotes } from '../../services/database';
 import { mediaApi } from '../../services/api';
+import axios from 'axios';
+import { getCurrentIdToken } from '../../services/auth';
 import * as Crypto from 'expo-crypto';
 import * as FileSystem from 'expo-file-system';
 
@@ -22,11 +24,14 @@ import * as FileSystem from 'expo-file-system';
 const RecordScreen: React.FC = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const [recordingState, setRecordingState] = useState<'idle' | 'recording' | 'paused'>('idle');
+  const [recordingState, setRecordingState] = useState<'idle' | 'recording' | 'paused' | 'processing'>('idle');
   const [recordingTime, setRecordingTime] = useState(0);
   const [transcription, setTranscription] = useState('');
   const [interimTranscription, setInterimTranscription] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
+  // 🆕 ノート作成処理用ローディング状態
+  const [isCreatingNote, setIsCreatingNote] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState('');
   const audioRecorder = useRef(new AudioRecorder()).current;
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const sttSocketRef = useRef<STTSocket | null>(null);
@@ -229,7 +234,11 @@ const RecordScreen: React.FC = () => {
   const stopRecording = async () => {
     try {
       const fileUri = await audioRecorder.stopRecording();
-      setRecordingState('idle');
+      
+      // 🆕 処理中状態に変更
+      setRecordingState('processing');
+      setIsCreatingNote(true);
+      setProcessingStatus('録音を保存しています...');
       
       // タイマー停止
       if (timerRef.current) {
@@ -249,7 +258,26 @@ const RecordScreen: React.FC = () => {
       
       // 録音データをデータベースに保存
       const recordingId = Crypto.randomUUID();
-      const finalTranscription = transcription + (interimTranscription ? ' ' + interimTranscription : '');
+      const rawTranscription = transcription + (interimTranscription ? ' ' + interimTranscription : '');
+      
+      // 🆕 AI文章整形処理
+      let finalTranscription = rawTranscription;
+      if (rawTranscription.length > 0) {
+        console.log('🔍 録音文字起こしのAI整形処理開始...');
+        setProcessingStatus('AIが文章を整形しています...');
+        try {
+          const enhancedText = await enhanceTranscriptionWithAI(rawTranscription);
+          finalTranscription = enhancedText;
+          console.log('✅ 録音文字起こしのAI整形完了:', {
+            originalLength: rawTranscription.length,
+            enhancedLength: enhancedText.length
+          });
+        } catch (error) {
+          console.error('⚠️ 録音文字起こしのAI整形エラー:', error);
+          // エラー時は元のテキストを使用
+          finalTranscription = rawTranscription;
+        }
+      }
       
       // タイトル生成：文字起こしがある場合はAI生成、ない場合は日付ベース
       let title: string;
@@ -284,6 +312,7 @@ const RecordScreen: React.FC = () => {
       }
       
       try {
+        setProcessingStatus('ノートを保存しています...');
         await saveRecording(
           recordingId,
           title,
@@ -296,6 +325,7 @@ const RecordScreen: React.FC = () => {
         // 文字起こしがある場合は即座にAIタイトル生成を開始
         if (finalTranscription.length > 0) {
           console.log('[Record] 録音完了後のAIタイトル生成開始');
+          setProcessingStatus('AIがタイトルを生成しています...');
           // 非同期でAIタイトル生成を実行（UIをブロックしない）
           generateAITitle(recordingId, finalTranscription).catch((error) => {
             console.error('[Record] AIタイトル生成エラー:', error);
@@ -305,18 +335,33 @@ const RecordScreen: React.FC = () => {
         // Cloud Storageへのアップロード処理を開始
         uploadToCloudStorage(fileUri, title, recordingId);
         
-        // ダッシュボードに戻る
-        navigation.goBack();
+        // 🆕 処理完了後に状態をリセット
+        setProcessingStatus('完了しました！');
+        setTimeout(() => {
+          setIsCreatingNote(false);
+          setRecordingState('idle');
+          setProcessingStatus('');
+          // ダッシュボードに戻る
+          navigation.goBack();
+        }, 1000);
       
         // 成功メッセージを表示（オプション）
         // Alert.alert('保存完了', 'ノートが作成されました');
       } catch (dbError) {
         console.error('データベース保存エラー:', dbError);
+        // 🆕 エラー時も状態をリセット
+        setIsCreatingNote(false);
+        setRecordingState('idle');
+        setProcessingStatus('');
         Alert.alert('エラー', '録音データの保存に失敗しました。');
       }
       
     } catch (error) {
       console.error('録音停止エラー:', error);
+      // 🆕 エラー時の状態リセット
+      setIsCreatingNote(false);
+      setRecordingState('idle');
+      setProcessingStatus('');
       Alert.alert('エラー', '録音の停止に失敗しました。');
     }
   };
@@ -472,6 +517,87 @@ const RecordScreen: React.FC = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // 🆕 録音文字起こしのAI整形関数
+  const enhanceTranscriptionWithAI = async (rawText: string): Promise<string> => {
+    try {
+      console.log('🔍 録音文字起こしのAI整形開始:', { textLength: rawText.length });
+      
+      // APIベースURLを取得
+      const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+      
+      // 認証トークンを取得
+      const token = await getCurrentIdToken();
+      const authHeader = token ? `Bearer ${token}` : 'Bearer demo_token_for_development';
+      
+      const response = await axios.post(`${API_BASE_URL}/api/v1/ai/enhance-scanned-text`, {
+        text: rawText,
+        analyze_structure: true,          // 文章構造解析
+        correct_grammar: true,            // 文法修正
+        improve_readability: true,        // 読みやすさ向上
+        format_style: 'speech_to_text',   // 🆕 音声文字起こし専用スタイル
+        language: 'ja',                   // 日本語
+        // 🆕 音声文字起こし専用の高度な整形オプション
+        add_natural_breaks: true,         // 自然な改行・段落分け
+        improve_flow: true,               // 文章の流れを改善
+        remove_filler_words: true,        // 「えー」「あのー」等の除去
+        add_punctuation: true,            // 適切な句読点の追加
+        organize_content: true,           // 内容の論理的整理
+        enhance_clarity: true,            // 明瞭性の向上
+        preserve_speaker_intent: true     // 話者の意図を保持
+      }, {
+        headers: { 
+          Authorization: authHeader,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000
+      });
+      
+      if (response.data && response.data.enhanced_text) {
+        console.log('✅ 録音文字起こしAI整形完了:', {
+          originalLength: rawText.length,
+          enhancedLength: response.data.enhanced_text.length
+        });
+        return response.data.enhanced_text;
+      } else {
+        console.warn('⚠️ AI整形APIレスポンスが空です');
+        return rawText; // フォールバック
+      }
+    } catch (error) {
+      console.error('❌ 録音文字起こしAI整形エラー:', error);
+      return rawText; // エラー時は元のテキストを返す
+    }
+  };
+
+  // 🆕 ローディング画面の条件付きレンダリング
+  if (isCreatingNote) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="dark" />
+        
+        {/* ローディング画面 */}
+        <View style={styles.loadingContainer}>
+          <View style={styles.loadingContent}>
+            {/* ローディングアニメーション */}
+            <View style={styles.loadingSpinner}>
+              <Ionicons name="musical-notes" size={60} color="#4F46E5" />
+            </View>
+            
+            {/* ローディングメッセージ */}
+            <Text style={styles.loadingTitle}>ノートを作成中</Text>
+            <Text style={styles.loadingMessage}>
+              {processingStatus || 'しばらくお待ちください...'}
+            </Text>
+            
+            {/* プログレスバー */}
+            <View style={styles.progressBar}>
+              <View style={styles.progressFill} />
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
@@ -479,12 +605,13 @@ const RecordScreen: React.FC = () => {
       {/* ステータスバー分の余白 */}
       <View style={styles.statusBarSpace} />
       
-      {/* 戻るボタン */}
+      {/* 戻るボタン - ローディング中は無効化 */}
       <TouchableOpacity 
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
+        style={[styles.backButton, recordingState === 'processing' && styles.disabledButton]}
+        onPress={() => recordingState !== 'processing' && navigation.goBack()}
+        disabled={recordingState === 'processing'}
       >
-        <Ionicons name="chevron-back" size={24} color="#000" />
+        <Ionicons name="chevron-back" size={24} color={recordingState === 'processing' ? "#ccc" : "#000"} />
       </TouchableOpacity>
       
       {/* メインコンテンツ */}
@@ -878,6 +1005,50 @@ const styles = StyleSheet.create({
   interimText: {
     color: '#9CA3AF',
     fontStyle: 'italic',
+  },
+  // 🆕 ローディング画面のスタイル
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#f6f7fb',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingContent: {
+    alignItems: 'center',
+    padding: 32,
+  },
+  loadingSpinner: {
+    marginBottom: 24,
+  },
+  loadingTitle: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  loadingMessage: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 32,
+    lineHeight: 24,
+  },
+  progressBar: {
+    width: 200,
+    height: 4,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#4F46E5',
+    width: '60%', // アニメーションできるようにしたい場合は後で調整
+    borderRadius: 2,
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
 });
 

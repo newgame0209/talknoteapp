@@ -111,30 +111,50 @@ export class UniversalNoteService {
       const canvasContent = JSON.stringify(currentPageData?.canvasData || {});
 
       try {
+        console.log('🚨🚨🚨 CRITICAL saveUniversalNote処理開始:', {
+          noteId: note.id,
+          noteType: note.type,
+          title: note.title,
+          currentPageIndex,
+          hasCurrentPageData: !!currentPageData,
+          canvasDataKeys: currentPageData?.canvasData ? Object.keys(currentPageData.canvasData) : []
+        });
+
         switch (note.type) {
           case 'recording':
-            await saveRecording(
-              note.id,
-              note.title,
-              0, // duration
-              note.metadata.recordingMetadata?.originalAudioUri || '',
-              canvasContent
-            );
+            // 🔥 録音ノート保存処理の詳細ログ
+            console.log('🎤 UniversalNoteService recording保存開始:', {
+              noteId: note.id,
+              title: note.title,
+              hasCanvasData: !!currentPageData?.canvasData,
+              canvasDataKeys: currentPageData?.canvasData ? Object.keys(currentPageData.canvasData) : [],
+              contentLength: currentPageData?.canvasData?.content?.length || 0,
+              pathsCount: currentPageData?.canvasData?.drawingPaths?.length || 0,
+              hasCanvasSettings: !!currentPageData?.canvasData?.canvasSettings
+            });
+            
+            // updateCanvasDataを直接使用してcanvasData全体を保存
+            await updateCanvasData(note.id, currentPageData?.canvasData || {});
             success = true;
+            console.log('🎤 録音ノート保存完了 (updateCanvasData使用)');
             break;
 
           case 'photo_scan':
-            // canvasDataのcontentから実際のテキストを取得
-            const textContent = currentPageData?.canvasData?.content || '';
-            await savePhotoScan(note.id, note.title, [{
-              uri: note.metadata.photoScanMetadata?.originalPhotoUris?.[0] || '',
-              ocrResult: {
-                text: textContent,
-                confidence: 0.95,
-                enhancedText: textContent
-              }
-            }]);
+            // 🔥 写真スキャン保存処理の詳細ログ
+            console.log('📸📸📸 UniversalNoteService photo_scan保存開始:', {
+              noteId: note.id,
+              title: note.title,
+              hasCanvasData: !!currentPageData?.canvasData,
+              canvasDataKeys: currentPageData?.canvasData ? Object.keys(currentPageData.canvasData) : [],
+              contentLength: currentPageData?.canvasData?.content?.length || 0,
+              pathsCount: currentPageData?.canvasData?.drawingPaths?.length || 0,
+              hasCanvasSettings: !!currentPageData?.canvasData?.canvasSettings
+            });
+            
+            // updateCanvasDataを直接使用してcanvasData全体を保存
+            await updateCanvasData(note.id, currentPageData?.canvasData || {});
             success = true;
+            console.log('📸📸📸 写真スキャン保存完了 (updateCanvasData使用)');
             break;
 
           case 'import':

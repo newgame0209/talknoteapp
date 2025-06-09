@@ -1,158 +1,203 @@
- LOG  🎯🎯🎯 最終スタイル出力: {"color": "#000000", "flex": 1, "fontFamily": "System", "fontSize": 16, "fontWeight": "normal", "letterSpacing": 0, "lineHeight": 20, "margin": 0, "padding": 0, "textAlignVertical": "top"}
+ LOG  [Dashboard] loadData 開始
+ LOG  [Dashboard] データベース初期化中...
+ LOG  [Dashboard] refreshing状態変化: false
+ LOG  Recordings table created successfully
+ LOG  Imports table created successfully
+ LOG  Upload queue table created successfully
+ LOG  Photo scans table created successfully
+ LOG  Database initialized successfully
+ LOG  [Dashboard] データベース初期化完了
+ LOG  [Dashboard] 録音データ取得中...
+ LOG  [getAllNotes] 取得したノート数: 3
+ LOG  [Dashboard] 録音データ取得完了: 3 件
+ LOG  [Dashboard] loadData 完了
+ LOG  [Dashboard] isLoading = false に設定
+ LOG  [Dashboard] FlatList render debug: {"isArray": true, "recordingsLength": 3, "recordingsSample": [{"id": "photo_scan_1749430711817", "title": "クレジット売上票記録", "type": "object"}, {"id": "bd30de3c-97cc-410d-89bf-f68a8a7aa112", "title": "ノート2025-06-09（1）", "type": "object"}], "recordingsType": "object", "shouldShowEmpty": false}
+ LOG  🔍 Firebase Debug Info: {"configProjectId": "talknote-446306", "email": "shanzhongliangping841@gmail.com", "isAuthenticated": true, "persistenceMode": "Firebase AsyncStorage Only", "userId": "WvyMDrjT3BSIKHKsryvKWg3smGq2"}
+ LOG  🔐 AuthGuard: 初期化完了 {"isLoading": false, "user": "認証済み"}
+ LOG  🔍🔍🔍 CRITICAL noteType判定: {"actualNoteId": "photo_scan_1749430711817", "includesImport": false, "includesPhotoScan": true, "newNoteId": null, "noteId": "photo_scan_1749430711817", "recordingState": "idle", "routeParamsNoteId": "photo_scan_1749430711817", "startsWithPhotoScan": true, "判定結果": "photo_scan"}
+ LOG  ✅ 写真スキャンノートとして判定
+ LOG  🎨 getTextInputStyle実行結果: {"actualFontSize": 16, "actualLineHeight": 19.2, "color": "#000000", "fontSize": 16, "fontWeight": "normal", "letterSpacing": 0, "lineSpacing": 1.2, "selectedTextType": "body"}
+ LOG  🗄️ UniversalNoteService: UniversalNoteService initialized {"config": {"debugMode": true, "enableCaching": true, "enableRetry": true, "enableValidation": true, "maxRetries": 3, "retryDelayMs": 1000}}
+ LOG  🔧 AutoSaveDecorator: UniversalNoteService初期化完了
+ LOG  🎯 useAutoSave: 自動保存タイマー開始: 5秒間隔 
+ LOG  📸 写真スキャンノート検出: photo_scan_1749430711817
+ LOG  🕒 自動保存タイマー再開始: 5秒間隔
+ LOG  🗄️ UniversalNoteService: UniversalNoteService initialized {"config": {"debugMode": true, "enableCaching": true, "enableRetry": true, "enableValidation": true, "maxRetries": 3, "retryDelayMs": 1000}}
+ LOG  🔧 AutoSaveDecorator: UniversalNoteService初期化完了
+ LOG  🔍🔍🔍 CRITICAL noteType判定: {"actualNoteId": "photo_scan_1749430711817", "includesImport": false, "includesPhotoScan": true, "newNoteId": null, "noteId": "photo_scan_1749430711817", "recordingState": "idle", "routeParamsNoteId": "photo_scan_1749430711817", "startsWithPhotoScan": true, "判定結果": "photo_scan"}
+ LOG  ✅ 写真スキャンノートとして判定
+ LOG  🎨 getTextInputStyle実行結果: {"actualFontSize": 16, "actualLineHeight": 19.2, "color": "#000000", "fontSize": 16, "fontWeight": "normal", "letterSpacing": 0, "lineSpacing": 1.2, "selectedTextType": "body"}
+ LOG  🎯 useAutoSave: 自動保存タイマー停止 
+ LOG  🎯 useAutoSave: 自動保存タイマー開始: 5秒間隔 
+ LOG  ✅ AI整形済みテキスト読み込み完了: {"id": "photo_scan_1749430711817", "textLength": 277, "title": "クレジット売上票記録"}
+ LOG  🔍🔍🔍 CRITICAL noteType判定: {"actualNoteId": "photo_scan_1749430711817", "includesImport": false, "includesPhotoScan": true, "newNoteId": null, "noteId": "photo_scan_1749430711817", "recordingState": "idle", "routeParamsNoteId": "photo_scan_1749430711817", "startsWithPhotoScan": true, "判定結果": "photo_scan"}
+ LOG  ✅ 写真スキャンノートとして判定
+ LOG  🎨 getTextInputStyle実行結果: {"actualFontSize": 16, "actualLineHeight": 19.2, "color": "#000000", "fontSize": 16, "fontWeight": "normal", "letterSpacing": 0, "lineSpacing": 1.2, "selectedTextType": "body"}
  LOG  🎯 useAutoSave: 自動保存タイマー停止 
  LOG  🎯 useAutoSave: 自動保存タイマー開始: 5秒間隔 
  LOG  🕒 自動保存タイマー再開始: 5秒間隔
- LOG  🔥🔥🔥 フォントサイズ増加ハンドラー実行! {"実際に変更される": true, "新しいサイズ": 17, "現在のfontSize": 16, "現在の文字間隔": 0, "現在の行間": 1.2}
- LOG  🏷️ 変更フラグ設定: {"data": {"fontSize": 17}, "hasUnsavedChanges": true, "toolbarFunction": "font_size"}
- LOG  🚀 統一自動保存Hook実行: font_size
- LOG  🎯 useAutoSave: 変更フラグ設定 {"data": {"fontSize": 17}, "toolbarFunction": "font_size"}
- LOG  🔍🔍🔍 getTextInputStyle詳細デバッグ: {"テキストタイプ": "body", "テキスト色": "#000000", "フォント": "standard", "元fontSize": 17, "太字": false, "実際fontSize": 17, "文字間隔": 0, "行間": 1.2}
- LOG  🎯🎯🎯 最終スタイル出力: {"color": "#000000", "flex": 1, "fontFamily": "System", "fontSize": 17, "fontWeight": "normal", "letterSpacing": 0, "lineHeight": 20.4, "margin": 0, "padding": 0, "textAlignVertical": "top"}
+ LOG  🔍🔍🔍 CRITICAL noteType判定: {"actualNoteId": "photo_scan_1749430711817", "includesImport": false, "includesPhotoScan": true, "newNoteId": null, "noteId": "photo_scan_1749430711817", "recordingState": "idle", "routeParamsNoteId": "photo_scan_1749430711817", "startsWithPhotoScan": true, "判定結果": "photo_scan"}
+ LOG  ✅ 写真スキャンノートとして判定
+ LOG  🎨 getTextInputStyle実行結果: {"actualFontSize": 16, "actualLineHeight": 19.2, "color": "#000000", "fontSize": 16, "fontWeight": "normal", "letterSpacing": 0, "lineSpacing": 1.2, "selectedTextType": "body"}
  LOG  🎯 useAutoSave: 自動保存タイマー停止 
  LOG  🎯 useAutoSave: 自動保存タイマー開始: 5秒間隔 
- LOG  🕒 自動保存タイマー再開始: 5秒間隔
- LOG  ⏰ setFontSize後の状態確認: {"fontSize": 17}
- LOG  🔍🔍🔍 getTextInputStyle詳細デバッグ: {"テキストタイプ": "body", "テキスト色": "#000000", "フォント": "standard", "元fontSize": 17, "太字": false, "実際fontSize": 17, "文字間隔": 0, "行間": 1.2}
- LOG  🎯🎯🎯 最終スタイル出力: {"color": "#000000", "flex": 1, "fontFamily": "System", "fontSize": 17, "fontWeight": "normal", "letterSpacing": 0, "lineHeight": 20.4, "margin": 0, "padding": 0, "textAlignVertical": "top"}
- LOG  🔥🔥🔥 フォントサイズ増加ハンドラー実行! {"実際に変更される": true, "新しいサイズ": 18, "現在のfontSize": 17, "現在の文字間隔": 0, "現在の行間": 1.2}
  LOG  🏷️ 変更フラグ設定: {"data": {"fontSize": 18}, "hasUnsavedChanges": true, "toolbarFunction": "font_size"}
  LOG  🚀 統一自動保存Hook実行: font_size
  LOG  🎯 useAutoSave: 変更フラグ設定 {"data": {"fontSize": 18}, "toolbarFunction": "font_size"}
- LOG  🔍🔍🔍 getTextInputStyle詳細デバッグ: {"テキストタイプ": "body", "テキスト色": "#000000", "フォント": "standard", "元fontSize": 18, "太字": false, "実際fontSize": 18, "文字間隔": 0, "行間": 1.2}
- LOG  🎯🎯🎯 最終スタイル出力: {"color": "#000000", "flex": 1, "fontFamily": "System", "fontSize": 18, "fontWeight": "normal", "letterSpacing": 0, "lineHeight": 21.599999999999998, "margin": 0, "padding": 0, "textAlignVertical": "top"}
+ LOG  🔍🔍🔍 CRITICAL noteType判定: {"actualNoteId": "photo_scan_1749430711817", "includesImport": false, "includesPhotoScan": true, "newNoteId": null, "noteId": "photo_scan_1749430711817", "recordingState": "idle", "routeParamsNoteId": "photo_scan_1749430711817", "startsWithPhotoScan": true, "判定結果": "photo_scan"}
+ LOG  ✅ 写真スキャンノートとして判定
+ LOG  🎨 getTextInputStyle実行結果: {"actualFontSize": 18, "actualLineHeight": 21.599999999999998, "color": "#000000", "fontSize": 18, "fontWeight": "normal", "letterSpacing": 0, "lineSpacing": 1.2, "selectedTextType": "body"}
  LOG  🎯 useAutoSave: 自動保存タイマー停止 
  LOG  🎯 useAutoSave: 自動保存タイマー開始: 5秒間隔 
- LOG  ⏰ setFontSize後の状態確認: {"fontSize": 18}
- LOG  🔥🔥🔥 フォントサイズ増加ハンドラー実行! {"実際に変更される": true, "新しいサイズ": 19, "現在のfontSize": 18, "現在の文字間隔": 0, "現在の行間": 1.2}
- LOG  🏷️ 変更フラグ設定: {"data": {"fontSize": 19}, "hasUnsavedChanges": true, "toolbarFunction": "font_size"}
- LOG  🚀 統一自動保存Hook実行: font_size
- LOG  🎯 useAutoSave: 変更フラグ設定 {"data": {"fontSize": 19}, "toolbarFunction": "font_size"}
- LOG  🔍🔍🔍 getTextInputStyle詳細デバッグ: {"テキストタイプ": "body", "テキスト色": "#000000", "フォント": "standard", "元fontSize": 19, "太字": false, "実際fontSize": 19, "文字間隔": 0, "行間": 1.2}
- LOG  🎯🎯🎯 最終スタイル出力: {"color": "#000000", "flex": 1, "fontFamily": "System", "fontSize": 19, "fontWeight": "normal", "letterSpacing": 0, "lineHeight": 22.8, "margin": 0, "padding": 0, "textAlignVertical": "top"}
- LOG  🎯 useAutoSave: 自動保存タイマー停止 
- LOG  🎯 useAutoSave: 自動保存タイマー開始: 5秒間隔 
- LOG  ⏰ setFontSize後の状態確認: {"fontSize": 19}
- LOG  🔍🔍🔍 getTextInputStyle詳細デバッグ: {"テキストタイプ": "body", "テキスト色": "#000000", "フォント": "standard", "元fontSize": 19, "太字": false, "実際fontSize": 19, "文字間隔": 0, "行間": 1.2}
- LOG  🎯🎯🎯 最終スタイル出力: {"color": "#000000", "flex": 1, "fontFamily": "System", "fontSize": 19, "fontWeight": "normal", "letterSpacing": 0, "lineHeight": 22.8, "margin": 0, "padding": 0, "textAlignVertical": "top"}
- LOG  🔥🔥🔥 フォントサイズ増加ハンドラー実行! {"実際に変更される": true, "新しいサイズ": 20, "現在のfontSize": 19, "現在の文字間隔": 0, "現在の行間": 1.2}
- LOG  🏷️ 変更フラグ設定: {"data": {"fontSize": 20}, "hasUnsavedChanges": true, "toolbarFunction": "font_size"}
- LOG  🚀 統一自動保存Hook実行: font_size
- LOG  🎯 useAutoSave: 変更フラグ設定 {"data": {"fontSize": 20}, "toolbarFunction": "font_size"}
- LOG  🔍🔍🔍 getTextInputStyle詳細デバッグ: {"テキストタイプ": "body", "テキスト色": "#000000", "フォント": "standard", "元fontSize": 20, "太字": false, "実際fontSize": 20, "文字間隔": 0, "行間": 1.2}
- LOG  🎯🎯🎯 最終スタイル出力: {"color": "#000000", "flex": 1, "fontFamily": "System", "fontSize": 20, "fontWeight": "normal", "letterSpacing": 0, "lineHeight": 24, "margin": 0, "padding": 0, "textAlignVertical": "top"}
- LOG  🎯 useAutoSave: 自動保存タイマー停止 
- LOG  🎯 useAutoSave: 自動保存タイマー開始: 5秒間隔 
- LOG  ⏰ setFontSize後の状態確認: {"fontSize": 20}
- LOG  🔍🔍🔍 getTextInputStyle詳細デバッグ: {"テキストタイプ": "body", "テキスト色": "#000000", "フォント": "standard", "元fontSize": 20, "太字": false, "実際fontSize": 20, "文字間隔": 0, "行間": 1.2}
- LOG  🎯🎯🎯 最終スタイル出力: {"color": "#000000", "flex": 1, "fontFamily": "System", "fontSize": 20, "fontWeight": "normal", "letterSpacing": 0, "lineHeight": 24, "margin": 0, "padding": 0, "textAlignVertical": "top"}
- LOG  🔥🔥🔥 フォントサイズ増加ハンドラー実行! {"実際に変更される": true, "新しいサイズ": 21, "現在のfontSize": 20, "現在の文字間隔": 0, "現在の行間": 1.2}
- LOG  🏷️ 変更フラグ設定: {"data": {"fontSize": 21}, "hasUnsavedChanges": true, "toolbarFunction": "font_size"}
- LOG  🚀 統一自動保存Hook実行: font_size
- LOG  🎯 useAutoSave: 変更フラグ設定 {"data": {"fontSize": 21}, "toolbarFunction": "font_size"}
- LOG  🔍🔍🔍 getTextInputStyle詳細デバッグ: {"テキストタイプ": "body", "テキスト色": "#000000", "フォント": "standard", "元fontSize": 21, "太字": false, "実際fontSize": 21, "文字間隔": 0, "行間": 1.2}
- LOG  🎯🎯🎯 最終スタイル出力: {"color": "#000000", "flex": 1, "fontFamily": "System", "fontSize": 21, "fontWeight": "normal", "letterSpacing": 0, "lineHeight": 25.2, "margin": 0, "padding": 0, "textAlignVertical": "top"}
- LOG  🎯 useAutoSave: 自動保存タイマー停止 
- LOG  🎯 useAutoSave: 自動保存タイマー開始: 5秒間隔 
- LOG  ⏰ setFontSize後の状態確認: {"fontSize": 21}
- LOG  🔍🔍🔍 getTextInputStyle詳細デバッグ: {"テキストタイプ": "body", "テキスト色": "#000000", "フォント": "standard", "元fontSize": 21, "太字": false, "実際fontSize": 21, "文字間隔": 0, "行間": 1.2}
- LOG  🎯🎯🎯 最終スタイル出力: {"color": "#000000", "flex": 1, "fontFamily": "System", "fontSize": 21, "fontWeight": "normal", "letterSpacing": 0, "lineHeight": 25.2, "margin": 0, "padding": 0, "textAlignVertical": "top"}
- LOG  🔥🔥🔥 フォントサイズ増加ハンドラー実行! {"実際に変更される": true, "新しいサイズ": 22, "現在のfontSize": 21, "現在の文字間隔": 0, "現在の行間": 1.2}
- LOG  🏷️ 変更フラグ設定: {"data": {"fontSize": 22}, "hasUnsavedChanges": true, "toolbarFunction": "font_size"}
- LOG  🚀 統一自動保存Hook実行: font_size
- LOG  🎯 useAutoSave: 変更フラグ設定 {"data": {"fontSize": 22}, "toolbarFunction": "font_size"}
- LOG  🔍🔍🔍 getTextInputStyle詳細デバッグ: {"テキストタイプ": "body", "テキスト色": "#000000", "フォント": "standard", "元fontSize": 22, "太字": false, "実際fontSize": 22, "文字間隔": 0, "行間": 1.2}
- LOG  🎯🎯🎯 最終スタイル出力: {"color": "#000000", "flex": 1, "fontFamily": "System", "fontSize": 22, "fontWeight": "normal", "letterSpacing": 0, "lineHeight": 26.4, "margin": 0, "padding": 0, "textAlignVertical": "top"}
- LOG  🎯 useAutoSave: 自動保存タイマー停止 
- LOG  🎯 useAutoSave: 自動保存タイマー開始: 5秒間隔 
- LOG  ⏰ setFontSize後の状態確認: {"fontSize": 22}
- LOG  🔥🔥🔥 フォントサイズ増加ハンドラー実行! {"実際に変更される": true, "新しいサイズ": 23, "現在のfontSize": 22, "現在の文字間隔": 0, "現在の行間": 1.2}
- LOG  🏷️ 変更フラグ設定: {"data": {"fontSize": 23}, "hasUnsavedChanges": true, "toolbarFunction": "font_size"}
- LOG  🚀 統一自動保存Hook実行: font_size
- LOG  🎯 useAutoSave: 変更フラグ設定 {"data": {"fontSize": 23}, "toolbarFunction": "font_size"}
- LOG  🔍🔍🔍 getTextInputStyle詳細デバッグ: {"テキストタイプ": "body", "テキスト色": "#000000", "フォント": "standard", "元fontSize": 23, "太字": false, "実際fontSize": 23, "文字間隔": 0, "行間": 1.2}
- LOG  🎯🎯🎯 最終スタイル出力: {"color": "#000000", "flex": 1, "fontFamily": "System", "fontSize": 23, "fontWeight": "normal", "letterSpacing": 0, "lineHeight": 27.599999999999998, "margin": 0, "padding": 0, "textAlignVertical": "top"}
- LOG  🎯 useAutoSave: 自動保存タイマー停止 
- LOG  🎯 useAutoSave: 自動保存タイマー開始: 5秒間隔 
- LOG  ⏰ setFontSize後の状態確認: {"fontSize": 23}
- LOG  ⏰ 自動保存タイマー実行
- LOG  🔄 自動保存チェック: {"contentLength": 3, "hasUnsavedChanges": true, "isSaving": false, "noteId": "55d21eee-e23b-4b41-ad1b-edde26ea8528", "pathsCount": 0}
- LOG  🚀 UniversalNoteService統一自動保存開始
+ LOG  🕒 自動保存タイマー再開始: 5秒間隔
+ LOG  🎯 useAutoSave: 定期自動保存実行 
+ LOG  🎯 useAutoSave: 統一自動保存開始 {"noteId": "photo_scan_1749430711817", "noteType": "photo_scan"}
+ LOG  🎯 useAutoSave: 保存データ構築 {"contentLength": 277, "pathsCount": 0, "title": "クレジット売上票記録"}
+ LOG  🎯 useAutoSave: 🚀🚀🚀 UniversalNoteService保存開始 
  LOG  🗄️ UniversalNoteService: UniversalNoteService initialized {"config": {"debugMode": true, "enableCaching": true, "enableRetry": true, "enableValidation": true, "maxRetries": 3, "retryDelayMs": 1000}}
- LOG  🗄️ UniversalNoteService: saveNote開始 {"noteId": "55d21eee-e23b-4b41-ad1b-edde26ea8528", "type": "manual"}
- LOG  🔍🔍🔍 getTextInputStyle詳細デバッグ: {"テキストタイプ": "body", "テキスト色": "#000000", "フォント": "standard", "元fontSize": 23, "太字": false, "実際fontSize": 23, "文字間隔": 0, "行間": 1.2}
- LOG  🎯🎯🎯 最終スタイル出力: {"color": "#000000", "flex": 1, "fontFamily": "System", "fontSize": 23, "fontWeight": "normal", "letterSpacing": 0, "lineHeight": 27.599999999999998, "margin": 0, "padding": 0, "textAlignVertical": "top"}
- LOG  🎯 useAutoSave: 自動保存タイマー停止 
- LOG  🎯 useAutoSave: 自動保存タイマー開始: 5秒間隔 
- LOG  🕒 自動保存タイマー再開始: 5秒間隔
- LOG  Recording updated successfully
- LOG  🗄️ UniversalNoteService: saveNote完了 {"duration": "56.84ms", "noteId": "55d21eee-e23b-4b41-ad1b-edde26ea8528", "success": true}
- LOG  ✅ UniversalNoteService自動保存完了: {"contentLength": 3, "noteType": "manual", "pathsCount": 0, "saveTime": 56.8357499986887}
- LOG  🔍🔍🔍 getTextInputStyle詳細デバッグ: {"テキストタイプ": "body", "テキスト色": "#000000", "フォント": "standard", "元fontSize": 23, "太字": false, "実際fontSize": 23, "文字間隔": 0, "行間": 1.2}
- LOG  🎯🎯🎯 最終スタイル出力: {"color": "#000000", "flex": 1, "fontFamily": "System", "fontSize": 23, "fontWeight": "normal", "letterSpacing": 0, "lineHeight": 27.599999999999998, "margin": 0, "padding": 0, "textAlignVertical": "top"}
- LOG  🎯 useAutoSave: 自動保存タイマー停止 
- LOG  🎯 useAutoSave: 自動保存タイマー開始: 5秒間隔 
- LOG  🕒 自動保存タイマー再開始: 5秒間隔
- LOG  🔥🔥🔥 フォントサイズ増加ハンドラー実行! {"実際に変更される": true, "新しいサイズ": 24, "現在のfontSize": 23, "現在の文字間隔": 0, "現在の行間": 1.2}
- LOG  🏷️ 変更フラグ設定: {"data": {"fontSize": 24}, "hasUnsavedChanges": true, "toolbarFunction": "font_size"}
- LOG  🚀 統一自動保存Hook実行: font_size
- LOG  🎯 useAutoSave: 変更フラグ設定 {"data": {"fontSize": 24}, "toolbarFunction": "font_size"}
- LOG  🔍🔍🔍 getTextInputStyle詳細デバッグ: {"テキストタイプ": "body", "テキスト色": "#000000", "フォント": "standard", "元fontSize": 24, "太字": false, "実際fontSize": 24, "文字間隔": 0, "行間": 1.2}
- LOG  🎯🎯🎯 最終スタイル出力: {"color": "#000000", "flex": 1, "fontFamily": "System", "fontSize": 24, "fontWeight": "normal", "letterSpacing": 0, "lineHeight": 28.799999999999997, "margin": 0, "padding": 0, "textAlignVertical": "top"}
- LOG  🎯 useAutoSave: 自動保存タイマー停止 
- LOG  🎯 useAutoSave: 自動保存タイマー開始: 5秒間隔 
- LOG  🕒 自動保存タイマー再開始: 5秒間隔
- LOG  ⏰ setFontSize後の状態確認: {"fontSize": 24}
- LOG  🔥🔥🔥 フォントサイズ増加ハンドラー実行! {"実際に変更される": true, "新しいサイズ": 25, "現在のfontSize": 24, "現在の文字間隔": 0, "現在の行間": 1.2}
- LOG  🏷️ 変更フラグ設定: {"data": {"fontSize": 25}, "hasUnsavedChanges": true, "toolbarFunction": "font_size"}
- LOG  🚀 統一自動保存Hook実行: font_size
- LOG  🎯 useAutoSave: 変更フラグ設定 {"data": {"fontSize": 25}, "toolbarFunction": "font_size"}
- LOG  🔍🔍🔍 getTextInputStyle詳細デバッグ: {"テキストタイプ": "body", "テキスト色": "#000000", "フォント": "standard", "元fontSize": 25, "太字": false, "実際fontSize": 25, "文字間隔": 0, "行間": 1.2}
- LOG  🎯🎯🎯 最終スタイル出力: {"color": "#000000", "flex": 1, "fontFamily": "System", "fontSize": 25, "fontWeight": "normal", "letterSpacing": 0, "lineHeight": 30, "margin": 0, "padding": 0, "textAlignVertical": "top"}
- LOG  🎯 useAutoSave: 自動保存タイマー停止 
- LOG  🎯 useAutoSave: 自動保存タイマー開始: 5秒間隔 
- LOG  ⏰ setFontSize後の状態確認: {"fontSize": 25}
- LOG  🔥🔥🔥 フォントサイズ増加ハンドラー実行! {"実際に変更される": true, "新しいサイズ": 26, "現在のfontSize": 25, "現在の文字間隔": 0, "現在の行間": 1.2}
- LOG  🏷️ 変更フラグ設定: {"data": {"fontSize": 26}, "hasUnsavedChanges": true, "toolbarFunction": "font_size"}
- LOG  🚀 統一自動保存Hook実行: font_size
- LOG  🎯 useAutoSave: 変更フラグ設定 {"data": {"fontSize": 26}, "toolbarFunction": "font_size"}
- LOG  🔍🔍🔍 getTextInputStyle詳細デバッグ: {"テキストタイプ": "body", "テキスト色": "#000000", "フォント": "standard", "元fontSize": 26, "太字": false, "実際fontSize": 26, "文字間隔": 0, "行間": 1.2}
- LOG  🎯🎯🎯 最終スタイル出力: {"color": "#000000", "flex": 1, "fontFamily": "System", "fontSize": 26, "fontWeight": "normal", "letterSpacing": 0, "lineHeight": 31.2, "margin": 0, "padding": 0, "textAlignVertical": "top"}
- LOG  🎯 useAutoSave: 自動保存タイマー停止 
- LOG  🎯 useAutoSave: 自動保存タイマー開始: 5秒間隔 
- LOG  ⏰ setFontSize後の状態確認: {"fontSize": 26}
- LOG  🔥🔥🔥 フォントサイズ増加ハンドラー実行! {"実際に変更される": true, "新しいサイズ": 27, "現在のfontSize": 26, "現在の文字間隔": 0, "現在の行間": 1.2}
- LOG  🏷️ 変更フラグ設定: {"data": {"fontSize": 27}, "hasUnsavedChanges": true, "toolbarFunction": "font_size"}
- LOG  🚀 統一自動保存Hook実行: font_size
- LOG  🎯 useAutoSave: 変更フラグ設定 {"data": {"fontSize": 27}, "toolbarFunction": "font_size"}
- LOG  🔍🔍🔍 getTextInputStyle詳細デバッグ: {"テキストタイプ": "body", "テキスト色": "#000000", "フォント": "standard", "元fontSize": 27, "太字": false, "実際fontSize": 27, "文字間隔": 0, "行間": 1.2}
- LOG  🎯🎯🎯 最終スタイル出力: {"color": "#000000", "flex": 1, "fontFamily": "System", "fontSize": 27, "fontWeight": "normal", "letterSpacing": 0, "lineHeight": 32.4, "margin": 0, "padding": 0, "textAlignVertical": "top"}
- LOG  🎯 useAutoSave: 自動保存タイマー停止 
- LOG  🎯 useAutoSave: 自動保存タイマー開始: 5秒間隔 
- LOG  ⏰ setFontSize後の状態確認: {"fontSize": 27}
- LOG  🔥🔥🔥 フォントサイズ増加ハンドラー実行! {"実際に変更される": true, "新しいサイズ": 28, "現在のfontSize": 27, "現在の文字間隔": 0, "現在の行間": 1.2}
- LOG  🏷️ 変更フラグ設定: {"data": {"fontSize": 28}, "hasUnsavedChanges": true, "toolbarFunction": "font_size"}
- LOG  🚀 統一自動保存Hook実行: font_size
- LOG  🎯 useAutoSave: 変更フラグ設定 {"data": {"fontSize": 28}, "toolbarFunction": "font_size"}
- LOG  🔍🔍🔍 getTextInputStyle詳細デバッグ: {"テキストタイプ": "body", "テキスト色": "#000000", "フォント": "standard", "元fontSize": 28, "太字": false, "実際fontSize": 28, "文字間隔": 0, "行間": 1.2}
- LOG  🎯🎯🎯 最終スタイル出力: {"color": "#000000", "flex": 1, "fontFamily": "System", "fontSize": 28, "fontWeight": "normal", "letterSpacing": 0, "lineHeight": 33.6, "margin": 0, "padding": 0, "textAlignVertical": "top"}
- LOG  🎯 useAutoSave: 自動保存タイマー停止 
- LOG  🎯 useAutoSave: 自動保存タイマー開始: 5秒間隔 
- LOG  ⏰ setFontSize後の状態確認: {"fontSize": 28}
+ LOG  🎯 useAutoSave: 🚀🚀🚀 saveUniversalNote実行直前 {"canvasSettings": {"selectedColor": "#000000", "selectedPenTool": null, "selectedTool": "keyboard", "strokeWidth": 2, "textSettings": {"fontSize": 18, "isBold": false, "letterSpacing": 0, "lineSpacing": 1.2, "selectedFont": "standard", "selectedTextType": "body", "textColor": "#000000"}}, "fontSize": 18, "isBold": false}
+ LOG  🗄️ UniversalNoteService: saveNote開始 {"noteId": "photo_scan_1749430711817", "type": "photo_scan"}
+ LOG  🚨🚨🚨 CRITICAL saveUniversalNote処理開始: {"canvasDataKeys": ["type", "version", "content", "drawingPaths", "textElements", "canvasSettings", "contentLength", "pathsCount", "elementsCount"], "currentPageIndex": 0, "hasCurrentPageData": true, "noteId": "photo_scan_1749430711817", "noteType": "photo_scan", "title": "クレジット売上票記録"}
+ LOG  📸📸📸 UniversalNoteService photo_scan保存開始: {"canvasDataKeys": ["type", "version", "content", "drawingPaths", "textElements", "canvasSettings", "contentLength", "pathsCount", "elementsCount"], "contentLength": 277, "hasCanvasData": true, "hasCanvasSettings": true, "noteId": "photo_scan_1749430711817", "pathsCount": 0, "title": "クレジット売上票記録"}
+ LOG  🔍🔥 CRITICAL updateCanvasData開始: {"canvasDataKeys": ["type", "version", "content", "drawingPaths", "textElements", "canvasSettings", "contentLength", "pathsCount", "elementsCount"], "canvasDataPreview": {"contentLength": 277, "hasCanvasSettings": true, "pathsCount": 0, "type": "canvas"}, "canvasJsonLength": 701, "noteId": "photo_scan_1749430711817", "noteIdCheck": {"includesImport": false, "includesPhotoScan": true, "includesRecording": false, "startsWithPhotoScan": true}}
+ LOG  📸🔥 CRITICAL - 写真スキャンノート優先判定: photo_scan_1749430711817
  LOG  ⏰ 自動保存タイマー実行
- LOG  🔄 自動保存チェック: {"contentLength": 3, "hasUnsavedChanges": true, "isSaving": false, "noteId": "55d21eee-e23b-4b41-ad1b-edde26ea8528", "pathsCount": 0}
+ LOG  🔄 自動保存チェック: {"contentLength": 277, "hasUnsavedChanges": true, "isSaving": false, "noteId": "photo_scan_1749430711817", "pathsCount": 0}
  LOG  🚀 UniversalNoteService統一自動保存開始
+ LOG  🔍🔍🔍 CRITICAL noteType判定: {"actualNoteId": "photo_scan_1749430711817", "includesImport": false, "includesPhotoScan": true, "newNoteId": null, "noteId": "photo_scan_1749430711817", "recordingState": "idle", "routeParamsNoteId": "photo_scan_1749430711817", "startsWithPhotoScan": true, "判定結果": "photo_scan"}
+ LOG  ✅ 写真スキャンノートとして判定
+ LOG  🚨🚨🚨 CRITICAL performAutoSave noteType判定: {"determinedType": "photo_scan", "includesPhotoScan": true, "noteId": "photo_scan_1749430711817", "route_params": {"noteId": "photo_scan_1749430711817"}, "startsWithPhotoScan": true}
+ LOG  🔍🔍🔍 CRITICAL noteType判定: {"actualNoteId": "photo_scan_1749430711817", "includesImport": false, "includesPhotoScan": true, "newNoteId": null, "noteId": "photo_scan_1749430711817", "recordingState": "idle", "routeParamsNoteId": "photo_scan_1749430711817", "startsWithPhotoScan": true, "判定結果": "photo_scan"}
+ LOG  ✅ 写真スキャンノートとして判定
+ LOG  🔍🔍🔍 CRITICAL noteType判定: {"actualNoteId": "photo_scan_1749430711817", "includesImport": false, "includesPhotoScan": true, "newNoteId": null, "noteId": "photo_scan_1749430711817", "recordingState": "idle", "routeParamsNoteId": "photo_scan_1749430711817", "startsWithPhotoScan": true, "判定結果": "photo_scan"}
+ LOG  ✅ 写真スキャンノートとして判定
+ LOG  🔍🔍🔍 CRITICAL noteType判定: {"actualNoteId": "photo_scan_1749430711817", "includesImport": false, "includesPhotoScan": true, "newNoteId": null, "noteId": "photo_scan_1749430711817", "recordingState": "idle", "routeParamsNoteId": "photo_scan_1749430711817", "startsWithPhotoScan": true, "判定結果": "photo_scan"}
+ LOG  ✅ 写真スキャンノートとして判定
  LOG  🗄️ UniversalNoteService: UniversalNoteService initialized {"config": {"debugMode": true, "enableCaching": true, "enableRetry": true, "enableValidation": true, "maxRetries": 3, "retryDelayMs": 1000}}
- LOG  🗄️ UniversalNoteService: saveNote開始 {"noteId": "55d21eee-e23b-4b41-ad1b-edde26ea8528", "type": "manual"}
- LOG  🔍🔍🔍 getTextInputStyle詳細デバッグ: {"テキストタイプ": "body", "テキスト色": "#000000", "フォント": "standard", "元fontSize": 28, "太字": false, "実際fontSize": 28, "文字間隔": 0, "行間": 1.2}
- LOG  🎯🎯🎯 最終スタイル出力: {"color": "#000000", "flex": 1, "fontFamily": "System", "fontSize": 28, "fontWeight": "normal", "letterSpacing": 0, "lineHeight": 33.6, "margin": 0, "padding": 0, "textAlignVertical": "top"}
+ LOG  🗄️ UniversalNoteService: saveNote開始 {"noteId": "photo_scan_1749430711817", "type": "photo_scan"}
+ LOG  🚨🚨🚨 CRITICAL saveUniversalNote処理開始: {"canvasDataKeys": ["type", "version", "content", "drawingPaths", "canvasSettings"], "currentPageIndex": 0, "hasCurrentPageData": true, "noteId": "photo_scan_1749430711817", "noteType": "photo_scan", "title": "クレジット売上票記録"}
+ LOG  📸📸📸 UniversalNoteService photo_scan保存開始: {"canvasDataKeys": ["type", "version", "content", "drawingPaths", "canvasSettings"], "contentLength": 277, "hasCanvasData": true, "hasCanvasSettings": true, "noteId": "photo_scan_1749430711817", "pathsCount": 0, "title": "クレジット売上票記録"}
+ LOG  🔍🔥 CRITICAL updateCanvasData開始: {"canvasDataKeys": ["type", "version", "content", "drawingPaths", "canvasSettings"], "canvasDataPreview": {"contentLength": 277, "hasCanvasSettings": true, "pathsCount": 0, "type": "canvas"}, "canvasJsonLength": 630, "noteId": "photo_scan_1749430711817", "noteIdCheck": {"includesImport": false, "includesPhotoScan": true, "includesRecording": false, "startsWithPhotoScan": true}}
+ LOG  📸🔥 CRITICAL - 写真スキャンノート優先判定: photo_scan_1749430711817
+ LOG  🔍🔍🔍 CRITICAL noteType判定: {"actualNoteId": "photo_scan_1749430711817", "includesImport": false, "includesPhotoScan": true, "newNoteId": null, "noteId": "photo_scan_1749430711817", "recordingState": "idle", "routeParamsNoteId": "photo_scan_1749430711817", "startsWithPhotoScan": true, "判定結果": "photo_scan"}
+ LOG  ✅ 写真スキャンノートとして判定
+ LOG  🎨 getTextInputStyle実行結果: {"actualFontSize": 18, "actualLineHeight": 21.599999999999998, "color": "#000000", "fontSize": 18, "fontWeight": "normal", "letterSpacing": 0, "lineSpacing": 1.2, "selectedTextType": "body"}
+ LOG  🎯 useAutoSave: 自動保存タイマー停止 
+ LOG  🔄 コンポーネントアンマウント時の最終保存...
+ LOG  🔄 自動保存チェック: {"contentLength": 277, "hasUnsavedChanges": true, "isSaving": false, "noteId": "photo_scan_1749430711817", "pathsCount": 0}
+ LOG  🚀 UniversalNoteService統一自動保存開始
+ LOG  🔍🔍🔍 CRITICAL noteType判定: {"actualNoteId": "photo_scan_1749430711817", "includesImport": false, "includesPhotoScan": true, "newNoteId": null, "noteId": "photo_scan_1749430711817", "recordingState": "idle", "routeParamsNoteId": "photo_scan_1749430711817", "startsWithPhotoScan": true, "判定結果": "photo_scan"}
+ LOG  ✅ 写真スキャンノートとして判定
+ LOG  🚨🚨🚨 CRITICAL performAutoSave noteType判定: {"determinedType": "photo_scan", "includesPhotoScan": true, "noteId": "photo_scan_1749430711817", "route_params": {"noteId": "photo_scan_1749430711817"}, "startsWithPhotoScan": true}
+ LOG  🔍🔍🔍 CRITICAL noteType判定: {"actualNoteId": "photo_scan_1749430711817", "includesImport": false, "includesPhotoScan": true, "newNoteId": null, "noteId": "photo_scan_1749430711817", "recordingState": "idle", "routeParamsNoteId": "photo_scan_1749430711817", "startsWithPhotoScan": true, "判定結果": "photo_scan"}
+ LOG  ✅ 写真スキャンノートとして判定
+ LOG  🔍🔍🔍 CRITICAL noteType判定: {"actualNoteId": "photo_scan_1749430711817", "includesImport": false, "includesPhotoScan": true, "newNoteId": null, "noteId": "photo_scan_1749430711817", "recordingState": "idle", "routeParamsNoteId": "photo_scan_1749430711817", "startsWithPhotoScan": true, "判定結果": "photo_scan"}
+ LOG  ✅ 写真スキャンノートとして判定
+ LOG  🔍🔍🔍 CRITICAL noteType判定: {"actualNoteId": "photo_scan_1749430711817", "includesImport": false, "includesPhotoScan": true, "newNoteId": null, "noteId": "photo_scan_1749430711817", "recordingState": "idle", "routeParamsNoteId": "photo_scan_1749430711817", "startsWithPhotoScan": true, "判定結果": "photo_scan"}
+ LOG  ✅ 写真スキャンノートとして判定
+ LOG  🗄️ UniversalNoteService: UniversalNoteService initialized {"config": {"debugMode": true, "enableCaching": true, "enableRetry": true, "enableValidation": true, "maxRetries": 3, "retryDelayMs": 1000}}
+ LOG  🗄️ UniversalNoteService: saveNote開始 {"noteId": "photo_scan_1749430711817", "type": "photo_scan"}
+ LOG  🎯 useAutoSave: 自動保存タイマー開始: 5秒間隔 
+ LOG  🕒 自動保存タイマー再開始: 5秒間隔
+ LOG  🚨🚨🚨 CRITICAL saveUniversalNote処理開始: {"canvasDataKeys": ["type", "version", "content", "drawingPaths", "canvasSettings"], "currentPageIndex": 0, "hasCurrentPageData": true, "noteId": "photo_scan_1749430711817", "noteType": "photo_scan", "title": "クレジット売上票記録"}
+ LOG  📸📸📸 UniversalNoteService photo_scan保存開始: {"canvasDataKeys": ["type", "version", "content", "drawingPaths", "canvasSettings"], "contentLength": 277, "hasCanvasData": true, "hasCanvasSettings": true, "noteId": "photo_scan_1749430711817", "pathsCount": 0, "title": "クレジット売上票記録"}
+ LOG  🔍🔥 CRITICAL updateCanvasData開始: {"canvasDataKeys": ["type", "version", "content", "drawingPaths", "canvasSettings"], "canvasDataPreview": {"contentLength": 277, "hasCanvasSettings": true, "pathsCount": 0, "type": "canvas"}, "canvasJsonLength": 630, "noteId": "photo_scan_1749430711817", "noteIdCheck": {"includesImport": false, "includesPhotoScan": true, "includesRecording": false, "startsWithPhotoScan": true}}
+ LOG  📸🔥 CRITICAL - 写真スキャンノート優先判定: photo_scan_1749430711817
+ LOG  📸 写真スキャンデータ更新開始: {"noteId": "photo_scan_1749430711817", "photosLength": 1339, "photosType": "string"}
+ LOG  📸 現在の写真データ: {"firstPhotoKeys": ["uri", "ocrResult", "canvasData"], "hasExistingCanvasData": true, "photosCount": 1}
+ LOG  📸 更新後の写真データ: {"canvasDataKeys": ["type", "version", "content", "drawingPaths", "textElements", "canvasSettings", "contentLength", "pathsCount", "elementsCount"], "photosJsonLength": 1411, "savedCanvasSettings": ["selectedTool", "selectedPenTool", "selectedColor", "strokeWidth", "textSettings"], "savedPathsCount": 0, "savedTextContent": "クレジットカード売上票（お客様控）
+
+加盟店名: 梅田交通
+TEL: 06-6386-5186
+車両番号: 6602
+ご利用日: 2025/05/09 10:19
+端末番号: 301090361803..."}
+ LOG  📸 写真スキャンデータ更新開始: {"noteId": "photo_scan_1749430711817", "photosLength": 1339, "photosType": "string"}
+ LOG  📸 現在の写真データ: {"firstPhotoKeys": ["uri", "ocrResult", "canvasData"], "hasExistingCanvasData": true, "photosCount": 1}
+ LOG  📸 更新後の写真データ: {"canvasDataKeys": ["type", "version", "content", "drawingPaths", "canvasSettings"], "photosJsonLength": 1340, "savedCanvasSettings": ["selectedTool", "selectedPenTool", "selectedColor", "strokeWidth", "textSettings"], "savedPathsCount": 0, "savedTextContent": "クレジットカード売上票（お客様控）
+
+加盟店名: 梅田交通
+TEL: 06-6386-5186
+車両番号: 6602
+ご利用日: 2025/05/09 10:19
+端末番号: 301090361803..."}
+ LOG  🔍🔍🔍 CRITICAL noteType判定: {"actualNoteId": "photo_scan_1749430711817", "includesImport": false, "includesPhotoScan": true, "newNoteId": null, "noteId": "photo_scan_1749430711817", "recordingState": "idle", "routeParamsNoteId": "photo_scan_1749430711817", "startsWithPhotoScan": true, "判定結果": "photo_scan"}
+ LOG  ✅ 写真スキャンノートとして判定
+ LOG  🎨 getTextInputStyle実行結果: {"actualFontSize": 18, "actualLineHeight": 21.599999999999998, "color": "#000000", "fontSize": 18, "fontWeight": "normal", "letterSpacing": 0, "lineSpacing": 1.2, "selectedTextType": "body"}
+ LOG  📸 写真スキャンデータ更新開始: {"noteId": "photo_scan_1749430711817", "photosLength": 1339, "photosType": "string"}
+ LOG  📸 現在の写真データ: {"firstPhotoKeys": ["uri", "ocrResult", "canvasData"], "hasExistingCanvasData": true, "photosCount": 1}
+ LOG  📸 更新後の写真データ: {"canvasDataKeys": ["type", "version", "content", "drawingPaths", "canvasSettings"], "photosJsonLength": 1340, "savedCanvasSettings": ["selectedTool", "selectedPenTool", "selectedColor", "strokeWidth", "textSettings"], "savedPathsCount": 0, "savedTextContent": "クレジットカード売上票（お客様控）
+
+加盟店名: 梅田交通
+TEL: 06-6386-5186
+車両番号: 6602
+ご利用日: 2025/05/09 10:19
+端末番号: 301090361803..."}
+ LOG  ✅ 写真スキャン保存検証完了: {"noteId": "photo_scan_1749430711817", "保存されたテキスト長": 277, "保存されたパス数": 0, "保存された設定": "あり", "保存成功": true}
+ LOG  Canvas data updated successfully (photo scan)
+ LOG  📸📸📸 写真スキャン保存完了 (updateCanvasData使用)
+ LOG  🗄️ UniversalNoteService: saveNote完了 {"duration": "54.82ms", "noteId": "photo_scan_1749430711817", "success": true}
+ LOG  🎯 useAutoSave: 🚀🚀🚀 saveUniversalNote実行完了 {"saveResult": {"metrics": {"dataSize": 1145, "saveTime": 54.82266600430012}, "noteId": "photo_scan_1749430711817", "savedAt": "2025-06-09T01:30:08.442Z", "success": true}}
+ LOG  🎯 useAutoSave: ✅✅✅ 統一自動保存完了 {"contentLength": 277, "noteType": "photo_scan", "pathsCount": 0, "saveTime": 54.82266600430012}
+ LOG  ✅ 写真スキャン保存検証完了: {"noteId": "photo_scan_1749430711817", "保存されたテキスト長": 277, "保存されたパス数": 0, "保存された設定": "あり", "保存成功": true}
+ LOG  Canvas data updated successfully (photo scan)
+ LOG  📸📸📸 写真スキャン保存完了 (updateCanvasData使用)
+ LOG  🗄️ UniversalNoteService: saveNote完了 {"duration": "45.82ms", "noteId": "photo_scan_1749430711817", "success": true}
+ LOG  ✅ UniversalNoteService自動保存完了: {"contentLength": 277, "noteType": "photo_scan", "pathsCount": 0, "saveTime": 45.81633300334215}
+ LOG  🔍🔍🔍 CRITICAL noteType判定: {"actualNoteId": "photo_scan_1749430711817", "includesImport": false, "includesPhotoScan": true, "newNoteId": null, "noteId": "photo_scan_1749430711817", "recordingState": "idle", "routeParamsNoteId": "photo_scan_1749430711817", "startsWithPhotoScan": true, "判定結果": "photo_scan"}
+ LOG  ✅ 写真スキャンノートとして判定
+ LOG  🎨 getTextInputStyle実行結果: {"actualFontSize": 18, "actualLineHeight": 21.599999999999998, "color": "#000000", "fontSize": 18, "fontWeight": "normal", "letterSpacing": 0, "lineSpacing": 1.2, "selectedTextType": "body"}
+ LOG  ✅ 写真スキャン保存検証完了: {"noteId": "photo_scan_1749430711817", "保存されたテキスト長": 277, "保存されたパス数": 0, "保存された設定": "あり", "保存成功": true}
+ LOG  Canvas data updated successfully (photo scan)
+ LOG  📸📸📸 写真スキャン保存完了 (updateCanvasData使用)
+ LOG  🗄️ UniversalNoteService: saveNote完了 {"duration": "29.94ms", "noteId": "photo_scan_1749430711817", "success": true}
+ LOG  ✅ UniversalNoteService自動保存完了: {"contentLength": 277, "noteType": "photo_scan", "pathsCount": 0, "saveTime": 29.939584001898766}
+ LOG  🎯 useAutoSave: 自動保存タイマー停止 
+ LOG  🔄 コンポーネントアンマウント時の最終保存...
+ LOG  🔄 自動保存チェック: {"contentLength": 277, "hasUnsavedChanges": true, "isSaving": true, "noteId": "photo_scan_1749430711817", "pathsCount": 0}
+ LOG  ⏳ 自動保存スキップ: 保存処理中
+ LOG  🎯 useAutoSave: 自動保存タイマー開始: 5秒間隔 
+ LOG  🕒 自動保存タイマー再開始: 5秒間隔
+ LOG  🔍🔍🔍 CRITICAL noteType判定: {"actualNoteId": "photo_scan_1749430711817", "includesImport": false, "includesPhotoScan": true, "newNoteId": null, "noteId": "photo_scan_1749430711817", "recordingState": "idle", "routeParamsNoteId": "photo_scan_1749430711817", "startsWithPhotoScan": true, "判定結果": "photo_scan"}
+ LOG  ✅ 写真スキャンノートとして判定
+ LOG  🎨 getTextInputStyle実行結果: {"actualFontSize": 18, "actualLineHeight": 21.599999999999998, "color": "#000000", "fontSize": 18, "fontWeight": "normal", "letterSpacing": 0, "lineSpacing": 1.2, "selectedTextType": "body"}
+ LOG  🔙 戻る動作検出: スワイプジェスチャーまたは戻るボタン
+ LOG  🔄 戻る前の状態: {"contentLength": 277, "hasUnsavedChanges": false, "pathsCount": 0, "title": "クレジット売上票記録"}
+ LOG  🔄 自動保存チェック: {"contentLength": 277, "hasUnsavedChanges": false, "isSaving": false, "noteId": "photo_scan_1749430711817", "pathsCount": 0}
+ LOG  📝 自動保存スキップ: 未変更
+ LOG  ✅ 戻る動作時の自動保存完了
+ LOG  🔙 画面遷移検出（戻るボタン or スワイプ）
+ LOG  📝 未保存の変更なし - 保存スキップ
+ LOG  🎯 useAutoSave: 自動保存タイマー停止 
+ LOG  [getAllNotes] 取得したノート数: 3
+ LOG  [Dashboard] FlatList render debug: {"isArray": true, "recordingsLength": 3, "recordingsSample": [{"id": "photo_scan_1749430711817", "title": "クレジット売上票記録", "type": "object"}, {"id": "bd30de3c-97cc-410d-89bf-f68a8a7aa112", "title": "ノート2025-06-09（1）", "type": "object"}], "recordingsType": "object", "shouldShowEmpty": false}
+ LOG  🔍 Firebase Debug Info: {"configProjectId": "talknote-446306", "email": "shanzhongliangping841@gmail.com", "isAuthenticated": true, "persistenceMode": "Firebase AsyncStorage Only", "userId": "WvyMDrjT3BSIKHKsryvKWg3smGq2"}
+ LOG  🔐 AuthGuard: 初期化完了 {"isLoading": false, "user": "認証済み"}
+ LOG  🔍🔍🔍 CRITICAL noteType判定: {"actualNoteId": "photo_scan_1749430711817", "includesImport": false, "includesPhotoScan": true, "newNoteId": null, "noteId": "photo_scan_1749430711817", "recordingState": "idle", "routeParamsNoteId": "photo_scan_1749430711817", "startsWithPhotoScan": true, "判定結果": "photo_scan"}
+ LOG  ✅ 写真スキャンノートとして判定
+ LOG  🎨 getTextInputStyle実行結果: {"actualFontSize": 16, "actualLineHeight": 19.2, "color": "#000000", "fontSize": 16, "fontWeight": "normal", "letterSpacing": 0, "lineSpacing": 1.2, "selectedTextType": "body"}
+ LOG  🗄️ UniversalNoteService: UniversalNoteService initialized {"config": {"debugMode": true, "enableCaching": true, "enableRetry": true, "enableValidation": true, "maxRetries": 3, "retryDelayMs": 1000}}
+ LOG  🔧 AutoSaveDecorator: UniversalNoteService初期化完了
+ LOG  🎯 useAutoSave: 自動保存タイマー開始: 5秒間隔 
+ LOG  📸 写真スキャンノート検出: photo_scan_1749430711817
+ LOG  🕒 自動保存タイマー再開始: 5秒間隔
+ LOG  🗄️ UniversalNoteService: UniversalNoteService initialized {"config": {"debugMode": true, "enableCaching": true, "enableRetry": true, "enableValidation": true, "maxRetries": 3, "retryDelayMs": 1000}}
+ LOG  🔧 AutoSaveDecorator: UniversalNoteService初期化完了
+ LOG  🔍🔍🔍 CRITICAL noteType判定: {"actualNoteId": "photo_scan_1749430711817", "includesImport": false, "includesPhotoScan": true, "newNoteId": null, "noteId": "photo_scan_1749430711817", "recordingState": "idle", "routeParamsNoteId": "photo_scan_1749430711817", "startsWithPhotoScan": true, "判定結果": "photo_scan"}
+ LOG  ✅ 写真スキャンノートとして判定
+ LOG  🎨 getTextInputStyle実行結果: {"actualFontSize": 16, "actualLineHeight": 19.2, "color": "#000000", "fontSize": 16, "fontWeight": "normal", "letterSpacing": 0, "lineSpacing": 1.2, "selectedTextType": "body"}
+ LOG  🎯 useAutoSave: 自動保存タイマー停止 
+ LOG  🎯 useAutoSave: 自動保存タイマー開始: 5秒間隔 
+ LOG  ✅ AI整形済みテキスト読み込み完了: {"id": "photo_scan_1749430711817", "textLength": 277, "title": "クレジット売上票記録"}
+ LOG  🔍🔍🔍 CRITICAL noteType判定: {"actualNoteId": "photo_scan_1749430711817", "includesImport": false, "includesPhotoScan": true, "newNoteId": null, "noteId": "photo_scan_1749430711817", "recordingState": "idle", "routeParamsNoteId": "photo_scan_1749430711817", "startsWithPhotoScan": true, "判定結果": "photo_scan"}
+ LOG  ✅ 写真スキャンノートとして判定
+ LOG  🎨 getTextInputStyle実行結果: {"actualFontSize": 16, "actualLineHeight": 19.2, "color": "#000000", "fontSize": 16, "fontWeight": "normal", "letterSpacing": 0, "lineSpacing": 1.2, "selectedTextType": "body"}
  LOG  🎯 useAutoSave: 自動保存タイマー停止 
  LOG  🎯 useAutoSave: 自動保存タイマー開始: 5秒間隔 
  LOG  🕒 自動保存タイマー再開始: 5秒間隔
- LOG  Recording updated successfully
- LOG  🗄️ UniversalNoteService: saveNote完了 {"duration": "52.98ms", "noteId": "55d21eee-e23b-4b41-ad1b-edde26ea8528", "success": true}
- LOG  ✅ UniversalNoteService自動保存完了: {"contentLength": 3, "noteType": "manual", "pathsCount": 0, "saveTime": 52.98158400133252}
- LOG  🔍🔍🔍 getTextInputStyle詳細デバッグ: {"テキストタイプ": "body", "テキスト色": "#000000", "フォント": "standard", "元fontSize": 28, "太字": false, "実際fontSize": 28, "文字間隔": 0, "行間": 1.2}
- LOG  🎯🎯🎯 最終スタイル出力: {"color": "#000000", "flex": 1, "fontFamily": "System", "fontSize": 28, "fontWeight": "normal", "letterSpacing": 0, "lineHeight": 33.6, "margin": 0, "padding": 0, "textAlignVertical": "top"}
- LOG  🎯 useAutoSave: 自動保存タイマー停止 
- LOG  🎯 useAutoSave: 自動保存タイマー開始: 5秒間隔 
- LOG  🕒 自動保存タイマー再開始: 5秒間隔
+ LOG  🎯 useAutoSave: 定期自動保存実行 
+ LOG  🎯 useAutoSave: 保存スキップ: 未変更 
+ LOG  ⏰ 自動保存タイマー実行
+ LOG  🔄 自動保存チェック: {"contentLength": 277, "hasUnsavedChanges": false, "isSaving": false, "noteId": "photo_scan_1749430711817", "pathsCount": 0}
+ LOG  📝 自動保存スキップ: 未変更

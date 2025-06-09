@@ -1,0 +1,317 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+まず、このファイルを参照したら、このファイル名を発言すること
+
+# しゃべるノート 開発環境セットアップ＆ビルドガイド
+
+## 1. 開発サーバーの起動とポート番号
+
+### バックエンドサーバー群
+
+| サーバー名 | ポート | 起動コマンド | 用途 |
+|-----------|-------|-------------|------|
+| **メインAPI** | 8000 | `uvicorn app.main:app --reload --host 0.0.0.0 --port 8000` | REST API、認証、ノート管理 |
+| **STTサーバー** | 8002 | `uvicorn app.stt_server:app --reload --host 0.0.0.0 --port 8002` | WebSocket音声文字起こし |
+| **AIテスト用** | 9002 | `uvicorn app.test_ai:app --reload --port 9002` | AI機能単体テスト |
+
+### フロントエンド（Expo）
+
+| サーバー名 | ポート | 起動コマンド | 用途 |
+|-----------|-------|-------------|------|
+| **Metro Bundler** | 8081 | `npx expo start` | JSバンドル配信 |
+| **開発サーバー** | 8083 | `npx expo start --tunnel` | トンネルモード |
+| **ローカル開発** | 19000,19001,19002 | `npx expo start --localhost` | ローカル接続 |
+
+### 推奨起動手順
+
+```bash
+# 1. バックエンド起動
+cd backend
+source venv/bin/activate
+
+# メインAPIサーバー（ターミナル1）
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# STTサーバー（ターミナル2）
+uvicorn app.stt_server:app --reload --host 0.0.0.0 --port 8002
+
+# 2. フロントエンド起動（ターミナル3）
+cd frontend
+npx expo start --localhost
+```
+
+## 2. 環境変数ファイルの設定と読み込み法
+
+### バックエンド環境変数（`.env`）
+
+```env
+# === 基本設定 ===
+DEBUG=true
+ENVIRONMENT=development
+GCP_PROJECT_ID=your-gcp-project-id
+
+# === 認証設定 ===
+BYPASS_AUTH=true
+TEST_USER_EMAIL=test@example.com
+
+# === データベース ===
+DATABASE_URL=postgresql://user:password@localhost:5432/talknote_dev
+# 開発用SQLite: sqlite:///./talknote_dev.db
+
+# === Firebase ===
+FIREBASE_CREDENTIALS_PATH=./firebase-service-account.json
+
+# === 外部API ===
+OPENAI_API_KEY=your-openai-api-key
+ANTHROPIC_API_KEY=your-anthropic-api-key
+YAHOO_API_CLIENT_ID=your-yahoo-api-client-id
+
+# === ストレージ ===
+STORAGE_PROVIDER=local
+GCS_BUCKET_NAME=talknote-media-dev
+LOCAL_STORAGE_PATH=./storage
+
+# === WebSocket/STT ===
+STT_PROVIDER=google
+GOOGLE_CLOUD_CREDENTIALS_PATH=./gcp-service-account.json
+
+# === その他 ===
+CORS_ORIGINS=http://localhost:3000,http://192.168.0.46:8083
+LOG_LEVEL=INFO
+```
+
+### フロントエンド環境変数（`.env`）
+
+```env
+# === API エンドポイント ===
+EXPO_PUBLIC_API_BASE_URL=http://192.168.0.46:8000
+EXPO_PUBLIC_STT_WS_URL=ws://192.168.0.46:8002/stt/stream
+
+# === Firebase ===
+EXPO_PUBLIC_FIREBASE_API_KEY=your-firebase-api-key
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
+EXPO_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abc123
+
+# === 開発用設定 ===
+EXPO_PUBLIC_DEBUG_MODE=true
+EXPO_PUBLIC_MOCK_AUTH=false
+```
+
+### 環境変数の読み込み方法
+
+**バックエンド（Python）**:
+```python
+from app.core.config import settings
+
+# 使用例
+api_key = settings.OPENAI_API_KEY
+debug_mode = settings.DEBUG
+```
+
+**フロントエンド（React Native）**:
+```typescript
+import Constants from 'expo-constants';
+
+// 使用例
+const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl || 'http://localhost:8000';
+const FIREBASE_API_KEY = Constants.expoConfig?.extra?.firebaseApiKey;
+```
+
+## 3. 実機確認時のIP番号と設定
+
+### ネットワーク設定
+
+**開発機のローカルIP確認**:
+```bash
+# macOS/Linux
+ifconfig | grep "inet " | grep -v 127.0.0.1
+
+# Windows
+ipconfig | findstr "IPv4"
+
+# 例: 192.168.0.46
+```
+
+### 実機用設定更新
+
+**フロントエンド `.env` ファイル**:
+```env
+# ローカルIP（例）に変更
+EXPO_PUBLIC_API_BASE_URL=http://192.168.0.46:8000
+EXPO_PUBLIC_STT_WS_URL=ws://192.168.0.46:8002/stt/stream
+```
+
+**バックエンド CORS設定**:
+```env
+# app/core/config.py
+CORS_ORIGINS=http://localhost:3000,http://192.168.0.46:8083,http://192.168.0.46:19000
+```
+
+### 実機接続手順
+
+```bash
+# 1. 同じWi-Fiネットワークに接続
+# 2. ローカルIPを確認
+ifconfig | grep "inet " | grep -v 127.0.0.1
+
+# 3. フロントエンド環境変数を更新
+# 4. Expoを再起動
+npx expo start --clear
+
+# 5. Expo Goアプリでスキャンまたは直接URL入力
+# exp://192.168.0.46:19000
+```
+
+## 4. ビルド方法
+
+### ローカルビルド（開発用）
+
+**Android APK**:
+```bash
+cd frontend
+
+# 開発ビルド
+npx expo run:android
+
+# リリースビルド（署名なし）
+npx expo run:android --variant release
+```
+
+**iOS IPA（macOSのみ）**:
+```bash
+# 開発ビルド
+npx expo run:ios
+
+# リリースビルド
+npx expo run:ios --configuration Release
+```
+
+### EASビルド（本格ビルド）
+
+**初期設定**:
+```bash
+# EAS CLIインストール
+npm install -g eas-cli
+
+# ログイン
+eas login
+
+# プロジェクト初期化
+eas build:configure
+```
+
+**eas.json 設定例**:
+```json
+{
+  "cli": {
+    "version": ">= 5.2.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "resourceClass": "m1-medium"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      }
+    },
+    "production": {
+      "ios": {
+        "resourceClass": "m1-medium"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
+```
+
+**ビルドコマンド**:
+```bash
+# 開発ビルド
+eas build --profile development
+
+# プレビュービルド
+eas build --profile preview
+
+# 本番ビルド
+eas build --profile production
+
+# プラットフォーム指定
+eas build --platform ios
+eas build --platform android
+eas build --platform all
+```
+
+### ビルド時の注意点
+
+1. **環境変数**: 本番ビルド時は `.env.production` を使用
+2. **証明書**: iOS は Apple Developer アカウント必須
+3. **ストア用**: Google Play Store / App Store 提出用は `production` プロファイル使用
+4. **署名**: Android は Google Play App Signing 推奨
+
+## 5. トラブルシューティング
+
+### よくある問題と対処法
+
+| 問題 | 原因 | 対処法 |
+|------|------|--------|
+| Metro接続エラー | ファイアウォール/ネットワーク | `--localhost` オプション使用 |
+| 認証エラー | Firebase設定不備 | `.env` ファイル確認 |
+| API接続失敗 | IP/ポート設定ミス | 環境変数とサーバー起動状況確認 |
+| ビルド失敗 | 依存関係エラー | `npm install` / `yarn install` 再実行 |
+
+### デバッグコマンド
+
+```bash
+# キャッシュクリア
+npx expo start --clear
+
+# 詳細ログ
+npx expo start --verbose
+
+# 依存関係チェック
+npx expo doctor
+
+# EASビルドログ確認
+eas build:list
+```
+
+## 6. 開発フロー推奨手順
+
+1. **朝の起動**:
+   ```bash
+   # バックエンド起動
+   cd backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+   cd backend && uvicorn app.stt_server:app --reload --host 0.0.0.0 --port 8002
+   
+   # フロントエンド起動
+   cd frontend && npx expo start --localhost
+   ```
+
+2. **実機テスト**:
+   - ローカルIP確認
+   - 環境変数更新
+   - 同一Wi-Fi接続確認
+
+3. **本番デプロイ**:
+   - 環境変数を本番用に切り替え
+   - EASビルド実行
+   - ストア提出
+
+---
+
+**最終更新**: 2025-01-04  
+**確認環境**: macOS, iOS/Android実機, Expo SDK 53
