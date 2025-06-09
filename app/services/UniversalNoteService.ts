@@ -399,10 +399,19 @@ export class UniversalNoteService {
           drawingPaths: [],
           textElements: [],
           canvasSettings: {
-            paperType: 'blank',
-            paperColor: '#ffffff',
-            orientation: 'portrait',
-            zoom: 1.0
+            selectedTool: null,
+            selectedPenTool: null,
+            selectedColor: '#000000',
+            strokeWidth: 2,
+            textSettings: {
+              fontSize: 16,
+              textColor: '#000000',
+              selectedFont: 'standard',
+              selectedTextType: 'body',
+              isBold: false,
+              lineSpacing: 1.2,
+              letterSpacing: 0
+            }
           },
           contentLength: (dbNote.content || '').length,
           pathsCount: 0,

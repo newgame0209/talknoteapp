@@ -12,6 +12,10 @@ import database, {
   Recording, 
   ManualNote,
   PhotoScan,
+  BookmarkData, // 🆕 BookmarkData型を追加
+  saveBookmark,  // 🆕 しおり保存関数を追加
+  getBookmark,   // 🆕 しおり取得関数を追加
+  getLastBookmarkPage, // 🆕 最後のしおりページ取得関数を追加
   saveRecording, 
   saveManualNote,
   updateNote, 
@@ -803,7 +807,15 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     };
     
     // 既存ノートの場合のみ読み込み実行
-    loadNote();
+    const initializeNote = async () => {
+      await loadNote();
+      // 📌 ノート読み込み完了後にしおり状態をロード
+      if (noteId && noteId !== 'new') {
+        await loadBookmarkState(noteId);
+      }
+    };
+    
+    initializeNote();
   }, [noteId, isNewNote, getNoteById, navigation]);
 
   // 💾 ダッシュボード戻り時の最終保存
@@ -944,27 +956,67 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     markAsChanged();
   };
 
-  // ツールバーアイコンタップ時のハンドラ（編集解除）
+  // 🔍 検索アイコンタップ時のハンドラ（検索機能開始）
   const handleToolbarIconPress = () => {
-    // TextInputのフォーカスを強制的に解除
-    titleInputRef.current?.blur();
-    contentInputRef.current?.blur();
-    
-    setIsEditing(false);
-    setIsEditingTitle(false);
-    // ✅ 追加修正: ツールバータッチで罫線アイコン非表示 → 音声プレイヤー表示
-    setIsCanvasIconsVisible(false);
-    setShowAudioPlayer(true);
-    
-    // 🎯 統一自動保存対応
-    markAsChanged('title_edit', { actionType: 'general_toolbar_press' });
+    handleSearchToggle();
   };
 
-  // しおり機能ハンドラ
-  const handleBookmarkAction = () => {
-    console.log('しおり機能実行');
-    // TODO: しおり機能の実装
-    markAsChanged('bookmark_add', { action: 'bookmark_toggled' }); // 🎯 統一自動保存
+  // 📌 しおり機能ハンドラ
+  const handleBookmarkAction = async () => {
+    try {
+      const newBookmarkState = !bookmarkData.hasBookmarks;
+      const noteIdToSave = actualNoteId || newNoteId || noteId;
+      const currentNoteType = determineNoteType();
+      
+      // SQLiteにしおりを保存
+      await saveBookmark(noteIdToSave, currentNoteType, bookmarkData.currentPage);
+      
+      // しおり状態を更新
+      setBookmarkData(prev => ({
+        ...prev,
+        hasBookmarks: newBookmarkState,
+        lastBookmarkPage: prev.currentPage,
+        bookmarkPages: newBookmarkState 
+          ? [...prev.bookmarkPages.filter(p => p !== prev.currentPage), prev.currentPage]
+          : prev.bookmarkPages.filter(p => p !== prev.currentPage)
+      }));
+      
+      console.log(`📌 しおり${newBookmarkState ? '追加' : '削除'}: ${noteIdToSave} ページ${bookmarkData.currentPage}`);
+      
+      markAsChanged('bookmark_add', { 
+        action: 'bookmark_toggled', 
+        hasBookmarks: newBookmarkState,
+        currentPage: bookmarkData.currentPage,
+        noteId: noteIdToSave 
+      }); // 🎯 統一自動保存
+      
+    } catch (error) {
+      console.log('⚠️ しおり保存エラー:', error);
+    }
+  };
+
+  // 📌 しおり状態をロード（SQLiteから）
+  const loadBookmarkState = async (noteId: string) => {
+    try {
+      if (!noteId) return;
+      
+      // SQLiteからしおり状態を取得
+      const bookmark = await getBookmark(noteId, bookmarkData.currentPage);
+      const lastPage = await getLastBookmarkPage(noteId);
+      
+      setBookmarkData(prev => ({
+        ...prev,
+        hasBookmarks: !!bookmark,
+        lastBookmarkPage: lastPage || 1,
+        bookmarkPages: bookmark ? [bookmark.page_number] : [],
+        currentPage: 1 // 現在は1ページ固定（将来拡張用）
+      }));
+      
+      console.log('📌 しおり状態ロード:', noteId, bookmark ? 'あり' : 'なし');
+      
+    } catch (error) {
+      console.log('⚠️ しおり状態ロードエラー:', error);
+    }
   };
 
   // ページ設定ハンドラ  
@@ -1359,15 +1411,13 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
       fontFamily,
       color: textColor,
       fontWeight: isBold ? 'bold' as const : (typeStyle.fontWeight || 'normal' as const),
-      // 🩹 iOS の下線を隠さないための調整
+      // 🩹 行間調整機能を保持しつつ、iOS の下線表示を改善
+      lineHeight: fontSize * lineSpacing, // 🔧 修正: iOSでも行間調整を有効化
       ...(Platform.OS === 'ios'
         ? {
-            lineHeight: undefined,      // ← 行高さカスタムを無効化
-            paddingVertical: 4,         // ← 下線が切れないよう余白
+            paddingVertical: 4,         // ← 下線が切れないよう余白を追加
           }
-        : {
-            lineHeight: fontSize * lineSpacing, // Android は従来通り
-          }),
+        : {}),
       letterSpacing: selectedFont === 'dyslexia' ? Math.max(letterSpacing, 0.5) : letterSpacing, // UDフォント時は最低0.5px間隔
     };
     
@@ -1751,6 +1801,166 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     handleFontSizeChange(fontSize - 2);
   };
 
+  // 🔍 検索機能の状態管理
+  const [isSearchVisible, setIsSearchVisible] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchResults, setSearchResults] = useState<Array<{
+    type: 'text' | 'drawing' | 'ocr';
+    index: number;
+    text: string;
+    startIndex: number;
+    endIndex: number;
+    confidence?: number;
+  }>>([]);
+  const [currentSearchIndex, setCurrentSearchIndex] = useState<number>(-1);
+  const searchInputRef = useRef<TextInput>(null);
+  
+  // 📌 しおり機能の状態管理（object構造に変更）
+  const [bookmarkData, setBookmarkData] = useState({
+    hasBookmarks: false,           // 現在：しおりの有無
+    lastBookmarkPage: 1,           // 将来：最後のしおりページ
+    bookmarkPages: [1],            // 将来：しおり設定済みページ一覧
+    currentPage: 1                 // 将来：現在表示中のページ
+  });
+
+  // 🔍 検索機能ハンドラー
+  const handleSearchToggle = () => {
+    setIsSearchVisible(!isSearchVisible);
+    if (!isSearchVisible) {
+      // 検索を開いたときに入力欄にフォーカス
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 100);
+    } else {
+      // 検索を閉じたときにクリア
+      handleSearchClear();
+    }
+    
+    // TextInputのフォーカスを強制的に解除
+    titleInputRef.current?.blur();
+    contentInputRef.current?.blur();
+    setIsEditing(false);
+    setIsEditingTitle(false);
+    setIsCanvasIconsVisible(false);
+    setShowAudioPlayer(true);
+  };
+
+  // 🔍 検索実行
+  const performSearch = (query: string) => {
+    console.log('🔍 検索開始:', { 
+      query, 
+      contentLength: content.length, 
+      titleLength: title.length,
+      content: content.substring(0, 100) + (content.length > 100 ? '...' : ''),
+      title 
+    });
+    
+    if (!query.trim()) {
+      setSearchResults([]);
+      setCurrentSearchIndex(-1);
+      return;
+    }
+
+    const results: Array<{
+      type: 'text' | 'drawing' | 'ocr';
+      index: number;
+      text: string;
+      startIndex: number;
+      endIndex: number;
+      confidence?: number;
+    }> = [];
+
+    // 1. メインテキスト内容を検索
+    const contentText = content.toLowerCase();
+    const searchTerm = query.toLowerCase();
+    let startIndex = 0;
+    
+    console.log('🔍 コンテンツ検索:', { contentText: contentText.substring(0, 200), searchTerm });
+    
+    while (true) {
+      const index = contentText.indexOf(searchTerm, startIndex);
+      if (index === -1) break;
+      
+      results.push({
+        type: 'text',
+        index: results.length,
+        text: content.substring(index, index + query.length),
+        startIndex: index,
+        endIndex: index + query.length,
+      });
+      
+      console.log('🎯 コンテンツマッチ発見:', { index, matchText: content.substring(index, index + query.length) });
+      startIndex = index + 1;
+    }
+
+    // 2. タイトルを検索
+    const titleText = title.toLowerCase();
+    console.log('🔍 タイトル検索:', { titleText, searchTerm, includes: titleText.includes(searchTerm) });
+    
+    if (titleText.includes(searchTerm)) {
+      results.push({
+        type: 'text',
+        index: results.length,
+        text: title,
+        startIndex: 0,
+        endIndex: title.length,
+      });
+      console.log('🎯 タイトルマッチ発見:', title);
+    }
+
+    // 3. OCRテキストがある場合は検索（写真スキャンノート）
+    if (isPhotoScanNote) {
+      console.log('📸 写真スキャンノート検索（今後実装予定）');
+      // TODO: OCRテキストデータがcanvasDataに含まれる場合の検索実装
+    }
+    
+    setSearchResults(results);
+    setCurrentSearchIndex(results.length > 0 ? 0 : -1);
+    
+    console.log(`🔍 検索完了: "${query}" - ${results.length}件見つかりました`, { results });
+  };
+
+  // 🔍 検索クエリ変更時
+  const handleSearchQueryChange = (query: string) => {
+    setSearchQuery(query);
+    performSearch(query);
+  };
+
+  // 🔍 次の検索結果へ移動
+  const handleSearchNext = () => {
+    if (searchResults.length === 0) return;
+    const nextIndex = (currentSearchIndex + 1) % searchResults.length;
+    setCurrentSearchIndex(nextIndex);
+    scrollToSearchResult(nextIndex);
+  };
+
+  // 🔍 前の検索結果へ移動
+  const handleSearchPrevious = () => {
+    if (searchResults.length === 0) return;
+    const prevIndex = currentSearchIndex === 0 ? searchResults.length - 1 : currentSearchIndex - 1;
+    setCurrentSearchIndex(prevIndex);
+    scrollToSearchResult(prevIndex);
+  };
+
+  // 🔍 検索結果への自動スクロール
+  const scrollToSearchResult = (index: number) => {
+    if (index < 0 || index >= searchResults.length) return;
+    const result = searchResults[index];
+    
+    if (result.type === 'text') {
+      // テキスト検索結果の場合、TextInputの該当位置にカーソルを移動
+      // Note: React NativeのTextInputでは直接的なスクロール制御は限定的
+      console.log(`📍 検索結果 ${index + 1}/${searchResults.length}: "${result.text}"`);
+    }
+  };
+
+  // 🔍 検索クリア
+  const handleSearchClear = () => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setCurrentSearchIndex(-1);
+  };
+
   return (
     <TouchableWithoutFeedback onPress={() => setIsCanvasIconsVisible(false)}>
       <KeyboardAvoidingView 
@@ -1774,8 +1984,18 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
           ]}>
             {/* グループ1: 戻る・検索 */}
             <View style={styles.iconGroup}>
-              <TouchableOpacity style={styles.topBarIcon} onPress={handleToolbarIconPress}>
-                <Ionicons name="search" size={22} color="#fff" />
+              <TouchableOpacity 
+                style={[
+                  styles.topBarIcon, 
+                  isSearchVisible && styles.selectedToolIcon
+                ]} 
+                onPress={handleToolbarIconPress}
+              >
+                <Ionicons 
+                  name="search" 
+                  size={22} 
+                  color={isSearchVisible ? '#4F8CFF' : '#fff'} 
+                />
               </TouchableOpacity>
             </View>
             
@@ -1865,9 +2085,19 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
             {/* グループ3: しおり・ページ設定 */}
             {(recordingState === 'idle') && (
             <View style={styles.rightIconGroup}>
-              <TouchableOpacity style={styles.topBarIcon} onPress={handleBookmarkAction}>
-                <MaterialIcons name="bookmark-border" size={22} color="#fff" />
-              </TouchableOpacity>
+                              <TouchableOpacity 
+                  style={[
+                    styles.topBarIcon,
+                    bookmarkData.hasBookmarks && styles.selectedToolIcon
+                  ]} 
+                  onPress={handleBookmarkAction}
+                >
+                  <MaterialIcons 
+                    name={bookmarkData.hasBookmarks ? "bookmark" : "bookmark-border"} 
+                    size={22} 
+                    color={bookmarkData.hasBookmarks ? "#4F8CFF" : "#fff"} 
+                  />
+                </TouchableOpacity>
               <TouchableOpacity style={styles.topBarIcon} onPress={handlePageSettings}>
                 <MaterialCommunityIcons name="content-copy" size={22} color="#fff" />
               </TouchableOpacity>
@@ -1882,6 +2112,65 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
           </TouchableOpacity>
           )}
         </View>
+
+        {/* 🔍 検索バー */}
+        {isSearchVisible && (
+          <View style={styles.searchBar}>
+            <View style={styles.searchContainer}>
+              <Ionicons name="search" size={18} color="#666" style={styles.searchIcon} />
+              <TextInput
+                ref={searchInputRef}
+                style={styles.searchInput}
+                placeholder="テキストを検索..."
+                placeholderTextColor="#999"
+                value={searchQuery}
+                onChangeText={handleSearchQueryChange}
+                returnKeyType="search"
+                clearButtonMode="while-editing"
+              />
+              {searchQuery.length > 0 && (
+                <View style={styles.searchResultsContainer}>
+                  <Text style={styles.searchResultsText}>
+                    {searchResults.length > 0 
+                      ? `${currentSearchIndex + 1}/${searchResults.length}`
+                      : '0件'
+                    }
+                  </Text>
+                  {searchResults.length > 1 && (
+                    <>
+                      <TouchableOpacity
+                        style={styles.searchNavButton}
+                        onPress={handleSearchPrevious}
+                      >
+                        <Ionicons 
+                          name="chevron-up" 
+                          size={18} 
+                          color="#666"
+                        />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.searchNavButton}
+                        onPress={handleSearchNext}
+                      >
+                        <Ionicons 
+                          name="chevron-down" 
+                          size={18} 
+                          color="#666"
+                        />
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+              )}
+              <TouchableOpacity
+                style={styles.searchCloseButton}
+                onPress={handleSearchToggle}
+              >
+                <Ionicons name="close" size={18} color="#666" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* サブツールバー - 選択されたツールによって表示 */}
         {selectedTool && selectedTool !== 'voice' && (
@@ -3295,6 +3584,54 @@ const styles = StyleSheet.create({
     color: '#4F8CFF',
     fontSize: 14,
     fontWeight: '600',
+  },
+
+  // 🔍 検索バー用スタイル
+  searchBar: {
+    backgroundColor: '#F6F7FB',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+    padding: 0,
+  },
+  searchResultsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  searchResultsText: {
+    fontSize: 12,
+    color: '#666',
+    marginRight: 8,
+    minWidth: 40,
+    textAlign: 'center',
+  },
+  searchNavButton: {
+    padding: 4,
+    marginHorizontal: 2,
+  },
+  searchCloseButton: {
+    padding: 4,
+    marginLeft: 8,
   },
 
 

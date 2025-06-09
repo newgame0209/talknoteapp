@@ -64,6 +64,18 @@ export interface ManualNote {
   media_id?: string;
 }
 
+// 🆕 しおり機能用の新しいインターフェース
+export interface BookmarkData {
+  id: string; // しおりID（UUID）
+  note_id: string; // ノートID
+  note_type: 'recording' | 'import' | 'photo_scan' | 'manual'; // ノートタイプ
+  page_number: number; // ページ番号（現在は1固定、将来の複数ページ対応用）
+  bookmark_title?: string; // しおりのタイトル（オプション）
+  is_active: number; // アクティブフラグ（1=有効、0=無効）
+  created_at: number; // 作成日時
+  updated_at: number; // 更新日時
+}
+
 export interface UploadQueueItem {
   id: string;
   type: 'recording' | 'import' | 'photo_scan' | 'manual'; // 🆕 manual追加
@@ -160,6 +172,19 @@ export const initDatabase = async (): Promise<void> => {
         media_id TEXT
     );`);
     console.log('Photo scans table created successfully');
+    
+    // 🆕 しおり機能用の新しいインターフェース
+    await db.execAsync(`CREATE TABLE IF NOT EXISTS bookmarks (
+        id TEXT PRIMARY KEY,
+        note_id TEXT NOT NULL,
+        note_type TEXT NOT NULL,
+        page_number INTEGER NOT NULL,
+        bookmark_title TEXT,
+        is_active INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+    );`);
+    console.log('Bookmarks table created successfully');
     
     console.log('Database initialized successfully');
     return Promise.resolve();
@@ -1059,6 +1084,148 @@ export const getAllNotes = async (): Promise<Recording[]> => {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Error getting all notes:', errorMessage);
     return Promise.reject(error);
+  }
+};
+
+// 🆕 しおり機能: しおりを保存（新規作成 or 更新）
+export const saveBookmark = async (
+  noteId: string,
+  noteType: 'recording' | 'import' | 'photo_scan' | 'manual',
+  pageNumber: number = 1,
+  bookmarkTitle?: string
+): Promise<string> => {
+  try {
+    const db = getDatabase();
+    const now = Date.now();
+    
+    // 同じノート・ページの既存しおりをチェック
+    const existing = await db.getFirstAsync<{id: string, is_active: number}>(
+      `SELECT id, is_active FROM bookmarks WHERE note_id = ? AND page_number = ?;`,
+      [noteId, pageNumber]
+    );
+    
+    if (existing) {
+      // 既存のしおりがある場合はステータスを切り替え
+      const newActiveStatus = existing.is_active === 1 ? 0 : 1;
+      await db.runAsync(
+        `UPDATE bookmarks SET is_active = ?, updated_at = ? WHERE id = ?;`,
+        [newActiveStatus, now, existing.id]
+      );
+      console.log(`📌 しおり状態更新: ${existing.id} -> ${newActiveStatus === 1 ? 'アクティブ' : '非アクティブ'}`);
+      return existing.id;
+    } else {
+      // 新規しおりを作成
+      const bookmarkId = `bookmark_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      await db.runAsync(
+        `INSERT INTO bookmarks (id, note_id, note_type, page_number, bookmark_title, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
+        [bookmarkId, noteId, noteType, pageNumber, bookmarkTitle || null, 1, now, now]
+      );
+      console.log(`📌 新規しおり作成: ${bookmarkId}`);
+      return bookmarkId;
+    }
+  } catch (error) {
+    console.error('Error saving bookmark:', error);
+    throw error;
+  }
+};
+
+// 🆕 しおり機能: 特定ノート・ページのしおりを取得
+export const getBookmark = async (
+  noteId: string, 
+  pageNumber: number = 1
+): Promise<BookmarkData | null> => {
+  try {
+    const db = getDatabase();
+    const bookmark = await db.getFirstAsync<BookmarkData>(
+      `SELECT * FROM bookmarks WHERE note_id = ? AND page_number = ? AND is_active = 1;`,
+      [noteId, pageNumber]
+    );
+    
+    if (bookmark) {
+      console.log(`📌 しおり取得成功: ${noteId} ページ${pageNumber}`);
+      return bookmark;
+    } else {
+      console.log(`📌 しおりなし: ${noteId} ページ${pageNumber}`);
+      return null;
+    }
+  } catch (error) {
+    console.error('Error getting bookmark:', error);
+    return null;
+  }
+};
+
+// 🆕 しおり機能: 特定ノートの全しおりを取得
+export const getBookmarksByNoteId = async (noteId: string): Promise<BookmarkData[]> => {
+  try {
+    const db = getDatabase();
+    const bookmarks = await db.getAllAsync<BookmarkData>(
+      `SELECT * FROM bookmarks WHERE note_id = ? AND is_active = 1 ORDER BY page_number ASC;`,
+      [noteId]
+    );
+    
+    console.log(`📌 ノート${noteId}のしおり取得: ${bookmarks.length}件`);
+    return bookmarks;
+  } catch (error) {
+    console.error('Error getting bookmarks by note ID:', error);
+    return [];
+  }
+};
+
+// 🆕 しおり機能: しおりを削除（非アクティブ化）
+export const deleteBookmark = async (bookmarkId: string): Promise<void> => {
+  try {
+    const db = getDatabase();
+    await db.runAsync(
+      `UPDATE bookmarks SET is_active = 0, updated_at = ? WHERE id = ?;`,
+      [Date.now(), bookmarkId]
+    );
+    console.log(`📌 しおり削除: ${bookmarkId}`);
+  } catch (error) {
+    console.error('Error deleting bookmark:', error);
+    throw error;
+  }
+};
+
+// 🆕 しおり機能: しおりのタイトルを更新
+export const updateBookmark = async (
+  bookmarkId: string,
+  bookmarkTitle: string
+): Promise<void> => {
+  try {
+    const db = getDatabase();
+    await db.runAsync(
+      `UPDATE bookmarks SET bookmark_title = ?, updated_at = ? WHERE id = ?;`,
+      [bookmarkTitle, Date.now(), bookmarkId]
+    );
+    console.log(`📌 しおりタイトル更新: ${bookmarkId} -> ${bookmarkTitle}`);
+  } catch (error) {
+    console.error('Error updating bookmark title:', error);
+    throw error;
+  }
+};
+
+// 🆕 しおり機能: ノートの最後のしおりページを取得
+export const getLastBookmarkPage = async (noteId: string): Promise<number> => {
+  try {
+    const db = getDatabase();
+    const result = await db.getFirstAsync<{page_number: number}>(
+      `SELECT page_number FROM bookmarks 
+       WHERE note_id = ? AND is_active = 1 
+       ORDER BY updated_at DESC LIMIT 1;`,
+      [noteId]
+    );
+    
+    if (result) {
+      console.log(`📌 最後のしおりページ: ${noteId} -> ページ${result.page_number}`);
+      return result.page_number;
+    } else {
+      console.log(`📌 しおりなし: ${noteId} -> デフォルトページ1`);
+      return 1;
+    }
+  } catch (error) {
+    console.error('Error getting last bookmark page:', error);
+    return 1; // エラー時はページ1を返す
   }
 };
 
