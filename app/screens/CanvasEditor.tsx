@@ -8,6 +8,7 @@ import { useDatabaseStore } from '../store/databaseStore';
 import { notebooksApi, pagesApi } from '../services/api';
 import DrawingCanvas, { DrawingPath } from '../components/DrawingCanvas';
 import AIChatWidget from '../components/AIChatWidget';
+import Ruler from '../components/Ruler'; // 📏 定規コンポーネントをインポート
 import database, { 
   Recording, 
   ManualNote,
@@ -1041,10 +1042,72 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
   };
 
   // 定規機能ハンドラ
+  // 📏 定規機能のハンドラー（既存機能への影響なし）
   const handleRulerTool = () => {
-    console.log('定規機能実行');
-    // TODO: 定規機能の実装
-    markAsChanged('ruler', { action: 'ruler_activated' }); // 🎯 統一自動保存
+    try {
+      console.log('📏 定規機能実行 - 表示切り替え');
+      
+      // 定規表示/非表示を切り替え
+      setRulerState(prev => ({
+        ...prev,
+        isVisible: !prev.isVisible,
+        // 初回表示時はキャンバスサイズに合わせて長さを設定
+        length: !prev.isVisible ? 500 : prev.length // 固定値に変更（Dimensionsエラー回避）
+      }));
+      
+      // 統一自動保存システムに変更を通知（既存機能）
+      markAsChanged('ruler', { 
+        action: 'ruler_toggled', 
+        isVisible: !rulerState.isVisible 
+      });
+      
+      console.log('📏 定規状態更新:', {
+        isVisible: !rulerState.isVisible,
+        position: { x: rulerState.x, y: rulerState.y },
+        rotation: rulerState.rotation
+      });
+      
+    } catch (error) {
+      console.error('⚠️ 定規機能エラー（既存機能には影響なし）:', error);
+    }
+  };
+
+  // 📏 定規移動のハンドラー
+  const handleRulerMove = (x: number, y: number) => {
+    try {
+      setRulerState(prev => ({ ...prev, x, y }));
+      console.log('📏 定規移動:', { x, y });
+    } catch (error) {
+      console.error('⚠️ 定規移動エラー（既存機能には影響なし）:', error);
+    }
+  };
+
+  // 📏 定規角度調整のハンドラー
+  const handleRulerAngleAdjust = () => {
+    try {
+      // 角度入力ダイアログを表示（簡単な実装）
+      Alert.prompt(
+        '角度設定',
+        '定規の角度を入力してください（0-360度）',
+        [
+          { text: 'キャンセル', style: 'cancel' },
+          {
+            text: '設定',
+            onPress: (value) => {
+              const angle = parseInt(value || '0', 10);
+              if (!isNaN(angle) && angle >= 0 && angle <= 360) {
+                setRulerState(prev => ({ ...prev, rotation: angle }));
+                console.log('📏 定規角度変更:', angle);
+              }
+            }
+          }
+        ],
+        'plain-text',
+        rulerState.rotation.toString()
+      );
+    } catch (error) {
+      console.error('⚠️ 定規角度調整エラー（既存機能には影響なし）:', error);
+    }
   };
 
   // ペンツール選択ハンドラ
@@ -1616,35 +1679,35 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
       console.error('⚠️ UniversalNoteService自動保存エラー:', error);
       // 緊急フォールバック
       try {
-        const noteIdToUse = actualNoteId || newNoteId || noteId;
-        if (noteIdToUse) {
-          const canvasData = {
-            type: 'canvas',
-            version: '1.0',
-            title: title,
-            content: content,
-            drawingPaths: drawingPaths,
-            canvasSettings: {
-              selectedTool,
-              selectedPenTool,
-              selectedColor,
-              strokeWidth,
-              textSettings: {
-                fontSize,
-                textColor,
-                selectedFont,
-                selectedTextType,
-                isBold,
-                lineSpacing,
-                letterSpacing
-              }
-            },
-            lastModified: new Date().toISOString()
-          };
-          await updateCanvasData(noteIdToUse, canvasData);
-          setHasUnsavedChanges(false);
+      const noteIdToUse = actualNoteId || newNoteId || noteId;
+      if (noteIdToUse) {
+        const canvasData = {
+          type: 'canvas',
+          version: '1.0',
+          title: title,
+          content: content,
+          drawingPaths: drawingPaths,
+          canvasSettings: {
+            selectedTool,
+            selectedPenTool,
+            selectedColor,
+            strokeWidth,
+            textSettings: {
+              fontSize,
+              textColor,
+              selectedFont,
+              selectedTextType,
+              isBold,
+              lineSpacing,
+              letterSpacing
+            }
+          },
+          lastModified: new Date().toISOString()
+        };
+        await updateCanvasData(noteIdToUse, canvasData);
+        setHasUnsavedChanges(false);
           console.log('✅ 緊急フォールバック保存完了');
-        }
+      }
       } catch (fallbackError) {
         console.error('❌ 緊急フォールバック保存も失敗:', fallbackError);
       }
@@ -1821,6 +1884,15 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     lastBookmarkPage: 1,           // 将来：最後のしおりページ
     bookmarkPages: [1],            // 将来：しおり設定済みページ一覧
     currentPage: 1                 // 将来：現在表示中のページ
+  });
+
+  // 📏 定規機能の状態管理（新規追加 - 既存機能への影響なし）
+  const [rulerState, setRulerState] = useState({
+    isVisible: false,              // 表示/非表示
+    x: 50,                        // X座標（デフォルト位置）
+    y: 100,                       // Y座標（デフォルト位置）
+    rotation: 0,                  // 角度（度数）
+    length: 0                     // 長さ（動的計算）
   });
 
   // 🔍 検索機能ハンドラー
@@ -2097,7 +2169,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                     size={22} 
                     color={bookmarkData.hasBookmarks ? "#4F8CFF" : "#fff"} 
                   />
-                </TouchableOpacity>
+              </TouchableOpacity>
               <TouchableOpacity style={styles.topBarIcon} onPress={handlePageSettings}>
                 <MaterialCommunityIcons name="content-copy" size={22} color="#fff" />
               </TouchableOpacity>
@@ -2721,6 +2793,18 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
             handleContentSave();
           }}
           autoSave={autoSave}
+        />
+
+        {/* 📏 定規コンポーネント（既存機能への影響なし） */}
+        <Ruler
+          isVisible={rulerState.isVisible}
+          x={rulerState.x}
+          y={rulerState.y}
+          rotation={rulerState.rotation}
+          canvasWidth={400} // 固定値（後で動的に変更可能）
+          canvasHeight={600} // 固定値（後で動的に変更可能）
+          onMove={handleRulerMove}
+          onAngleAdjust={handleRulerAngleAdjust}
         />
 
       </KeyboardAvoidingView>
