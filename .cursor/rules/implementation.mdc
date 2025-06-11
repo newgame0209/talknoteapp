@@ -82,7 +82,124 @@ description: しゃべるノート – 詳細・段階的実装計画
 | tagger | GPT ノート分類 | Cloud Scheduler daily |
 | cleanup | GCS TTL delete | Cloud Scheduler weekly |
 
-### 4.3 STT/TTS Provider 抽象化
+### 4.3 統一自動保存システム実装（Phase 4）
+
+#### Phase 4.1: UniversalNote型とデータモデル統一（2-3時間）
+```typescript
+// 統一ノート型定義
+interface UniversalNote {
+  id: string;
+  type: 'recording' | 'photo_scan' | 'import' | 'manual';
+  title: string;
+  canvasData: CanvasData;
+  metadata: NoteMetadata;
+  lastModified: string;
+}
+
+// 統一キャンバスデータ型
+interface CanvasData {
+  type: 'canvas';
+  version: '1.0';
+  content: string;                    // テキストコンテンツ
+  drawingPaths: DrawingPath[];        // 手書きパス配列
+  canvasSettings: CanvasSettings;     // ツール設定
+}
+
+// タスク:
+// 1. app/types/UniversalNote.ts 新規作成
+// 2. 既存Note型からUniversalNote型への変換関数実装
+// 3. 型安全なデータ検証関数実装
+```
+
+#### Phase 4.2: useAutoSave Hook開発（3-4時間）
+```typescript
+// リアクティブ自動保存フック
+const useAutoSave = (noteId: string, noteType: NoteType) => {
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  
+  // 自動保存実行（100ms応答目標）
+  const performAutoSave = useCallback(async (data: CanvasData) => {
+    // 統一保存処理
+  }, [noteId, noteType]);
+  
+  // 変更検知とマーキング
+  const markAsChanged = useCallback(() => {
+    setHasUnsavedChanges(true);
+  }, []);
+  
+  return { markAsChanged, performAutoSave, hasUnsavedChanges, isSaving, lastSaved };
+};
+
+// タスク:
+// 1. app/hooks/useAutoSave.ts 新規作成
+// 2. デバウンス処理実装（5秒間隔）
+// 3. 保存競合防止機能実装
+// 4. エラーハンドリング＆リトライ実装
+```
+
+#### Phase 4.3: AutoSaveDecorator実装（2-3時間）
+```typescript
+// 自動保存デコレータパターン
+const AutoSaveDecorator = <T extends Function>(
+  originalFunction: T,
+  autoSaveContext: { markAsChanged: () => void }
+): T => {
+  return ((...args: any[]) => {
+    const result = originalFunction(...args);
+    // 100%の確実性で変更フラグを立てる
+    autoSaveContext.markAsChanged();
+    return result;
+  }) as unknown as T;
+};
+
+// 全ツールバー関数に適用
+const decoratedHandlers = {
+  handleTextChange: AutoSaveDecorator(handleTextChange, { markAsChanged }),
+  handleDrawingPathsChange: AutoSaveDecorator(handleDrawingPathsChange, { markAsChanged }),
+  handleToolChange: AutoSaveDecorator(handleToolChange, { markAsChanged }),
+  // ... 全てのツールバー関数
+};
+
+// タスク:
+// 1. app/utils/AutoSaveDecorator.ts 新規作成
+// 2. 既存CanvasEditor.tsxの全ハンドラー関数にデコレータ適用
+// 3. ツールバー変更の100%キャプチャ確認
+```
+
+#### Phase 4.4: データベース統一保存関数（1-2時間）
+```typescript
+// 統一保存サービス
+class UniversalNoteService {
+  async saveNote(note: UniversalNote): Promise<void> {
+    switch (note.type) {
+      case 'recording':
+        return this.saveRecordingNote(note);
+      case 'photo_scan':
+        return this.savePhotoScanNote(note);
+      case 'import':
+        return this.saveImportNote(note);
+      case 'manual':
+        return this.saveManualNote(note);
+    }
+  }
+  
+  private async saveRecordingNote(note: UniversalNote): Promise<void> {
+    // recordings テーブルの transcription フィールドに保存
+    await updateCanvasData(note.id, note.canvasData);
+  }
+  
+  // 同様に他のノートタイプの保存処理
+}
+
+// タスク:
+// 1. app/services/UniversalNoteService.ts 新規作成
+// 2. 既存updateCanvasData関数の統合
+// 3. 一貫性のあるログ出力実装
+```
+
+### 4.4 STT/TTS Provider 抽象化
 | Provider | 用途 | 実装優先度 |
 |---------|------|----------|
 | GoogleSTTProvider | 標準 STT (70+ 言語) | Sprint 4 (高) |
@@ -101,7 +218,7 @@ description: しゃべるノート – 詳細・段階的実装計画
 * 同一音源での Google STT との WER / 処理時間 / コスト比較
 * モデルサイズ (~2 GB) 配布方式と CC-BY 表記フロー確認
 
-### 4.4 AI Search Provider
+### 4.5 AI Search Provider
 | Provider | 用途 | 実装優先度 |
 |---------|------|----------|
 | AnthropicProvider | リサーチ機能メイン | Sprint 9 (高) |
@@ -112,7 +229,7 @@ description: しゃべるノート – 詳細・段階的実装計画
 * BE: `anthropic.py` クライアント実装（API キー SecretManager 管理）
 * FE: 引用リンク UI 調整（favicon, ドメイン表示）
 
-### 4.5 Tech Debt Gate
+### 4.6 Tech Debt Gate
 * 90% type-hint coverage
 * OpenAPI 3.1 → Redoc autoserve
 * 100 rps load ⇒ <200 ms
@@ -128,14 +245,54 @@ description: しゃべるノート – 詳細・段階的実装計画
 5. PhotoScan / ImportData
 6. Settings stack
 
-### 5.2 コア機能
+### 5.2 統一自動保存システム（Phase 4）
+
+#### 品質保証計画
+```typescript
+// 自動テストスイート
+describe('統一自動保存システム', () => {
+  test('録音ノート: 全ツールバー操作で自動保存', async () => {
+    // 全26個のツールバー機能をテスト
+  });
+  
+  test('写真スキャンノート: 全ツールバー操作で自動保存', async () => {
+    // 全26個のツールバー機能をテスト
+  });
+  
+  test('インポートノート: 全ツールバー操作で自動保存', async () => {
+    // 全26個のツールバー機能をテスト
+  });
+  
+  test('手動ノート: 全ツールバー操作で自動保存', async () => {
+    // 全26個のツールバー機能をテスト
+  });
+  
+  test('保存エラー時のリトライ機能', async () => {
+    // 3段階リトライメカニズムのテスト
+  });
+  
+  test('100ms以内の保存応答時間', async () => {
+    // パフォーマンステスト
+  });
+});
+
+// 手動検証チェックリスト（104項目）
+const VERIFICATION_CHECKLIST = [
+  // 録音ノート（26項目）
+  'recording_pen_tool', 'recording_pencil_tool', 'recording_marker_tool', 
+  'recording_eraser_tool', 'recording_text_input', 'recording_heading_h1',
+  // ... 全てのツールバー機能 × 4ノートタイプ
+];
+```
+
+### 5.3 コア機能
 * Recorder – expo-av, wav encoder (16 kHz)
 * WebSocket STT – PCM 250 ms
 * Canvas – skia, 100 undo
 * OfflineQueue – zustand persister
 * Accessibility – UD fonts, high-contrast
 
-### 5.3 テスト
+### 5.4 テスト
 * Unit (Jest) ≥80% lines
 * Detox: record→stop→transcript
 * OTA channel: staging / production

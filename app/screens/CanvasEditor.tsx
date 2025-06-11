@@ -1035,12 +1035,6 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
   };
 
   // 画像アップロードハンドラ
-  const handleImageUpload = () => {
-    console.log('画像アップロード実行');
-    // TODO: 画像アップロード機能の実装
-    markAsChanged('media_upload', { action: 'image_upload_initiated' }); // 🎯 統一自動保存
-  };
-
   // 定規機能ハンドラ
   // 📏 定規機能のハンドラー（既存機能への影響なし）
   const handleRulerTool = () => {
@@ -2373,11 +2367,6 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                         <MaterialIcons name="palette" size={22} color="#666" />
                       </TouchableOpacity>
                     )}
-                    
-                    {/* 画像挿入 */}
-                    <TouchableOpacity style={styles.subToolIcon} onPress={handleImageUpload}>
-                      <MaterialIcons name="image" size={22} color="#666" />
-                    </TouchableOpacity>
                     
                     {/* 定規 */}
                     <TouchableOpacity style={styles.subToolIcon} onPress={handleRulerTool}>

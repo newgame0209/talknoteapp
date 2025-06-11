@@ -12,28 +12,28 @@ description: しゃべるノートのバックエンド仕様書
 ## 1. アーキテクチャ概観
 ```mermaid
 graph LR
-m(Expo App) -- HTTPS / WS(ID Token) --> A[Cloud Endpoints (ESPv2)]
-A --> B[Firebase Auth (ID Token verify)]
+m(Expo App) -- HTTPS / WS(ID Token) --> A[Cloud Endpoints (ESPv2)]
+A --> B[Firebase Auth (ID Token verify)]
 A --> C[Notes Service (FastAPI)]
 A --> D[Media Service]
 A --> E[AI Service]
 D --> G[Cloud Storage]
-C --> F[(Cloud SQL PostgreSQL)]
+C --> F[(Cloud SQL PostgreSQL)]
 E --> H(OpenAI / GCP APIs)
 ```
 
 ### 採用技術スタック
 | レイヤ | 技術 / サービス |
 |--------|----------------|
-| API 認証 | **Firebase Authentication** (Google / Apple SSO) |
-| 実行基盤 | **Cloud Run** (g1‑small, min = 0) |
-| 言語 / FW | Python 3.12 + **FastAPI** |
-| DB | Cloud SQL (PostgreSQL 15) + SQLAlchemy |
-| ストレージ | Cloud Storage (audio/, images/, pdf/) |
+| API 認証 | **Firebase Authentication** (Google / Apple SSO) |
+| 実行基盤 | **Cloud Run** (g1‑small, min = 0) |
+| 言語 / FW | Python 3.12 + **FastAPI** |
+| DB | Cloud SQL (PostgreSQL 15) + SQLAlchemy |
+| ストレージ | Cloud Storage (audio/, images/, pdf/) |
 | メッセージング | Pub/Sub (`media.new`, `stt.done`) |
 | 外部 API | Google Cloud Speech‑to‑Text, **MiniMax Audio TTS**, Vision API, OpenAI GPT‑4o, Yahoo! テキスト解析, Google CSE |
-| インフラ管理 | Terraform 1.8 (IaC) |
-| CI/CD | GitHub Actions → Cloud Buildpacks → Cloud Run |
+| インフラ管理 | Terraform 1.8 (IaC) |
+| CI/CD | GitHub Actions → Cloud Buildpacks → Cloud Run |
 
 > **認証フロー**  
 > 1. クライアントは Firebase Auth で Sign‑In → **ID Token** を取得  
@@ -109,20 +109,20 @@ TEST_USER_EMAIL=test@example.com
 
 | # | Method | Path | 説明 | 認証 | 主処理 |
 |---|--------|------|------|------|--------|
-| 1 | GET | `/notebooks` | ノート一覧 | Firebase ID Token | DB Query |
+| 1 | GET | `/notebooks` | ノート一覧 | Firebase ID Token | DB Query |
 | 2 | POST | `/notebooks` | ノート作成 | ✅ | Insert |
 | 3 | PATCH | `/notebooks/{id}` | ノート更新 | ✅ | Update |
 | 4 | DELETE | `/notebooks/{id}` | ノート削除 (soft) | ✅ | Update `deleted_at` |
-| 5 | GET | `/pages/{id}` | ページ取得 | ✅ | Join canvas / transcripts |
+| 5 | GET | `/pages/{id}` | ページ取得 | ✅ | Join canvas / transcripts |
 | 6 | PUT | `/pages/{id}/canvas` | キャンバス JSON 更新 | ✅ | Store in DB |
 | 7 | POST | `/media/upload-url` | 署名付き URL 発行 | ✅ | GCS v4 Signed URL |
 | 8 | POST | `/media/upload-chunk` | チャンク分割アップロード | ✅ | 大容量ファイル対応 |
 | 9 | POST | `/media/complete-upload` | チャンクアップロード完了 | ✅ | チャンク結合と処理開始 |
 | 10 | GET | `/media/{id}/status` | STT / OCR 進行状況 | ✅ | 進捗状況と結果取得 |
 | 11 | POST | `/ai/chat` | AI チャット | ✅ | GPT‑4o proxy |
-| 12 | WS | `/stt/stream` | 60 秒音声ストリーム → STT 同期 | ✅ | Bidirectional Streaming |
+| 12 | WS | `/stt/stream` | 60 秒音声ストリーム → STT 同期 | ✅ | Bidirectional Streaming |
 
-*全 API は OpenAPI 3.1 仕様書 `/openapi.json` で配布。*
+*全 API は OpenAPI 3.1 仕様書 `/openapi.json` で配布。*
 
 ### 共通ヘッダ
 ```
@@ -144,21 +144,21 @@ NOTEBOOKS ||--o{ TAGS : categorised
 ## 4. メディア処理パイプライン
 1. **署名 URL** を取得 → クライアント PUT(Resumable)  
 2. オブジェクト Finalize → Pub/Sub `media.new`  
-3. `media-worker` (Cloud Run Jobs)  
+3. `media-worker` (Cloud Run Jobs)  
    * audio ⇒ Speech‑to‑Text (async)  
-   * image/pdf ⇒ Vision OCR  
+   * image/pdf ⇒ Vision OCR  
 4. 結果を DB 保存し、`media.{id}.done` イベント  
 5. クライアントはポーリングまたは FCM データメッセージで完了を受信  
 
 ## 5. セキュリティ & ガバナンス
 * Firebase Rules による object path ベース権限制御  
-* Cloud SQL IAM authn / SC 構成  
+* Cloud SQL IAM authn / SC 構成  
 * 脆弱性スキャン (Container Analysis)  
 
 ## 6. 観測性 & 運用
 * Cloud Trace / Profiler / Logging  
-* SLO: p95 レイテンシ < 400 ms、Error rate < 1 %  
-* Autorecovery: deploy‑rollback on 3 × 5 min 5xx spike  
+* SLO: p95 レイテンシ < 400 ms、Error rate < 1 %  
+* Autorecovery: deploy‑rollback on 3 × 5 min 5xx spike  
 
 ---
 
@@ -281,5 +281,136 @@ NOTEBOOKS ||--o{ TAGS : categorised
 4. エラー処理：
    - チャンクアップロード失敗時：同じチャンクを再送可能
    - タイムアウト発生時：リトライロジックを実装
+
+---
+
+## 8. データベース移行戦略（Sprint 7）
+
+### SQLite → PostgreSQL マイグレーション
+
+#### 8.1 移行手順
+1. **データエクスポート**: SQLiteからJSONエクスポート機能で全データ抽出
+2. **スキーママッピング**: SQLiteテーブル → PostgreSQLテーブルの対応関係
+3. **データ変換**: キャンバスデータ形式の統一化
+4. **段階的移行**: ユーザー単位での順次移行
+
+#### 8.2 データ保持方法
+```sql
+-- SQLite → PostgreSQL テーブルマッピング
+recordings → notebooks + pages (page.canvas_data = recordings.transcription)
+photo_scans → notebooks + pages (page.canvas_data = photo_scans.photos[0].canvasData)
+imports → notebooks + pages (page.canvas_data = imports.content)
+upload_queue → 同期完了後削除（一時テーブル）
+```
+
+#### 8.3 互換性要件
+- **データ形式**: 新形式キャンバスデータ（JSON）で統一
+- **API互換性**: `/pages/{id}/canvas` エンドポイントで同一インターフェース
+- **オフライン同期**: 差分同期キューでSQLite → PostgreSQL自動同期
+
+---
+
+## 9. エラーハンドリング仕様
+
+### 9.1 保存失敗時の挙動
+```typescript
+// 3段階のリトライメカニズム
+interface SaveRetryPolicy {
+  maxRetries: 3;
+  backoffIntervals: [1000, 3000, 10000]; // ms
+  fallbackActions: [
+    'immediate_retry',    // 1回目: 即座にリトライ
+    'queue_for_sync',     // 2回目: オフライン同期キューに追加
+    'local_only_save'     // 3回目: ローカル保存のみで継続
+  ];
+}
+```
+
+### 9.2 ネットワーク障害時のキューイング
+```typescript
+// オフライン同期キュー仕様
+interface SyncQueueItem {
+  id: string;
+  operation: 'create' | 'update' | 'delete';
+  table: 'recordings' | 'photo_scans' | 'imports';
+  data: CanvasData;
+  timestamp: number;
+  retries: number;
+  lastAttempt: number;
+}
+
+// 自動同期トリガー
+const SYNC_TRIGGERS = [
+  'network_restored',      // ネットワーク復旧時
+  'app_foreground',        // アプリ前面復帰時
+  'periodic_check_30min'   // 30分間隔の定期チェック
+];
+```
+
+### 9.3 容量制限
+```typescript
+// キャンバスデータ容量制限
+interface CapacityLimits {
+  maxCanvasDataSize: 50 * 1024 * 1024; // 50MB per note
+  maxDrawingPaths: 10000;               // 10,000 paths per note
+  maxTextLength: 1000000;               // 1M characters per note
+  
+  // 警告しきい値（80%に到達時に警告表示）
+  warningThresholds: {
+    canvasData: 40 * 1024 * 1024; // 40MB
+    drawingPaths: 8000;           // 8,000 paths
+    textLength: 800000;           // 800K characters
+  };
+}
+
+// 容量制限時の自動処理
+const handleCapacityLimit = async (noteId: string, limitType: string) => {
+  // 1. 古い描画パスの自動圧縮
+  // 2. 冗長なSVGパス最適化
+  // 3. ユーザー通知 + 手動最適化の提案
+};
+```
+
+---
+
+## 10. 自動保存システム仕様
+
+### 10.1 統一保存インターフェース
+```typescript
+// 全ノートタイプ対応の統一保存関数
+interface UniversalNote {
+  id: string;
+  type: 'recording' | 'photo_scan' | 'import' | 'manual';
+  title: string;
+  canvasData: CanvasData;
+  metadata: {
+    recordingId?: string;    // recording用
+    photoScanId?: string;    // photo_scan用
+    importId?: string;       // import用
+    duration?: number;       // recording用
+    fileSize?: number;       // import用
+  };
+  lastModified: string;
+}
+
+// 統一保存関数
+const saveUniversalNote = async (note: UniversalNote): Promise<void> => {
+  // SQLiteの適切なテーブルに保存 + 将来的にPostgreSQL同期キューに追加
+};
+```
+
+### 10.2 パフォーマンス要件
+```typescript
+interface AutoSavePerformance {
+  interval: 5000;                    // 5秒間隔
+  maxSaveTime: 100;                  // 100ms以内で完了
+  maxQueuedSaves: 3;                 // 最大3件まで並列保存
+  batchSaveThreshold: 10;            // 10件以上の変更で一括保存
+  
+  // レスポンシブ調整
+  heavyOperationDelay: 200;          // 大容量描画時は200ms後に保存
+  backgroundSaveEnabled: true;       // バックグラウンド保存有効
+}
+```
 
 ---

@@ -184,7 +184,7 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaProvider>
       <AutoSaveProvider globalEnabled={true} debugMode={__DEV__}>
-        <NavigationContainer>
+      <NavigationContainer>
         <Stack.Navigator initialRouteName={user ? "Dashboard" : "WelcomeLogin"}>
           {/* 認証画面 */}
           <Stack.Screen 

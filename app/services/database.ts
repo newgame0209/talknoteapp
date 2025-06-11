@@ -419,12 +419,12 @@ export const savePhotoScan = async (
       console.log('Photo scan updated successfully');
     } else {
       // 新規の場合はINSERT
-      await db.runAsync(
-        `INSERT INTO photo_scans (id, title, photos, created_at)
-         VALUES (?, ?, ?, ?);`,
-        [id, title, JSON.stringify(photos), now]
-      );
-      console.log('Photo scan saved successfully');
+    await db.runAsync(
+      `INSERT INTO photo_scans (id, title, photos, created_at)
+       VALUES (?, ?, ?, ?);`,
+      [id, title, JSON.stringify(photos), now]
+    );
+    console.log('Photo scan saved successfully');
     }
     
     return Promise.resolve();

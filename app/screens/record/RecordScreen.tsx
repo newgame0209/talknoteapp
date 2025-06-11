@@ -341,8 +341,8 @@ const RecordScreen: React.FC = () => {
           setIsCreatingNote(false);
           setRecordingState('idle');
           setProcessingStatus('');
-          // ダッシュボードに戻る
-          navigation.goBack();
+        // ダッシュボードに戻る
+        navigation.goBack();
         }, 1000);
       
         // 成功メッセージを表示（オプション）
