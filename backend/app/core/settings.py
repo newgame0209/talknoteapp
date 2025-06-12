@@ -53,6 +53,28 @@ class Settings(BaseSettings):
     PARAKEET_ENDPOINT: Optional[str] = None
     PARAKEET_ENABLED: bool = False
 
+    # TTS専用設定
+    TTS_ENABLED: bool = True
+    TTS_PROVIDER: str = "elevenlabs"  # elevenlabsをプライマリに
+    TTS_FALLBACK_PROVIDERS: List[str] = ["google"]  # googleをフォールバックに
+    
+    # MiniMax TTS (DISABLED - Removed due to API key issues)
+    # MINIMAX_API_KEY: Optional[str] = None
+    # MINIMAX_GROUP_ID: Optional[str] = None
+    # MINIMAX_BASE_URL: str = "https://api.minimax.chat/v1"
+    
+    # ElevenLabs TTS
+    ELEVENLABS_API_KEY: Optional[str] = None
+    ELEVENLABS_BASE_URL: str = "https://api.elevenlabs.io/v1"
+    
+    # TTS音声設定
+    DEFAULT_VOICE_ID: str = "default"
+    DEFAULT_SPEAKING_RATE: float = 1.0
+    DEFAULT_PITCH: float = 0.0
+    DEFAULT_VOLUME_GAIN_DB: float = 0.0
+    TTS_CACHE_ENABLED: bool = True
+    TTS_CACHE_TTL: int = 3600  # 1時間
+
     # AI
     OPENAI_API_KEY: Optional[str] = None
     OPENAI_MODEL: str = "gpt-4o"

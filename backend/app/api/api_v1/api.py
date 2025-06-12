@@ -5,7 +5,7 @@
 from fastapi import APIRouter
 
 # 各エンドポイント用のルーター
-from app.api.api_v1.endpoints import notebooks, pages, media, transcripts, stt, pubsub, health, ocr
+from app.api.api_v1.endpoints import notebooks, pages, media, transcripts, stt, tts, pubsub, health, ocr
 from app.api.api_v1.endpoints.ai.router import router as ai_router
 
 api_router = APIRouter()
@@ -18,6 +18,9 @@ api_router.include_router(transcripts.router, prefix="/transcripts", tags=["tran
 
 # STTエンドポイントの登録
 api_router.include_router(stt.router, prefix="/stt", tags=["stt"])
+
+# TTSエンドポイントの登録
+api_router.include_router(tts.router, prefix="/tts", tags=["tts"])
 
 # Pub/Subエンドポイントの登録
 api_router.include_router(pubsub.router, prefix="/pubsub", tags=["pubsub"])
