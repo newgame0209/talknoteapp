@@ -19,9 +19,8 @@ class MinimaxTTSProvider(BaseTTSProvider):
     """MiniMax TTS Provider for high-quality Japanese speech synthesis."""
     
     def __init__(self):
-        self.api_key = settings.MINIMAX_API_KEY
-        self.group_id = settings.MINIMAX_GROUP_ID
-        self.base_url = settings.MINIMAX_BASE_URL
+        self.api_key = settings.MINIMAX_TTS_API_KEY
+        self.endpoint = settings.MINIMAX_TTS_ENDPOINT
         self.default_language = "ja-JP"
         
         if not self.api_key:
@@ -151,7 +150,7 @@ class MinimaxTTSProvider(BaseTTSProvider):
         """MiniMax TTS APIを呼び出します。"""
         
         # APIエンドポイント - MiniMax公式API仕様
-        url = f"{self.base_url}/t2a_v2"
+        url = self.endpoint
         
         # リクエストペイロード - MiniMax公式API仕様に準拠
         payload = {
@@ -175,9 +174,7 @@ class MinimaxTTSProvider(BaseTTSProvider):
             "Content-Type": "application/json"
         }
         
-        # グループIDが設定されている場合は追加
-        if self.group_id:
-            headers["Group-Id"] = self.group_id
+        # MiniMax TTS API用のヘッダー設定
         
         # APIコール実行
         async with httpx.AsyncClient(timeout=30.0) as client:

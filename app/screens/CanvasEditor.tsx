@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, Alert, SafeAreaView, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, Alert, SafeAreaView, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, ScrollView, Keyboard, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -32,7 +32,31 @@ import database, {
   import { UniversalNoteService } from '../services/UniversalNoteService';
   import { UniversalNote, NoteType } from '../types/UniversalNote';
 
-// 画面遷移の型定義
+  // 🎤 TTS関連のimport追加
+  import { TTSAudioPlayer } from '../utils/audioHelpers';
+  import { TTSClient } from '../services/TTSClient';
+  import { splitIntoSentencesWithDetails } from '../utils/textSplitter';
+  // expo-av を直接ラップした独自 AudioPlayer クラスを使用
+  import { AudioPlayer } from '../utils/audioHelpers';
+
+  // 🎤 TTS関連の型定義追加
+  interface TTSSentence {
+    text: string;
+    start_time: number;
+    end_time: number;
+    start_index: number;
+    end_index: number;
+  }
+
+  interface TTSPlaybackState {
+    isPlaying: boolean;
+    currentPosition: number;
+    duration: number;
+    currentSentenceIndex: number;
+    sentences: TTSSentence[];
+  }
+
+  // 画面遷移の型定義
 type RootStackParamList = {
   CanvasEditor: { 
     noteId: string; 
@@ -1557,6 +1581,25 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     });
     setHasUnsavedChanges(true);
     
+    // 🎤 テキスト変更時のTTS音声再生成
+    if (toolbarFunction === 'text_input' || 
+        toolbarFunction === 'heading_change' || 
+        toolbarFunction === 'font_change' ||
+        toolbarFunction === 'font_size' ||
+        toolbarFunction === 'bold_toggle') {
+      console.log('🎤 テキスト変更検知 - TTS音声再生成をスケジュール');
+      // 既存のTTS音声をクリアして再生成を促す
+      setTTSAudioUrl(null);
+      
+      // 現在再生中の場合は停止
+      if (isTTSPlaying) {
+        ttsAudioPlayer.pause();
+        setIsTTSPlaying(false);
+        setAudioPlayState('paused');
+        console.log('🎤 テキスト変更により音声再生停止');
+      }
+    }
+    
     // 🎯 新しい統一自動保存Hook経由
     if (toolbarFunction) {
       console.log('🚀 統一自動保存Hook実行:', toolbarFunction);
@@ -1618,6 +1661,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
               version: '1.0',
               content: content,
               drawingPaths: drawingPaths,
+              textElements: [], // 現在は空配列（将来のテキスト要素対応）
               canvasSettings: {
                 selectedTool,
                 selectedPenTool,
@@ -1632,14 +1676,20 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                   lineSpacing,
                   letterSpacing
                 }
-              }
+              },
+              // データサイズ情報
+              contentLength: content.length,
+              pathsCount: drawingPaths.length,
+              elementsCount: 0 // 現在はテキスト要素なし
             },
             lastModified: new Date().toISOString(),
             pageMetadata: getPageMetadata()
           }],
           currentPageIndex: 0,
           metadata: getNoteMetadata(),
-          lastModified: new Date().toISOString()
+          lastModified: new Date().toISOString(),
+          lastSaved: new Date().toISOString(),
+          autoSaveEnabled: true
         };
 
         // 🎯 統一自動保存サービス呼び出し
@@ -1813,16 +1863,76 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     };
   }, [hasUnsavedChanges, performAutoSave]);
 
-  // 🎵 Phase 4: 音声プレイヤー制御
-  const handleAudioPlay = () => {
-    if (audioPlayState === 'playing') {
+  // 🎤 TTS音声再生の処理（既存のhandleAudioPlay関数を拡張）
+  const handleAudioPlay = async () => {
+    console.log('🎵🎵🎵 handleAudioPlay関数開始:', {
+      isTTSPlaying,
+      ttsAudioUrl,
+      hasContent: !!content,
+      contentLength: content?.length || 0
+    });
+    
+    try {
+      if (isTTSPlaying) {
+        // 🎵 TTS再生中の場合：一時停止
+        console.log('🎵 TTS一時停止処理開始');
+        await ttsAudioPlayer.pause();
+        setIsTTSPlaying(false);
+        setAudioPlayState('paused');
+        console.log('🎵 TTS一時停止完了');
+      } else {
+        // 🎵 TTS再生開始
+        console.log('🎵 TTS再生開始処理:', { ttsAudioUrl: !!ttsAudioUrl });
+        let audioUrl = ttsAudioUrl;
+
+        if (!audioUrl) {
+          // 初回再生：TTS音声を生成
+          console.log('🎤 TTS音声未生成 - 生成開始');
+          audioUrl = await generateTTSAudio();
+          console.log('🎤 TTS音声生成完了 - 再生開始');
+        }
+
+        // audioUrlが取得できたか確認
+        if (audioUrl) {
+          // state同期
+          if (!ttsAudioUrl) {
+            setTTSAudioUrl(audioUrl);
+          }
+          console.log('🎵 TTS音声URL確認済み - 再生開始:', audioUrl);
+          
+          // 🎯 一時停止からの再開の場合は現在位置から再生
+          const currentState = ttsAudioPlayer.getPlaybackState();
+          console.log('🎵 再生開始前の状態確認:', {
+            currentPosition: currentState.currentPosition,
+            isPlaying: currentState.isPlaying,
+            duration: currentState.duration
+          });
+          
+          if (currentState.currentPosition > 0) {
+            console.log('🎵 一時停止位置から再開:', currentState.currentPosition);
+            // 🎯 先に再生開始してから位置を設定（音声再ロードを防ぐ）
+            await ttsAudioPlayer.play();
+            await ttsAudioPlayer.seekTo(currentState.currentPosition);
+          } else {
+            console.log('🎵 最初から再生開始');
+            await ttsAudioPlayer.play();
+          }
+          
+          setIsTTSPlaying(true);
+          setAudioPlayState('playing');
+          console.log('🎵 TTS再生開始完了');
+        } else {
+          console.error('🚨 TTS音声生成後もURLが設定されていません');
+          Alert.alert('エラー', 'TTS音声の生成に失敗しました。');
+        }
+      }
+      markAsChanged('voice_record', { playState: audioPlayState }); // 🎯 統一自動保存
+    } catch (error) {
+      console.error('🚨 TTS再生エラー:', error);
+      Alert.alert('エラー', '音声の再生に失敗しました。');
+      setIsTTSPlaying(false);
       setAudioPlayState('paused');
-      console.log('⏸️ 音声一時停止');
-    } else {
-      setAudioPlayState('playing');
-      console.log('🔊 音声再生開始');
     }
-    markAsChanged('voice_record', { playState: audioPlayState }); // 🎯 統一自動保存
   };
 
   const handleAudioPause = () => {
@@ -1831,10 +1941,72 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     markAsChanged(); // 🔥 追加: 音声停止時に変更フラグを立てる
   };
 
-  const handleAudioSeek = (seconds: number) => {
-    // シーク処理をここに実装
-    console.log('Seeking to:', seconds);
-    markAsChanged(); // 🔥 追加: 音声シーク時に変更フラグを立てる
+  const handleAudioSeek = async (seconds: number) => {
+    try {
+      console.log('🎵🎵🎵 handleAudioSeek開始:', {
+        seconds,
+        hasTTSAudioUrl: !!ttsAudioUrl,
+        hasTTSAudioPlayer: !!ttsAudioPlayer,
+        isTTSPlaying,
+        audioPlayState
+      });
+      
+      if (ttsAudioUrl && ttsAudioPlayer) {
+        const currentState = ttsAudioPlayer.getPlaybackState();
+        console.log('🎵 シーク前の状態:', {
+          currentPosition: currentState.currentPosition,
+          duration: currentState.duration,
+          isPlaying: currentState.isPlaying
+        });
+        
+        if (seconds > 0) {
+          // 10秒進む
+          console.log('🎵 10秒進むボタン押下');
+          await ttsAudioPlayer.seekForward();
+          console.log('🎵 TTS 10秒進む完了');
+        } else {
+          // 10秒戻る
+          console.log('🎵 10秒戻るボタン押下');
+          await ttsAudioPlayer.seekBackward();
+          console.log('🎵 TTS 10秒戻る完了');
+        }
+        
+        const newState = ttsAudioPlayer.getPlaybackState();
+        console.log('🎵 シーク後の状態:', {
+          currentPosition: newState.currentPosition,
+          duration: newState.duration,
+          isPlaying: newState.isPlaying
+        });
+      } else {
+        console.log('🎵 TTS音声未ロード - シーク無効:', {
+          ttsAudioUrl: !!ttsAudioUrl,
+          ttsAudioPlayer: !!ttsAudioPlayer
+        });
+      }
+      markAsChanged(); // 🔥 追加: 音声シーク時に変更フラグを立てる
+    } catch (error) {
+      console.error('🚨 TTSシークエラー:', error);
+    }
+  };
+
+  // 🎵 再生速度変更ハンドラー
+  const handleSpeedChange = async () => {
+    try {
+      const newSpeed = audioSpeed === 1.0 ? 1.5 : audioSpeed === 1.5 ? 2.0 : 1.0;
+      console.log('🎵 再生速度変更:', audioSpeed, '→', newSpeed);
+      
+      setAudioSpeed(newSpeed);
+      
+      // TTS音声プレイヤーに再生速度を設定
+      if (ttsAudioPlayer) {
+        await ttsAudioPlayer.setPlaybackRate(newSpeed);
+        console.log('🎵 TTS再生速度設定完了:', newSpeed);
+      }
+      
+      markAsChanged('voice_record', { playbackRate: newSpeed });
+    } catch (error) {
+      console.error('🚨 再生速度変更エラー:', error);
+    }
   };
 
 
@@ -1857,6 +2029,238 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
   const handleFontSizeDecrease = () => {
     handleFontSizeChange(fontSize - 2);
   };
+
+  // 🎤 TTS関連の状態管理
+  const [audioPlayer] = useState(() => new AudioPlayer()); // 独自AudioPlayerインスタンス作成
+  const [ttsAudioPlayer] = useState(() => {
+    const player = new TTSAudioPlayer();
+    player.setAudioPlayer(audioPlayer); // expo-audioプレイヤーを設定
+    // 再生位置更新用のコールバックを登録
+    player.setOnStateChange((state) => {
+      console.log('🎤 CanvasEditor: onStateChange受信:', {
+        currentPosition: state.currentPosition,
+        isPlaying: state.isPlaying
+      });
+      setAudioCurrentTime(state.currentPosition);
+    });
+    return player;
+  });
+  const [ttsClient] = useState(() => new TTSClient()); // baseUrlは環境変数から自動取得
+  const [isTTSPlaying, setIsTTSPlaying] = useState(false);
+  const [ttsAudioUrl, setTTSAudioUrl] = useState<string | null>(null);
+  const [ttsSentences, setTTSSentences] = useState<TTSSentence[]>([]);
+  const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0);
+  const [highlightRanges, setHighlightRanges] = useState<Array<{
+    start: number;
+    end: number;
+    type: 'all' | 'current';
+    color: string;
+  }>>([]);
+  const [isTTSLoading, setIsTTSLoading] = useState(false);
+  const [audioCurrentTime, setAudioCurrentTime] = useState<number>(0);
+  
+  // 🎤 TTS プロバイダー切り替え機能
+  const [currentTTSProvider, setCurrentTTSProvider] = useState<'google' | 'minimax' | 'gemini'>('google');
+  const [showVoiceSettingsModal, setShowVoiceSettingsModal] = useState(false);
+  const [availableTTSProviders] = useState<Array<{
+    id: 'google' | 'minimax' | 'gemini';
+    name: string;
+    description: string;
+  }>>([
+    { id: 'google', name: 'Google TTS', description: '高品質・安定' },
+    { id: 'minimax', name: 'MiniMax TTS', description: '自然な日本語' },
+    { id: 'gemini', name: 'Gemini TTS', description: 'AI音声合成' },
+  ]);
+
+  // 🎨 文章ハイライト機能
+  const updateHighlights = useCallback((text: string, currentIndex: number) => {
+    const sentences = splitIntoSentencesWithDetails(text);
+    const ranges = sentences.map((sentence, index) => ({
+      start: sentence.startPosition,
+      end: sentence.endPosition,
+      type: (index === currentIndex ? 'current' : 'all') as 'all' | 'current',
+      color: index === currentIndex ? '#629ff4' : '#a6bef8'
+    }));
+    setHighlightRanges(ranges);
+  }, []);
+
+  // 🎨 テキスト選択によるハイライト移動
+  const handleTextSelection = useCallback((event: any) => {
+    const { selection } = event.nativeEvent;
+    const sentences = splitIntoSentencesWithDetails(content);
+    
+    // タップ位置から該当文を特定
+    const targetSentence = sentences.findIndex(s => 
+      selection.start >= s.startPosition && selection.start <= s.endPosition
+    );
+    
+    if (targetSentence !== -1 && targetSentence !== currentSentenceIndex) {
+      setCurrentSentenceIndex(targetSentence);
+      updateHighlights(content, targetSentence);
+      
+      // TTS再生中の場合は該当文にジャンプ
+      if (isTTSPlaying && ttsAudioPlayer) {
+        ttsAudioPlayer.seekToSentence(targetSentence);
+        console.log('🎯 文章タップ - TTS位置移動:', targetSentence);
+      }
+    }
+  }, [content, currentSentenceIndex, isTTSPlaying, ttsAudioPlayer, updateHighlights]);
+
+  // 🎤 TTS プロバイダー切り替えハンドラー
+  const handleTTSProviderChange = (providerId: 'google' | 'minimax' | 'gemini') => {
+    setCurrentTTSProvider(providerId);
+    setShowVoiceSettingsModal(false);
+    
+    // 現在再生中の音声があれば停止
+    if (isTTSPlaying) {
+      ttsAudioPlayer.pause();
+      setIsTTSPlaying(false);
+      setAudioPlayState('paused');
+    }
+    
+    // 音声URLをクリアして再生成を促す
+    setTTSAudioUrl(null);
+    
+    console.log('🎤 TTSプロバイダー変更:', providerId);
+    markAsChanged('voice_record', { provider: providerId });
+  };
+
+  // 🎤 TTS音声生成関数
+  const generateTTSAudio = async (): Promise<string | null> => {
+    try {
+      setIsTTSLoading(true);
+      console.log('🎤 TTS音声生成開始');
+
+      // 現在のテキストコンテンツを取得
+      const textToSpeak = content.trim();
+      console.log('🎤 テキスト確認:', {
+        textLength: textToSpeak.length,
+        textPreview: textToSpeak.substring(0, 100) + (textToSpeak.length > 100 ? '...' : ''),
+        hasText: !!textToSpeak
+      });
+      
+      if (!textToSpeak) {
+        console.error('🚨 読み上げテキストが空です');
+        Alert.alert('エラー', '読み上げるテキストがありません。');
+        return null;
+      }
+
+      // 文章を句点で分割（正しいプロパティ名を使用）
+      const sentenceDetails = splitIntoSentencesWithDetails(textToSpeak);
+      setTTSSentences(sentenceDetails.map((detail, index) => ({
+        text: detail.text,
+        start_time: index * 3, // 仮の時間（実際はTTSプロバイダーから取得）
+        end_time: (index + 1) * 3,
+        start_index: detail.startPosition, // 正しいプロパティ名
+        end_index: detail.endPosition,     // 正しいプロパティ名
+      })));
+
+      // TTSサービスで音声生成（現在選択されたプロバイダーを使用）
+      console.log('🎤 TTS API呼び出し開始:', {
+        textLength: textToSpeak.length,
+        provider: currentTTSProvider
+      });
+      
+      console.log('🎤 TTS API呼び出し直前:', {
+        ttsClientExists: !!ttsClient,
+        provider: currentTTSProvider,
+        textLength: textToSpeak.length
+      });
+      
+      const ttsResponse = await ttsClient.synthesize({
+        text: textToSpeak,
+        provider_name: currentTTSProvider, // 選択されたプロバイダーを使用
+        audio_format: 'mp3',          // ストリーミング互換フォーマットに固定
+      });
+      
+      console.log('🎤 TTS API呼び出し完了:', {
+        responseExists: !!ttsResponse,
+        responseType: typeof ttsResponse
+      });
+      
+      console.log('🎤 generateTTSAudio レスポンス確認:', {
+        hasAudioUrl: !!ttsResponse.audio_url,
+        audioUrl: ttsResponse.audio_url,
+        audioUrlType: typeof ttsResponse.audio_url,
+        audioUrlLength: ttsResponse.audio_url?.length || 0,
+        audioUrlStartsWith: ttsResponse.audio_url?.substring(0, 50) || 'N/A',
+        hasSentences: !!ttsResponse.sentences,
+        sentencesLength: ttsResponse.sentences?.length || 0,
+        provider: ttsResponse.provider,
+        duration: ttsResponse.duration
+      });
+      
+      // 音声URLの詳細検証
+      if (!ttsResponse.audio_url) {
+        throw new Error('TTS APIから音声URLが返されませんでした');
+      }
+      
+      if (typeof ttsResponse.audio_url !== 'string') {
+        throw new Error(`音声URLの型が不正です: ${typeof ttsResponse.audio_url}`);
+      }
+      
+      if (!ttsResponse.audio_url.startsWith('http://') && !ttsResponse.audio_url.startsWith('https://')) {
+        throw new Error(`音声URLの形式が不正です: ${ttsResponse.audio_url.substring(0, 100)}`);
+      }
+      
+      console.log('✅ 音声URL検証完了:', {
+        url: ttsResponse.audio_url,
+        isValidUrl: true
+      });
+      
+      // TTSAudioPlayerに音声をロード（正しい引数で呼び出し）
+      await ttsAudioPlayer.loadTTSAudio(ttsResponse.audio_url, ttsResponse.sentences);
+      setTTSAudioUrl(ttsResponse.audio_url);
+
+      console.log('✅ TTS音声生成完了:', { 
+        textLength: textToSpeak.length,
+        sentenceCount: sentenceDetails.length,
+        audioUrl: ttsResponse.audio_url,
+        duration: ttsResponse.duration,
+        provider: ttsResponse.provider
+      });
+
+      // audio_urlを呼び出し元へ返却
+      return ttsResponse.audio_url;
+
+    } catch (error) {
+      console.error('🚨 TTS音声生成エラー:', error);
+      Alert.alert('エラー', 'テキストの音声変換に失敗しました。');
+      setIsTTSLoading(false);
+      return null;
+    } finally {
+      setIsTTSLoading(false);
+    }
+  };
+
+  // 🎵 TTS再生中のハイライト同期
+  useEffect(() => {
+    let updateInterval: NodeJS.Timeout | null = null;
+
+    if (isTTSPlaying && ttsAudioPlayer && ttsSentences.length > 0) {
+      updateInterval = setInterval(() => {
+        const playbackState = ttsAudioPlayer.getPlaybackState();
+        const currentTime = playbackState.currentPosition;
+        
+        // 現在時刻に対応する文を特定
+        const currentIndex = ttsSentences.findIndex(s => 
+          currentTime >= s.start_time && currentTime <= s.end_time
+        );
+        
+        if (currentIndex !== -1 && currentIndex !== currentSentenceIndex) {
+          setCurrentSentenceIndex(currentIndex);
+          updateHighlights(content, currentIndex);
+          console.log('🎵 TTS同期ハイライト更新:', currentIndex);
+        }
+      }, 100); // 100ms間隔で更新
+    }
+
+    return () => {
+      if (updateInterval) {
+        clearInterval(updateInterval);
+      }
+    };
+  }, [isTTSPlaying, ttsAudioPlayer, ttsSentences, content, currentSentenceIndex, updateHighlights]);
 
   // 🔍 検索機能の状態管理
   const [isSearchVisible, setIsSearchVisible] = useState<boolean>(false);
@@ -2026,6 +2430,31 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     setSearchResults([]);
     setCurrentSearchIndex(-1);
   };
+
+  // 🎵 画面遷移・アンマウント時に TTS を停止
+  useEffect(() => {
+    const stopAudio = async () => {
+      try {
+        // 🎤 再生中の場合のみ一時停止（位置を保持）
+        if (isTTSPlaying) {
+          console.log('🎤 ナビゲーション離脱時の音声一時停止');
+          await ttsAudioPlayer.pause();
+          setIsTTSPlaying(false);
+        } else {
+          console.log('🎤 ナビゲーション離脱時: 既に停止済み');
+        }
+      } catch (error) {
+        console.warn('🎤 ナビゲーション離脱時の音声停止エラー:', error);
+      }
+    };
+
+    const unsubscribeBlur = navigation.addListener('beforeRemove', stopAudio);
+
+    return () => {
+      stopAudio();
+      unsubscribeBlur();
+    };
+  }, [navigation, isTTSPlaying, ttsAudioPlayer]);
 
   return (
     <TouchableWithoutFeedback onPress={() => setIsCanvasIconsVisible(false)}>
@@ -2583,6 +3012,9 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                       // ✨ 選択範囲を追跡
                       const { start, end } = event.nativeEvent.selection;
                       setTextSelection({ start, end });
+                      
+                      // 🎨 TTS用のテキスト選択ハンドラーを呼び出し
+                      handleTextSelection(event);
                     }}
                     pointerEvents={selectedTool === 'pen' ? 'none' : 'auto'} // ペンツール時はタッチイベントを無効
                     scrollEnabled={false} // TextInputのスクロールを無効化（ScrollViewが代行）
@@ -2624,9 +3056,12 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
             {showAudioPlayer && !isEditing ? (
               <View style={styles.audioPlayerContainer}>
                 {/* 音声設定ボタン（左端） */}
-                <TouchableOpacity style={styles.audioButton}>
+                <TouchableOpacity 
+                  style={styles.audioButton}
+                  onPress={() => setShowVoiceSettingsModal(!showVoiceSettingsModal)}
+                >
                   <Ionicons name="settings" size={20} color="#4F8CFF" />
-                  <Text style={styles.audioButtonText}>音声設定</Text>
+                  <Text style={styles.audioButtonText}>設定</Text>
                 </TouchableOpacity>
                 
                 {/* 10秒戻るボタン */}
@@ -2636,13 +3071,26 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                 </TouchableOpacity>
                 
                 {/* 再生/一時停止ボタン */}
-                <TouchableOpacity style={styles.audioButton} onPress={handleAudioPlay}>
-                  <Ionicons 
-                    name={audioPlayState === 'playing' ? "pause" : "play"} 
-                    size={24} 
-                    color="#4F8CFF" 
-                  />
-                  <Text style={styles.audioButtonText}>00:00</Text>
+                <TouchableOpacity 
+                  style={styles.audioButton} 
+                  onPress={() => {
+                    console.log('🎵🎵🎵 音声ボタンがタップされました！');
+                    handleAudioPlay();
+                  }}
+                  disabled={isTTSLoading}
+                >
+                  {isTTSLoading ? (
+                    <Ionicons name="hourglass" size={24} color="#999" />
+                  ) : (
+                    <Ionicons 
+                      name={audioPlayState === 'playing' ? "pause" : "play"} 
+                      size={24} 
+                      color="#4F8CFF" 
+                    />
+                  )}
+                  <Text style={styles.audioButtonText}>
+                    {isTTSLoading ? '生成中...' : formatRecordingTime(Math.floor(audioCurrentTime))}
+                  </Text>
                 </TouchableOpacity>
                 
                 {/* 10秒進むボタン */}
@@ -2652,11 +3100,8 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                 </TouchableOpacity>
                 
                 {/* 再生速度ボタン（右端） */}
-                <TouchableOpacity style={styles.audioButton} onPress={() => {
-                  const newSpeed = audioSpeed === 1.0 ? 1.5 : audioSpeed === 1.5 ? 2.0 : 1.0;
-                  setAudioSpeed(newSpeed);
-                }}>
-                  <Text style={styles.audioSpeedText}>1.5x</Text>
+                <TouchableOpacity style={styles.audioButton} onPress={() => handleSpeedChange()}>
+                  <Text style={styles.audioSpeedText}>{audioSpeed}x</Text>
                 </TouchableOpacity>
               </View>
             ) : isCanvasIconsVisible ? (
@@ -2698,6 +3143,36 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                 </TouchableOpacity>
               </View>
             ) : null}
+
+            {/* 🎤 音声設定ドロップダウンメニュー */}
+            {showVoiceSettingsModal && showAudioPlayer && (
+              <View style={styles.voiceSettingsDropdown}>
+                <Text style={styles.voiceSettingsTitle}>音声合成エンジン</Text>
+                {availableTTSProviders.map((provider) => (
+                  <TouchableOpacity
+                    key={provider.id}
+                    style={[
+                      styles.voiceProviderOption,
+                      currentTTSProvider === provider.id && styles.selectedVoiceProvider
+                    ]}
+                    onPress={() => handleTTSProviderChange(provider.id)}
+                  >
+                    <View style={styles.providerInfo}>
+                      <Text style={[
+                        styles.providerName,
+                        currentTTSProvider === provider.id && styles.selectedProviderText
+                      ]}>
+                        {provider.name}
+                      </Text>
+                      <Text style={styles.providerDescription}>{provider.description}</Text>
+                    </View>
+                    {currentTTSProvider === provider.id && (
+                      <Ionicons name="checkmark-circle" size={20} color="#4F8CFF" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
         </View>
 
         {/* 🎨 ペンツール用カラー設定ドロップダウン - キーボードツールと同じ形式 */}
@@ -3705,6 +4180,61 @@ const styles = StyleSheet.create({
   searchCloseButton: {
     padding: 4,
     marginLeft: 8,
+  },
+
+  // 🎤 音声設定ドロップダウン関連のスタイル
+  voiceSettingsDropdown: {
+    position: 'absolute',
+    top: 96,
+    left: 20,
+    right: 20,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    padding: 16,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    zIndex: 1000,
+  },
+  voiceSettingsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
+  },
+  voiceProviderOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 8,
+  },
+  selectedVoiceProvider: {
+    borderColor: '#4F8CFF',
+    backgroundColor: '#F0F4FF',
+  },
+  providerInfo: {
+    flex: 1,
+  },
+  providerName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 2,
+  },
+  selectedProviderText: {
+    color: '#4F8CFF',
+  },
+  providerDescription: {
+    fontSize: 12,
+    color: '#666',
   },
 
 

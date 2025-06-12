@@ -6,6 +6,7 @@ from .base import BaseTTSProvider, SynthesisResult, VoiceInfo
 from .minimax import MinimaxTTSProvider
 from .elevenlabs import ElevenLabsTTSProvider
 from .google import GoogleTTSProvider
+from .gemini import GeminiTTSProvider
 
 __all__ = [
     "BaseTTSProvider",
@@ -14,4 +15,5 @@ __all__ = [
     "MinimaxTTSProvider",
     "ElevenLabsTTSProvider",
     "GoogleTTSProvider",
+    "GeminiTTSProvider",
 ] 

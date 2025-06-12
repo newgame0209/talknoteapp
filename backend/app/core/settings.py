@@ -55,17 +55,24 @@ class Settings(BaseSettings):
 
     # TTS専用設定
     TTS_ENABLED: bool = True
-    TTS_PROVIDER: str = "elevenlabs"  # elevenlabsをプライマリに
-    TTS_FALLBACK_PROVIDERS: List[str] = ["google"]  # googleをフォールバックに
+    TTS_DEFAULT_PROVIDER: str = "google"  # 環境変数から読み込み、デフォルトはGoogle TTS
+    TTS_PROVIDER: str = "google"  # Google TTSをプライマリに変更
+    TTS_FALLBACK_PROVIDERS: List[str] = []  # フォールバック無効化
     
-    # MiniMax TTS (DISABLED - Removed due to API key issues)
-    # MINIMAX_API_KEY: Optional[str] = None
-    # MINIMAX_GROUP_ID: Optional[str] = None
-    # MINIMAX_BASE_URL: str = "https://api.minimax.chat/v1"
+    # MiniMax TTS
+    MINIMAX_TTS_API_KEY: Optional[str] = None
+    MINIMAX_TTS_ENDPOINT: str = "https://api.minimax.chat/v1/tts"
+    
+    # Gemini TTS
+    GEMINI_TTS_API_KEY: Optional[str] = None
+    GEMINI_TTS_ENDPOINT: str = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-tts:generate"
     
     # ElevenLabs TTS
     ELEVENLABS_API_KEY: Optional[str] = None
     ELEVENLABS_BASE_URL: str = "https://api.elevenlabs.io/v1"
+    
+    # 使用可能なTTSプロバイダー一覧
+    TTS_AVAILABLE_PROVIDERS: Union[str, List[str]] = ["google", "minimax", "gemini", "elevenlabs"]
     
     # TTS音声設定
     DEFAULT_VOICE_ID: str = "default"
@@ -108,6 +115,23 @@ class Settings(BaseSettings):
         elif isinstance(v, (list, str)):
             return v
         raise ValueError(v)
+
+    @validator("TTS_DEFAULT_PROVIDER", pre=True)
+    def validate_tts_provider(cls, v, values):
+        """環境変数からTTSプロバイダーを読み込み"""
+        # 環境変数TTS_DEFAULT_PROVIDERが設定されている場合はそれを使用
+        env_provider = os.getenv("TTS_DEFAULT_PROVIDER")
+        if env_provider:
+            return env_provider
+        return v or "google"  # デフォルトはGoogle TTS
+
+    @validator("TTS_AVAILABLE_PROVIDERS", pre=True)
+    def validate_available_providers(cls, v, values):
+        """環境変数から使用可能プロバイダーを読み込み"""
+        env_providers = os.getenv("TTS_AVAILABLE_PROVIDERS")
+        if env_providers:
+            return [p.strip() for p in env_providers.split(",")]
+        return v or ["google", "minimax", "gemini", "elevenlabs"]
 
     @validator("DATABASE_URL", pre=True)
     def validate_database_url(cls, v, values):

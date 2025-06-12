@@ -37,7 +37,10 @@ export const getApiBaseUrl = (): string => {
   }
 
   // 開発環境では環境変数から取得
-  const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.0.46:8000';
+  const apiUrl =
+    process.env.EXPO_PUBLIC_API_URL ||
+    process.env.EXPO_PUBLIC_API_BASE_URL ||
+    'http://192.168.0.46:8000';
   console.log(`[ENV] API URL: ${apiUrl}`);
   
   return apiUrl;

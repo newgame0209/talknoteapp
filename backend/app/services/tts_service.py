@@ -16,6 +16,7 @@ from app.providers.tts.base import BaseTTSProvider, SynthesisResult, VoiceInfo
 from app.providers.tts.minimax import MinimaxTTSProvider
 from app.providers.tts.elevenlabs import ElevenLabsTTSProvider
 from app.providers.tts.google import GoogleTTSProvider
+from app.providers.tts.gemini import GeminiTTSProvider
 
 logger = logging.getLogger(__name__)
 
@@ -37,9 +38,15 @@ class TTSService:
     
     def __init__(self):
         self.providers: Dict[str, BaseTTSProvider] = {}
-        self.primary_provider = settings.TTS_PROVIDER
+        self.primary_provider = settings.TTS_DEFAULT_PROVIDER  # 環境変数から読み込み
         self.fallback_providers = settings.TTS_FALLBACK_PROVIDERS.copy()
         self.enabled = settings.TTS_ENABLED
+        
+        # TTS_AVAILABLE_PROVIDERSが文字列の場合はリストに変換
+        if isinstance(settings.TTS_AVAILABLE_PROVIDERS, str):
+            self.available_providers = [p.strip() for p in settings.TTS_AVAILABLE_PROVIDERS.split(",")]
+        else:
+            self.available_providers = settings.TTS_AVAILABLE_PROVIDERS.copy()
         
         # プロバイダー初期化
         self._initialize_providers()
@@ -47,9 +54,10 @@ class TTSService:
     def _initialize_providers(self):
         """TTSプロバイダーを初期化します"""
         provider_classes = {
-            # "minimax": MinimaxTTSProvider,  # DISABLED - API key issues
-            "elevenlabs": ElevenLabsTTSProvider,
-            "google": GoogleTTSProvider
+            "google": GoogleTTSProvider,
+            "minimax": MinimaxTTSProvider,
+            "gemini": GeminiTTSProvider,
+            "elevenlabs": ElevenLabsTTSProvider
         }
         
         for name, provider_class in provider_classes.items():

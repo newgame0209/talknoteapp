@@ -30,7 +30,7 @@
     "@shopify/react-native-skia": "v2.0.0-next.4",
     "@types/uuid": "^10.0.0",
     "axios": "^1.6.2",
-    "expo": "53.0.10",
+    "expo": "53.0.11",
     "expo-apple-authentication": "^7.2.4",
     "expo-audio": "~0.4.6",
     "expo-auth-session": "~6.2.0",

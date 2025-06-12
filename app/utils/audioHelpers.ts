@@ -3,6 +3,8 @@ import { Audio, AudioMode } from 'expo-av';
 import { Buffer } from 'buffer';
 import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
+// expo-audio のimport（TTS専用）
+import { createAudioPlayer, AudioPlayer as ExpoAudioPlayer } from 'expo-audio';
 
 // オーディオデータのコールバック型
 type AudioDataCallback = (data: ArrayBuffer) => void;
@@ -393,6 +395,13 @@ export class AudioPlayer {
   private position: number = 0;
 
   /**
+   * 音声オブジェクトを取得（再生速度設定用）
+   */
+  get soundObject(): Audio.Sound | null {
+    return this.sound;
+  }
+
+  /**
    * 音声ファイルを読み込む
    * @param uri 音声ファイルのURI
    */
@@ -515,9 +524,23 @@ export class AudioPlayer {
     }
 
     try {
-      await this.sound.setPositionAsync(seconds * 1000);
-      this.position = seconds;
-      console.log('再生位置設定:', seconds);
+      const status = await this.sound.getStatusAsync();
+      if (status.isLoaded) {
+        try {
+          await this.sound.setPositionAsync(seconds * 1000);
+          this.position = seconds;
+          console.log('再生位置設定:', seconds);
+        } catch (inner) {
+          // expo-av がまれに "Seeking interrupted" を投げるため無視して続行
+          const msg = (inner as Error)?.message || '';
+          if (msg.includes('interrupted')) {
+            console.warn('⚠️ Seeking interrupted を無視して続行');
+          } else {
+            console.error('再生位置の設定に失敗しました:', inner);
+            throw inner;
+          }
+        }
+      }
     } catch (error) {
       console.error('再生位置の設定に失敗しました:', error);
       throw error;
@@ -563,3 +586,417 @@ export default {
   AudioRecorder,
   AudioPlayer,
 };
+
+// TTS専用音声プレイヤークラス（expo-audio使用）
+
+export interface TTSSentence {
+  text: string;
+  start_time: number;
+  end_time: number;
+}
+
+export interface TTSPlaybackState {
+  isPlaying: boolean;
+  currentPosition: number;
+  duration: number;
+  currentSentenceIndex: number;
+  sentences: TTSSentence[];
+}
+
+export class TTSAudioPlayer {
+  private audioSource: { uri: string } | null = null;
+  private audioPlayerRef: any = null; // expo-audioのuseAudioPlayerフック用
+  private isPlaying: boolean = false;
+  private duration: number = 0;
+  private currentPosition: number = 0;
+  private sentences: TTSSentence[] = [];
+  private currentSentenceIndex: number = 0;
+  private positionUpdateInterval: NodeJS.Timeout | null = null;
+  private onStateChange?: (state: TTSPlaybackState) => void;
+
+  /**
+   * TTS音声ファイルを読み込む
+   * @param audioUrl 音声ファイルのURL
+   * @param sentences 文章の時間情報
+   */
+  // 外部からaudioPlayerインスタンスを設定（expo-audioのuseAudioPlayerフック用）
+  setAudioPlayer(audioPlayer: any): void {
+    this.audioPlayerRef = audioPlayer;
+  }
+
+  async loadTTSAudio(audioUrl: string, sentences: TTSSentence[]): Promise<void> {
+    try {
+      // 既存の音声を解放
+      await this.unload();
+      
+      console.log('🎤 TTS音声ロード開始:', {
+        audioUrl: audioUrl,
+        urlType: audioUrl?.startsWith('blob:') ? 'blob' : 'http',
+        sentencesCount: sentences?.length || 0
+      });
+      
+      // AudioSourceを作成（expo-audio用）
+      this.audioSource = { uri: audioUrl };
+      this.sentences = sentences || [];
+      this.currentSentenceIndex = 0;
+      
+      // 音声の長さを設定（文章情報から計算）
+      if (sentences && sentences.length > 0) {
+        this.duration = sentences[sentences.length - 1].end_time;
+      } else {
+        this.duration = 0;
+      }
+      
+      console.log('🎤 TTS音声ファイル読み込み完了:', {
+        audioUrl: audioUrl,
+        sentencesCount: sentences?.length || 0,
+        duration: this.duration
+      });
+    } catch (error) {
+      console.error('❌ TTS音声ファイルの読み込みに失敗しました:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * TTS音声を再生
+   */
+  async play(): Promise<void> {
+    if (!this.audioPlayerRef || !this.audioSource) {
+      throw new Error('TTS音声ファイルが読み込まれていません');
+    }
+
+    try {
+      console.log('🎤 TTS再生開始:', {
+        hasAudioPlayerRef: !!this.audioPlayerRef,
+        hasAudioSource: !!this.audioSource,
+        audioSourceType: typeof this.audioSource,
+        currentPosition: this.currentPosition,
+        isResuming: this.currentPosition > 0
+      });
+      
+      // 🎯 一時停止からの再開の場合は音声を再ロードしない
+      if (this.currentPosition === 0) {
+        // 初回再生時のみ音声をロード
+        if (typeof this.audioPlayerRef.loadSound === 'function') {
+          console.log('🎤 初回再生: AudioPlayer.loadSound() でロード開始');
+          await this.audioPlayerRef.loadSound(this.audioSource.uri);
+          console.log('🎤 初回音声ロード完了');
+        } else {
+          console.error('🚨 AudioPlayerにloadSoundメソッドが存在しません');
+          throw new Error('AudioPlayer に loadSound メソッドが存在しません');
+        }
+      } else {
+        console.log('🎤 一時停止からの再開: 音声再ロードをスキップ');
+      }
+      
+      // 再生開始
+      console.log('🎤 音声再生開始');
+      await this.audioPlayerRef.play();
+      this.isPlaying = true;
+      this.startPositionUpdate();
+      
+      console.log('🎤 TTS音声再生開始完了');
+      this.notifyStateChange();
+    } catch (error) {
+      console.error('❌ TTS音声の再生に失敗しました:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * TTS音声を一時停止
+   */
+  async pause(): Promise<void> {
+    if (!this.audioPlayerRef || !this.isPlaying) {
+      return;
+    }
+
+    try {
+      if (typeof this.audioPlayerRef.pause === 'function') {
+        await this.audioPlayerRef.pause();
+      }
+      
+      // 一時停止時に現在位置を保存
+      try {
+        this.currentPosition = await this.audioPlayerRef.getCurrentPosition();
+        console.log('🎤 一時停止時の位置保存:', this.currentPosition);
+      } catch (posErr) {
+        console.warn('⚠️ 一時停止時の位置取得失敗:', posErr);
+      }
+      
+      this.isPlaying = false;
+      this.stopPositionUpdate();
+      
+      console.log('🎤 TTS音声再生一時停止 - 最終位置:', this.currentPosition);
+      this.notifyStateChange();
+    } catch (error) {
+      console.error('❌ TTS音声の一時停止に失敗しました:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * TTS音声を停止
+   */
+  async stop(): Promise<void> {
+    if (!this.audioPlayerRef) {
+      return;
+    }
+
+    try {
+      if (typeof this.audioPlayerRef.pause === 'function') {
+        await this.audioPlayerRef.pause();
+      }
+
+      try {
+        await this.audioPlayerRef.seekTo(0);
+      } catch (seekErr) {
+        const msg = (seekErr as Error)?.message || '';
+        if (msg.includes('interrupted')) {
+          console.warn('⚠️ Seeking interrupted (stop) を無視');
+        } else {
+          throw seekErr;
+        }
+      }
+      this.isPlaying = false;
+      this.currentPosition = 0;
+      this.currentSentenceIndex = 0;
+      this.stopPositionUpdate();
+      
+      console.log('🎤 TTS音声再生停止');
+      this.notifyStateChange();
+    } catch (error) {
+      console.error('❌ TTS音声の停止に失敗しました:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 再生位置を設定（秒）
+   * @param seconds 再生位置（秒）
+   */
+  async seekTo(seconds: number): Promise<void> {
+    if (!this.audioPlayerRef) {
+      return;
+    }
+
+    try {
+      await this.audioPlayerRef.seekTo(seconds);
+      this.currentPosition = seconds;
+      
+      // 現在の文章インデックスを更新
+      this.updateCurrentSentenceIndex();
+      
+      console.log('🎤 TTS再生位置設定:', seconds);
+      this.notifyStateChange();
+    } catch (error) {
+      console.error('❌ TTS再生位置の設定に失敗しました:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 10秒戻る
+   */
+  async seekBackward(): Promise<void> {
+    console.log('🎤 seekBackward開始:', {
+      currentPosition: this.currentPosition,
+      duration: this.duration,
+      isPlaying: this.isPlaying
+    });
+    const newPosition = Math.max(0, this.currentPosition - 10);
+    console.log('🎤 10秒戻る: ', this.currentPosition, '→', newPosition);
+    await this.seekTo(newPosition);
+  }
+
+  /**
+   * 10秒進む
+   */
+  async seekForward(): Promise<void> {
+    console.log('🎤 seekForward開始:', {
+      currentPosition: this.currentPosition,
+      duration: this.duration,
+      isPlaying: this.isPlaying
+    });
+    const newPosition = Math.min(this.duration, this.currentPosition + 10);
+    console.log('🎤 10秒進む: ', this.currentPosition, '→', newPosition);
+    await this.seekTo(newPosition);
+  }
+
+  /**
+   * 再生速度を設定
+   * @param speed 再生速度（1.0 = 通常、1.5 = 1.5倍速、2.0 = 2倍速）
+   */
+  async setPlaybackRate(speed: number): Promise<void> {
+    if (!this.audioPlayerRef) {
+      console.warn('🎤 音声プレイヤーが読み込まれていません');
+      return;
+    }
+
+    try {
+      console.log('🎤 再生速度設定開始:', speed);
+      
+      // AudioPlayerクラスのsoundObjectを取得
+      const sound = this.audioPlayerRef.soundObject;
+      if (!sound) {
+        console.warn('🎤 音声ファイルが読み込まれていません');
+        return;
+      }
+      
+      // expo-avのSound.setRateAsyncを使用
+      await sound.setRateAsync(speed, true); // shouldCorrectPitch = true
+      
+      console.log('🎤 再生速度設定完了:', speed);
+    } catch (error) {
+      console.error('❌ 再生速度の設定に失敗しました:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 特定の文章にジャンプ
+   * @param sentenceIndex 文章のインデックス
+   */
+  async seekToSentence(sentenceIndex: number): Promise<void> {
+    if (sentenceIndex < 0 || sentenceIndex >= this.sentences.length) {
+      return;
+    }
+
+    const sentence = this.sentences[sentenceIndex];
+    await this.seekTo(sentence.start_time);
+  }
+
+  /**
+   * 音声を解放
+   */
+  async unload(): Promise<void> {
+    if (!this.audioPlayerRef) {
+      return;
+    }
+
+    try {
+      this.stopPositionUpdate();
+      // expo-audioでは明示的なremoveメソッドはない
+      // 代わりに状態をリセット
+      
+      this.audioSource = null;
+      // audioPlayerRef は外部から渡されたインスタンス参照のため保持する
+      // 再ロード時に再利用することで null エラーを防ぐ
+      this.isPlaying = false;
+      this.duration = 0;
+      this.currentPosition = 0;
+      this.sentences = [];
+      this.currentSentenceIndex = 0;
+      
+      console.log('🎤 TTSリソース解放');
+      this.notifyStateChange();
+    } catch (error) {
+      console.error('❌ TTSリソースの解放に失敗しました:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 状態変更コールバックを設定
+   * @param callback 状態変更時に呼ばれるコールバック
+   */
+  setOnStateChange(callback: (state: TTSPlaybackState) => void): void {
+    this.onStateChange = callback;
+    console.log('🎤 setOnStateChange コールバック登録完了');
+  }
+
+  /**
+   * 現在の再生状態を取得
+   */
+  getPlaybackState(): TTSPlaybackState {
+    return {
+      isPlaying: this.isPlaying,
+      currentPosition: this.currentPosition,
+      duration: this.duration,
+      currentSentenceIndex: this.currentSentenceIndex,
+      sentences: this.sentences,
+    };
+  }
+
+  /**
+   * 現在読み上げ中の文章を取得
+   */
+  getCurrentSentence(): TTSSentence | null {
+    if (this.currentSentenceIndex >= 0 && this.currentSentenceIndex < this.sentences.length) {
+      return this.sentences[this.currentSentenceIndex];
+    }
+    return null;
+  }
+
+  /**
+   * 再生位置の定期更新を開始
+   */
+  private startPositionUpdate(): void {
+    this.stopPositionUpdate();
+    
+    this.positionUpdateInterval = setInterval(async () => {
+      if (this.audioPlayerRef && this.isPlaying) {
+        try {
+          // expo-audio AudioPlayer クラス経由で現在位置を取得
+          try {
+            this.currentPosition = await this.audioPlayerRef.getCurrentPosition();
+          } catch (posErr) {
+            console.warn('⚠️ 位置取得失敗 (ignore):', posErr);
+          }
+          this.updateCurrentSentenceIndex();
+          this.notifyStateChange();
+        } catch (error) {
+          console.error('再生位置の更新に失敗しました:', error);
+        }
+      }
+    }, 100); // 100msごとに更新
+  }
+
+  /**
+   * 再生位置の定期更新を停止
+   */
+  private stopPositionUpdate(): void {
+    if (this.positionUpdateInterval) {
+      clearInterval(this.positionUpdateInterval);
+      this.positionUpdateInterval = null;
+    }
+  }
+
+  /**
+   * 現在の文章インデックスを更新
+   */
+  private updateCurrentSentenceIndex(): void {
+    for (let i = 0; i < this.sentences.length; i++) {
+      const sentence = this.sentences[i];
+      if (this.currentPosition >= sentence.start_time && this.currentPosition < sentence.end_time) {
+        this.currentSentenceIndex = i;
+        return;
+      }
+    }
+    
+    // どの文章にも該当しない場合は最後の文章
+    if (this.currentPosition >= this.duration && this.sentences.length > 0) {
+      this.currentSentenceIndex = this.sentences.length - 1;
+    }
+  }
+
+  /**
+   * 状態変更を通知
+   */
+  private notifyStateChange(): void {
+    const state = this.getPlaybackState();
+    console.log('🎤 notifyStateChange 呼び出し:', {
+      hasCallback: !!this.onStateChange,
+      currentPosition: state.currentPosition,
+      isPlaying: state.isPlaying
+    });
+    
+    if (this.onStateChange) {
+      this.onStateChange(state);
+      console.log('🎤 onStateChange コールバック実行完了');
+    } else {
+      console.warn('⚠️ onStateChange コールバックが未登録');
+    }
+  }
+}

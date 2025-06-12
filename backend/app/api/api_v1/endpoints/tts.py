@@ -7,10 +7,13 @@ import logging
 import asyncio
 from typing import Optional, Dict, Any, List
 from fastapi import APIRouter, HTTPException, Depends, Response, Query, Body
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel, Field
 import io
 import mimetypes
+import uuid
+import tempfile
+from pathlib import Path
 
 from app.services.tts_service import tts_service
 from app.providers.tts.base import VoiceInfo, SynthesisResult
@@ -31,7 +34,7 @@ class TTSRequest(BaseModel):
     speaking_rate: float = Field(1.0, description="話速（0.5-2.0）", ge=0.5, le=2.0)
     pitch: float = Field(0.0, description="ピッチ調整（-20.0~20.0）", ge=-20.0, le=20.0)
     volume_gain_db: float = Field(0.0, description="音量調整（-20.0~20.0）", ge=-20.0, le=20.0)
-    audio_format: str = Field("wav", description="出力形式（wav, mp3）")
+    audio_format: str = Field("mp3", description="出力形式（wav, mp3）")
     sample_rate_hertz: Optional[int] = Field(None, description="サンプルレート")
     provider_name: Optional[str] = Field(None, description="使用するプロバイダー名")
 
@@ -105,13 +108,34 @@ async def synthesize_text(
         if return_audio:
             return _create_audio_response(result)
         
-        # TODO: 音声ファイルをストレージに保存してURLを返す実装
-        # 現在は一時的にメタデータのみ返す
+        # 音声ファイルを一時ディレクトリに保存
+        temp_dir = Path(tempfile.gettempdir()) / "tts"
+        temp_dir.mkdir(exist_ok=True)
         
+        # 拡張子を合成結果に合わせて設定
+        ext = result.audio_format.lower()
+        if ext not in {"mp3", "wav", "ogg"}:
+            ext = "mp3"  # デフォルト
+
+        file_name = f"{uuid.uuid4()}.{ext}"
+        file_path = temp_dir / file_name
+
+        # SynthesisResult.audio_data にバイナリ音声データが入っている
+        with open(file_path, "wb") as f:
+            f.write(result.audio_data)
+            
+        # TODO: 古いファイルを削除するバックグラウンドタスクを追加
+        
+        # クライアントがアクセスできるURLを構築
+        # 注意: ここではAPIサーバーのベースURLを静的に記述していますが、
+        # 本番環境では設定から動的に取得するのが望ましいです。
+        base_url = "http://192.168.0.46:8000" # Expoデバッグ用のローカルIP
+        audio_url = f"{base_url}/api/v1/tts/audio/{file_name}"
+
         # レスポンス構築
         response = TTSResponse(
             success=True,
-            audio_url=None,  # TODO: 実際のURLを設定
+            audio_url=audio_url,
             duration_seconds=result.duration_seconds,
             text=result.text,
             voice_info={
@@ -134,7 +158,7 @@ async def synthesize_text(
             metadata=result.metadata
         )
         
-        logger.info(f"TTS synthesis completed successfully: {result.duration_seconds:.2f}s")
+        logger.info(f"TTS synthesis completed successfully: {result.duration_seconds:.2f}s, URL: {audio_url}")
         return response
         
     except ValueError as e:
@@ -290,6 +314,32 @@ async def get_tts_status(
     except Exception as e:
         logger.error(f"Failed to get TTS status: {e}")
         raise HTTPException(status_code=500, detail="TTSサービス状態の取得に失敗しました")
+
+
+@router.get("/audio/{file_name}")
+async def get_tts_audio(file_name: str):
+    """
+    一時保存されたTTS音声ファイルを取得します。
+    """
+    temp_dir = Path(tempfile.gettempdir()) / "tts"
+    file_path = temp_dir / file_name
+
+    if not file_path.is_file():
+        logger.warning(f"Audio file not found: {file_path}")
+        raise HTTPException(status_code=404, detail="Audio file not found.")
+
+    # 拡張子に応じて適切なMIMEタイプを設定
+    ext = file_path.suffix.lower()
+    if ext == ".wav":
+        media_type = "audio/wav"
+    elif ext == ".mp3":
+        media_type = "audio/mpeg"
+    elif ext == ".ogg":
+        media_type = "audio/ogg"
+    else:
+        media_type = "application/octet-stream"
+
+    return FileResponse(file_path, media_type=media_type, filename=file_name)
 
 
 # === Helper Functions ===
