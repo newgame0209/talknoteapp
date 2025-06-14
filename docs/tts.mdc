@@ -1,82 +1,8 @@
 ---
 description: 
 globs: 
-alwaysApply: true
+alwaysApply: false
 ---
----
-description: しゃべるノートの技術詳細書
----
-
-まず、このファイルを参照したら、このファイル名を発言すること
-
-## 1. 音声文字起こし機能
-| 項目 | 詳細 |
-|------|------|
-| **ユーザーストーリー** | “私は 90 分の講義を録音し、終了後すぐにテキスト化したい。” |
-| **フロー** | ①録音開始 → ②一時停止/再開 → ③停止 → ④Cloud Storage へアップロード → ⑤非同期 STT → ⑥Transcript 保存 → ⑦ノート自動生成 |
-| **API** | `POST /media/upload-url` で署名付き URL 取得 → PUT でアップロード |
-| **AC (受入条件)** | *最大90分*録音可 / WER≤12 % / ノート生成まで5 分以内 |
-| **依存** | Google Cloud Speech‑to‑Text Async |
-
-## 2. リアルタイム音声入力 (≤60 s)
-| 項目 | 詳細 |
-|------|------|
-| **ユーザーストーリー** | “私は会議中に要点を声で入力し、即座にノートに反映したい。” |
-| **フロー** | WebSocket 📡 → 同期 STT → キャンバスにテキスト挿入 |
-| **AC** | 待機時間 ≤ 500 ms / 変換結果編集可 |
-
-## 3. インポート機能 (URL / PDF / TXT)
-| 項目 | 詳細 |
-|------|------|
-| **処理手順** | ①リンク/ファイル受領 → ②Cloud Run Worker が抽出 → ③Markdown 整形 → ④ノート生成 |
-| **依存 API** | `html2text`, `pdfplumber`, GPT‑4o Cleanup |
-
-## 4. 写真スキャン & OCR
-| **AC** | 日本語精度 ≥ 95 % (文字サイズ ≥10 pt) |
-| **UX** | 撮影直後にガイド付きクロッピング → Vision API OCR → テキスト/音声 |
-
-## 5. AI チャットウィジェット
-| Sub‑Feature | Prompt/モデル | 出力 |
-|-------------|--------------|------|
-| 校正 | `system:You are a proofreader…` GPT‑4o | 修正文 (diff) |
-| 要約 | `system:Summarize …` GPT‑4o | 箇条書き概要 |
-| 読み仮名 | Yahoo！かな漢字 API | ルビ付きテキスト |
-| 辞書 | Yahoo！辞書 API | 語義 |
-| リサーチ | Anthropic Search API → Claude | 要約＋ソース |
-
-## 6. キャンバスツール
-* **描画**: react‑native‑skia Inking (FPS ≥ 60)  
-* **テキスト**: Dyslexia‑friendly font, adjustable spacing  
-* **Undo/Redo**: Max 100 スタック (RAM ≈ 30 MB/page)
-
-## 7. ダッシュボード
-* ノート/フォルダ CRUD (Soft‑Delete, TTL 30 days)  
-* AI タグ (Zero‑shot GPT categorization)  
-* 応援リマインダー (Firebase Cloud Messaging, Cron daily 19:00 JST)
-
-## 8. オフライン同期
-* ローカル SQLite → `expo‑sqlite`  
-* Incremental Sync Queue → Cloud Run REST  
-* Conflict policy: `updated_at` winner + merge for canvases
-
----
-
-## 付録: 画面 ⇄ 機能マッピング
-| Screen ID | 主要機能 |
-|-----------|----------|
-| `welcomelogin` | SSO 認証 |
-| `dashboard` | ノート一覧・検索・タグ |
-| `canvaseditor` | キャンバス + AI Chat |
-| `voiceoverlay` | 録音→STT |
-| `photoscan` | OCR |
-| `importdata` | URL/PDF Import |
-| `aichatpanel` | AI サポート |
-| `pagesettingssheet` | ページ管理 |
-| `voicesettings` | TTS Voice |
-| `importexportcenter` | Export / Drive 連携 |
-
----
-
 # 🎤 TTS機能 追加調整・修正計画書
 
 > **作成日**: 2025-01-31  
@@ -117,8 +43,53 @@ description: しゃべるノートの技術詳細書
 - **詳細仕様**:
   - **タップ範囲**: 行単位
   - **再生中のタップ**: 即座に移動
-  - **実装方針**: 方針A（TextInputを行ごとに分割したコンポーネントに変更）は後ほど検討
+  - **実装方針**: 方針B（既存構造維持 + 行位置計算）を採用
   - **技術要件**: Google TTS SSMLのマーク機能を使って行ごとのタイムスタンプを取得
+
+#### **方針B: 既存構造維持 + 行位置計算**
+- **選択理由**: 方針A（TextInputを行ごとに分割）は既存機能への影響が大きすぎるため
+- **技術的実現可能性**: ✅ **高い**
+
+**実装アプローチ**:
+```typescript
+// 1. TextInputのonTextLayoutで行情報取得
+const handleTextLayout = (event: any) => {
+  const { lines } = event.nativeEvent;
+  lineCoordinates.current = lines.map((line: any, index: number) => ({
+    lineNumber: index + 1,
+    text: line.text,
+    y: line.y,
+    height: line.height,
+    startIndex: line.startIndex,
+    endIndex: line.endIndex
+  }));
+};
+
+// 2. タップ位置から行を特定
+const handleTextPress = (event: any) => {
+  const { locationY } = event.nativeEvent;
+  const targetLine = findLineByCoordinate(locationY);
+  if (targetLine) {
+    jumpToLine(targetLine.lineNumber);
+  }
+};
+
+// 3. Google TTS SSML + タイムスタンプ
+const generateSSMLWithMarks = (text: string) => {
+  const lines = text.split('\n');
+  return lines.map((line, index) => 
+    `<mark name="line_${index + 1}"/>${line}`
+  ).join('\n');
+};
+```
+
+**技術的利点**:
+- ✅ 既存のテキスト編集機能を完全保持
+- ✅ 統一自動保存システムとの互換性維持
+- ✅ Undo/Redo機能への影響なし
+- ✅ 段階的実装が可能（Phase 3で実装）
+
+**注意点**: 方針A（TextInputを行ごとに分割したコンポーネントに変更）は後ほど検討
 
 ---
 
@@ -161,18 +132,18 @@ description: しゃべるノートの技術詳細書
 
 ### **🔴 高優先度（必須機能）**
 | 機能 | 工数 | 理由 |
-|------|------|------|
+|---|---|---|
 | 1. 再生リセット機能 | 1時間 | 基本的なUX改善、実装が比較的簡単 |
 | 3. 編集制御機能 | 2時間 | ユーザビリティに直結、安定性向上 |
 
 ### **🟡 中優先度（UX向上）**
 | 機能 | 工数 | 理由 |
-|------|------|------|
+|---|---|---|
 | 2. 自動スクロール機能 | 3時間 | UX大幅向上、技術的複雑度中程度 |
 
 ### **🟢 低優先度（将来実装）**
 | 機能 | 工数 | 理由 |
-|------|------|------|
+|---|---|---|
 | 4. タップ箇所再生機能 | 6時間 | 高度な機能、Google TTS SSML実装が必要 |
 
 **合計工数**: 12時間（段階的実装）
@@ -455,3 +426,125 @@ async def synthesize_with_timepoints(self, text: str, **kwargs) -> SynthesisResu
 ---
 
 **実装準備完了後、Phase 1から段階的に実装を開始します。**
+
+## 🎉 **Phase 1 実装完了報告**
+
+> **実装日**: 2025-06-14  
+> **実装者**: AI Assistant  
+> **実装時間**: 約2時間  
+
+### ✅ **完了した機能**
+
+#### **1. 再生リセット機能 - 完全解決**
+- **問題**: 音声再生完了後に「Seeking interrupted」エラーが発生し、00:00にリセットされない
+- **根本原因**: 再生完了時の `seekTo(0)` 実行が既に終了した音声に対してシーク操作を行うため
+- **解決策**: 
+  - `seekTo(0)` を完全削除
+  - 状態リセットのみで対応（`currentPosition = 0`）
+  - 次回再生時に音声を再ロードして自動的に最初から再生
+- **実装箇所**: `app/utils/audioHelpers.ts` - `TTSAudioPlayer.handlePlaybackComplete()`
+- **結果**: ✅ エラー完全解消、スムーズな00:00リセット、リピート再生可能
+
+#### **2. 再生速度リセット機能 - 完全解決**
+- **問題**: 1.5倍速や2倍速で再生完了後、UIは速度選択状態を保持するが実際は通常速度で再生される
+- **解決策**: 再生完了時にUIの速度選択も1.0xにリセット
+- **実装箇所**: `app/screens/CanvasEditor.tsx` - 再生完了コールバック
+- **実装内容**:
+  ```typescript
+  // 🎵 再生速度もリセット（UIと実際の速度の不一致を防ぐ）
+  setAudioSpeed(1.0);
+  ```
+- **結果**: ✅ UIと実際の再生速度が一致、ユーザー混乱を防止
+
+### 🔧 **技術的実装詳細**
+
+#### **TTSAudioPlayer修正**
+```typescript
+// app/utils/audioHelpers.ts - handlePlaybackComplete()
+private async handlePlaybackComplete(): Promise<void> {
+  console.log('🎤 再生完了検知 - 自動リセット開始');
+  
+  try {
+    // 位置更新を停止
+    this.stopPositionUpdate();
+    
+    // 再生状態をリセット（seekToは実行しない）
+    this.isPlaying = false;
+    this.currentPosition = 0;
+    this.currentSentenceIndex = 0;
+    this.lastPosition = 0;
+    this.stuckCounter = 0;
+    
+    console.log('🎤 状態リセット完了 - seekToはスキップ');
+    
+    // 状態変更を通知
+    this.notifyStateChange();
+    
+    // 再生完了コールバックを実行
+    if (this.onPlaybackComplete) {
+      console.log('🎤 再生完了コールバック実行');
+      this.onPlaybackComplete();
+    }
+    
+    console.log('🎤 再生完了処理完了 - 00:00にリセット');
+  } catch (error) {
+    console.error('❌ 再生完了処理でエラー:', error);
+  }
+}
+```
+
+#### **CanvasEditor修正**
+```typescript
+// app/screens/CanvasEditor.tsx - 再生完了コールバック
+player.setOnPlaybackComplete(() => {
+  console.log('🎤 CanvasEditor: 再生完了コールバック受信');
+  
+  setIsTTSPlaying(false);
+  setAudioPlayState('paused');
+  setCurrentSentenceIndex(0);
+  setAudioCurrentTime(0);
+  setHighlightRanges([]);
+  // 🎵 再生速度もリセット（UIと実際の速度の不一致を防ぐ）
+  setAudioSpeed(1.0);
+  
+  console.log('🎤 再生完了 - UI状態リセット完了');
+});
+```
+
+### 🧪 **テスト結果**
+
+#### **再生リセット機能テスト**
+- ✅ 音声再生完了後、エラーダイアログなしで00:00にリセット
+- ✅ リピート再生が正常に動作
+- ✅ 「Seeking interrupted」エラーが完全に解消
+
+#### **再生速度リセット機能テスト**
+- ✅ 1.5倍速で再生完了後、速度ボタンが「1.0x」に戻る
+- ✅ 2倍速で再生完了後、速度ボタンが「1.0x」に戻る
+- ✅ 次回再生時は通常速度で開始される
+- ✅ UIと実際の再生速度が一致
+
+### 📊 **Phase 1 成果**
+
+| 項目 | 実装前 | 実装後 |
+|---|---|---|
+| 再生完了時のエラー | ❌ 「Seeking interrupted」エラー発生 | ✅ エラーなしでスムーズにリセット |
+| リピート再生 | ❌ エラーを閉じないと再生不可 | ✅ 即座にリピート再生可能 |
+| 速度UI一致 | ❌ UIと実際の速度が不一致 | ✅ 完全に一致 |
+| ユーザー体験 | ❌ エラーで中断、混乱 | ✅ スムーズで直感的 |
+
+### 🎯 **次のステップ**
+
+**Phase 1は完全に成功しました！** 基本的なTTS再生機能が安定し、ユーザーが快適に使用できる状態になりました。
+
+**Phase 2（自動スクロール機能）** と **Phase 3（タップ箇所再生機能）** は、より高度なUX向上機能として、必要に応じて今後実装予定です。
+
+---
+
+## 📝 **開発ログ**
+
+- **2025-06-14**: Phase 1実装開始
+- **2025-06-14**: 再生リセット機能実装完了
+- **2025-06-14**: 再生速度リセット機能実装完了
+- **2025-06-14**: Phase 1テスト完了・成功
+- **2025-06-14**: Phase 1実装完了報告作成

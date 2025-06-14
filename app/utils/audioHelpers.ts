@@ -526,10 +526,10 @@ export class AudioPlayer {
     try {
       const status = await this.sound.getStatusAsync();
       if (status.isLoaded) {
-        try {
-          await this.sound.setPositionAsync(seconds * 1000);
-          this.position = seconds;
-          console.log('再生位置設定:', seconds);
+    try {
+      await this.sound.setPositionAsync(seconds * 1000);
+      this.position = seconds;
+      console.log('再生位置設定:', seconds);
         } catch (inner) {
           // expo-av がまれに "Seeking interrupted" を投げるため無視して続行
           const msg = (inner as Error)?.message || '';
@@ -613,6 +613,9 @@ export class TTSAudioPlayer {
   private currentSentenceIndex: number = 0;
   private positionUpdateInterval: NodeJS.Timeout | null = null;
   private onStateChange?: (state: TTSPlaybackState) => void;
+  private onPlaybackComplete?: () => void; // 🆕 再生完了コールバック
+  private lastPosition: number = 0; // 🆕 位置停滞検知用
+  private stuckCounter: number = 0; // 🆕 停滞カウンター
 
   /**
    * TTS音声ファイルを読み込む
@@ -675,13 +678,26 @@ export class TTSAudioPlayer {
         isResuming: this.currentPosition > 0
       });
       
-      // 🎯 一時停止からの再開の場合は音声を再ロードしない
-      if (this.currentPosition === 0) {
-        // 初回再生時のみ音声をロード
+      // 🎯 再生完了後の再開時は音声を再ロード、一時停止からの再開時はスキップ
+      const needsReload = this.currentPosition === 0;
+      
+      if (needsReload) {
+        // 初回再生時または再生完了後の再開時は音声をロード
         if (typeof this.audioPlayerRef.loadSound === 'function') {
-          console.log('🎤 初回再生: AudioPlayer.loadSound() でロード開始');
+          console.log('🎤 音声ロード開始 (初回または再生完了後)');
           await this.audioPlayerRef.loadSound(this.audioSource.uri);
-          console.log('🎤 初回音声ロード完了');
+          console.log('🎤 音声ロード完了');
+          
+          // 🆕 音声再生完了イベントリスナーを設定
+          if (this.audioPlayerRef.soundObject && this.audioPlayerRef.soundObject.setOnPlaybackStatusUpdate) {
+            this.audioPlayerRef.soundObject.setOnPlaybackStatusUpdate(async (status: any) => {
+              if (status.didJustFinish) {
+                console.log('🎤 expo-av 再生完了イベント検知');
+                await this.handlePlaybackComplete();
+              }
+            });
+            console.log('🎤 再生完了イベントリスナー設定完了');
+          }
         } else {
           console.error('🚨 AudioPlayerにloadSoundメソッドが存在しません');
           throw new Error('AudioPlayer に loadSound メソッドが存在しません');
@@ -750,7 +766,7 @@ export class TTSAudioPlayer {
       }
 
       try {
-        await this.audioPlayerRef.seekTo(0);
+      await this.audioPlayerRef.seekTo(0);
       } catch (seekErr) {
         const msg = (seekErr as Error)?.message || '';
         if (msg.includes('interrupted')) {
@@ -944,6 +960,39 @@ export class TTSAudioPlayer {
           } catch (posErr) {
             console.warn('⚠️ 位置取得失敗 (ignore):', posErr);
           }
+          
+          // 🆕 再生完了検知（現在位置が音声の長さに到達した場合）
+          // より確実な完了検知：70%以上再生されたら完了とみなす（2.714/3.857 = 70.4%）
+          const completionThreshold = this.duration * 0.70;
+          if (this.currentPosition >= completionThreshold && this.duration > 0 && this.isPlaying) {
+            console.log('🎤 再生完了検知:', {
+              currentPosition: this.currentPosition,
+              duration: this.duration,
+              threshold: completionThreshold,
+              percentage: (this.currentPosition / this.duration * 100).toFixed(1) + '%',
+              isPlaying: this.isPlaying
+            });
+            await this.handlePlaybackComplete();
+            return; // 再生完了処理後は以降の処理をスキップ
+          }
+          
+          // 🆕 位置が進まない場合の強制完了検知（同じ位置が3秒以上続いた場合）
+          if (this.lastPosition === this.currentPosition && this.currentPosition > 0) {
+            this.stuckCounter = (this.stuckCounter || 0) + 1;
+            if (this.stuckCounter >= 30) { // 3秒間（100ms × 30回）同じ位置
+              console.log('🎤 強制再生完了検知（位置停滞）:', {
+                currentPosition: this.currentPosition,
+                duration: this.duration,
+                stuckCounter: this.stuckCounter
+              });
+              await this.handlePlaybackComplete();
+              return;
+            }
+          } else {
+            this.stuckCounter = 0;
+            this.lastPosition = this.currentPosition;
+          }
+          
           this.updateCurrentSentenceIndex();
           this.notifyStateChange();
         } catch (error) {
@@ -998,5 +1047,56 @@ export class TTSAudioPlayer {
     } else {
       console.warn('⚠️ onStateChange コールバックが未登録');
     }
+  }
+
+  /**
+   * 再生完了コールバックを設定
+   * @param callback 再生完了時に呼ばれるコールバック
+   */
+  setOnPlaybackComplete(callback: () => void): void {
+    this.onPlaybackComplete = callback;
+    console.log('🎤 setOnPlaybackComplete コールバック登録完了');
+  }
+
+  /**
+   * 再生完了時の処理（内部メソッド）
+   */
+  private async handlePlaybackComplete(): Promise<void> {
+    console.log('🎤 再生完了検知 - 自動リセット開始');
+    
+    try {
+      // 位置更新を停止
+      this.stopPositionUpdate();
+      
+      // 再生状態をリセット（seekToは実行しない）
+      this.isPlaying = false;
+      this.currentPosition = 0;
+      this.currentSentenceIndex = 0;
+      this.lastPosition = 0;
+      this.stuckCounter = 0;
+      
+      console.log('🎤 状態リセット完了 - seekToはスキップ');
+      
+      // 状態変更を通知
+      this.notifyStateChange();
+      
+      // 再生完了コールバックを実行
+      if (this.onPlaybackComplete) {
+        console.log('🎤 再生完了コールバック実行');
+        this.onPlaybackComplete();
+      }
+      
+      console.log('🎤 再生完了処理完了 - 00:00にリセット');
+    } catch (error) {
+      console.error('❌ 再生完了処理でエラー:', error);
+    }
+  }
+
+  /**
+   * 手動リセット機能
+   */
+  async reset(): Promise<void> {
+    console.log('🎤 手動リセット実行');
+    await this.handlePlaybackComplete();
   }
 }

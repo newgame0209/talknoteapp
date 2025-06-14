@@ -404,9 +404,9 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                       const settings = canvasData.canvasSettings;
                       console.log('🔍🔍🔍 Step1 - 写真スキャン設定復元:', settings);
                       
-                      // ツール設定復元
-                      if (settings.selectedTool) setSelectedTool(settings.selectedTool);
-                      if (settings.selectedPenTool) setSelectedPenTool(settings.selectedPenTool);
+                      // ツール設定復元（🚫 ツールバー選択状態は復元しない）
+                      // if (settings.selectedTool) setSelectedTool(settings.selectedTool);
+                      // if (settings.selectedPenTool) setSelectedPenTool(settings.selectedPenTool);
                       if (settings.selectedColor) setSelectedColor(settings.selectedColor);
                       if (settings.strokeWidth) setStrokeWidth(settings.strokeWidth);
                       
@@ -547,9 +547,9 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                       const settings = canvasData.canvasSettings;
                       console.log('✅ 通常ノート - キャンバス設定復元開始:', settings);
                       
-                      // ツール設定復元
-                      if (settings.selectedTool) setSelectedTool(settings.selectedTool);
-                      if (settings.selectedPenTool) setSelectedPenTool(settings.selectedPenTool);
+                      // ツール設定復元（🚫 ツールバー選択状態は復元しない）
+                      // if (settings.selectedTool) setSelectedTool(settings.selectedTool);
+                      // if (settings.selectedPenTool) setSelectedPenTool(settings.selectedPenTool);
                       if (settings.selectedColor) setSelectedColor(settings.selectedColor);
                       if (settings.strokeWidth) setStrokeWidth(settings.strokeWidth);
                       
@@ -635,9 +635,9 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                     const settings = canvasData.canvasSettings;
                     console.log('🔍🔍🔍 写真スキャン設定データ詳細:', settings);
                     
-                    // ツール設定復元
-                    if (settings.selectedTool) setSelectedTool(settings.selectedTool);
-                    if (settings.selectedPenTool) setSelectedPenTool(settings.selectedPenTool);
+                    // ツール設定復元（🚫 ツールバー選択状態は復元しない）
+                    // if (settings.selectedTool) setSelectedTool(settings.selectedTool);
+                    // if (settings.selectedPenTool) setSelectedPenTool(settings.selectedPenTool);
                     if (settings.selectedColor) setSelectedColor(settings.selectedColor);
                     if (settings.strokeWidth) setStrokeWidth(settings.strokeWidth);
                     
@@ -703,9 +703,9 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                   const settings = transcriptionData.canvasSettings;
                   console.log('🔍🔍🔍 録音設定データ詳細:', settings);
                   
-                  // ツール設定復元
-                  if (settings.selectedTool) setSelectedTool(settings.selectedTool);
-                  if (settings.selectedPenTool) setSelectedPenTool(settings.selectedPenTool);
+                  // ツール設定復元（🚫 ツールバー選択状態は復元しない）
+                  // if (settings.selectedTool) setSelectedTool(settings.selectedTool);
+                  // if (settings.selectedPenTool) setSelectedPenTool(settings.selectedPenTool);
                   if (settings.selectedColor) setSelectedColor(settings.selectedColor);
                   if (settings.strokeWidth) setStrokeWidth(settings.strokeWidth);
                   
@@ -769,9 +769,9 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                   const settings = canvasData.canvasSettings;
                   console.log('🔍🔍🔍 設定データ詳細:', settings);
                   
-                  // ツール設定復元
-                  if (settings.selectedTool) setSelectedTool(settings.selectedTool);
-                  if (settings.selectedPenTool) setSelectedPenTool(settings.selectedPenTool);
+                  // ツール設定復元（🚫 ツールバー選択状態は復元しない）
+                  // if (settings.selectedTool) setSelectedTool(settings.selectedTool);
+                  // if (settings.selectedPenTool) setSelectedPenTool(settings.selectedPenTool);
                   if (settings.selectedColor) setSelectedColor(settings.selectedColor);
                   if (settings.strokeWidth) setStrokeWidth(settings.strokeWidth);
                   
@@ -1128,8 +1128,28 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     }
   };
 
+  // 🆕 編集制御ヘルパー関数
+  const checkEditingAllowed = (actionName: string): boolean => {
+    if (isTTSPlaying) {
+      Alert.alert(
+        '編集制限',
+        `音声再生中は${actionName}できません。\n一時停止してから編集してください。`,
+        [{ text: 'OK', style: 'default' }]
+      );
+      return false;
+    }
+    return true;
+  };
+
   // ペンツール選択ハンドラ
   const handlePenToolPress = () => {
+    if (!checkEditingAllowed('ペンツールの使用は')) return;
+    
+    // 🆕 TTS再生中はサブツールバーを表示しない
+    if (isTTSPlaying) {
+      return;
+    }
+    
     const newSelectedTool = selectedTool === 'pen' ? null : 'pen';
     setSelectedTool(newSelectedTool);
     
@@ -1151,6 +1171,13 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
 
   // キーボードツール選択ハンドラ
   const handleKeyboardToolPress = () => {
+    if (!checkEditingAllowed('キーボードツールの使用は')) return;
+    
+    // 🆕 TTS再生中はサブツールバーを表示しない
+    if (isTTSPlaying) {
+      return;
+    }
+    
     const newSelectedTool = selectedTool === 'keyboard' ? null : 'keyboard';
     setSelectedTool(newSelectedTool);
     
@@ -1225,6 +1252,13 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
 
   // 音声ツール選択ハンドラ
   const handleVoiceToolPress = () => {
+    if (!checkEditingAllowed('音声ツールの使用は')) return;
+    
+    // 🆕 TTS再生中はサブツールバーを表示しない
+    if (isTTSPlaying) {
+      return;
+    }
+    
     setSelectedTool(selectedTool === 'voice' ? null : 'voice');
     // TextInputのフォーカスを強制的に解除
     titleInputRef.current?.blur();
@@ -1244,6 +1278,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
 
   // 本文エリアをタップした時のハンドラ（テキスト編集開始）
   const handleContentAreaPress = () => {
+    if (!checkEditingAllowed('テキスト編集は')) return;
     // ✅ 修正: 本文エリアタッチで罫線アイコン非表示、テキスト編集開始で音声プレイヤー非表示
     setIsCanvasIconsVisible(false);
     setShowAudioPlayer(false); // テキスト編集開始時は音声プレイヤーを非表示
@@ -1883,6 +1918,17 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
       } else {
         // 🎵 TTS再生開始
         console.log('🎵 TTS再生開始処理:', { ttsAudioUrl: !!ttsAudioUrl });
+        
+        // 🆕 TTS再生開始時に全サブツールバーを強制的に閉じる
+        console.log('🎵 TTS再生開始 - 全サブツールバー強制非表示');
+        setSelectedTool(null);
+        setSelectedPenTool(null);
+        setSelectedKeyboardTool(null);
+        setShowColorSettings(false);
+        setShowStrokeSettings(false);
+        setIsSearchVisible(false);
+        console.log('🎵 サブツールバー強制非表示完了');
+        
         let audioUrl = ttsAudioUrl;
 
         if (!audioUrl) {
@@ -1911,7 +1957,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
           if (currentState.currentPosition > 0) {
             console.log('🎵 一時停止位置から再開:', currentState.currentPosition);
             // 🎯 先に再生開始してから位置を設定（音声再ロードを防ぐ）
-            await ttsAudioPlayer.play();
+          await ttsAudioPlayer.play();
             await ttsAudioPlayer.seekTo(currentState.currentPosition);
           } else {
             console.log('🎵 最初から再生開始');
@@ -2042,6 +2088,36 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
         isPlaying: state.isPlaying
       });
       setAudioCurrentTime(state.currentPosition);
+    });
+    // 🆕 再生完了コールバックを登録
+    player.setOnPlaybackComplete(() => {
+      console.log('🎤 CanvasEditor: 再生完了コールバック受信');
+      console.log('🎤 再生完了前の状態:', {
+        isTTSPlaying,
+        audioPlayState,
+        currentSentenceIndex,
+        audioCurrentTime,
+        audioSpeed,
+        highlightRangesCount: highlightRanges.length
+      });
+      
+      setIsTTSPlaying(false);
+      setAudioPlayState('paused');
+      setCurrentSentenceIndex(0);
+      setAudioCurrentTime(0);
+      // ハイライトもリセット
+      setHighlightRanges([]);
+      // 🎵 再生速度もリセット（UIと実際の速度の不一致を防ぐ）
+      setAudioSpeed(1.0);
+      
+      console.log('🎤 再生完了 - UI状態リセット完了:', {
+        isTTSPlaying: false,
+        audioPlayState: 'paused',
+        currentSentenceIndex: 0,
+        audioCurrentTime: 0,
+        audioSpeed: 1.0,
+        highlightRangesCount: 0
+      });
     });
     return player;
   });
@@ -2482,14 +2558,19 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
               <TouchableOpacity 
                 style={[
                   styles.topBarIcon, 
-                  isSearchVisible && styles.selectedToolIcon
+                  isSearchVisible && styles.selectedToolIcon,
+                  isTTSPlaying && styles.disabledSubToolIcon // 🆕 TTS再生中はグレーアウト
                 ]} 
-                onPress={handleToolbarIconPress}
+                onPress={() => {
+                  if (!checkEditingAllowed('検索機能の使用は')) return;
+                  handleToolbarIconPress();
+                }}
+                disabled={isTTSPlaying} // 🆕 TTS再生中は無効化
               >
                 <Ionicons 
                   name="search" 
                   size={22} 
-                  color={isSearchVisible ? '#4F8CFF' : '#fff'} 
+                  color={isTTSPlaying ? '#999' : (isSearchVisible ? '#4F8CFF' : '#fff')} 
                 />
               </TouchableOpacity>
             </View>
@@ -2499,27 +2580,31 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
               <TouchableOpacity 
                 style={[
                   styles.topBarIcon, 
-                  selectedTool === 'pen' && styles.selectedToolIcon
+                  selectedTool === 'pen' && styles.selectedToolIcon,
+                  isTTSPlaying && styles.disabledSubToolIcon // 🆕 TTS再生中はグレーアウト
                 ]} 
                 onPress={handlePenToolPress}
+                disabled={isTTSPlaying} // 🆕 TTS再生中は無効化
               >
                 <MaterialIcons 
                   name="edit" 
                   size={22} 
-                  color={selectedTool === 'pen' ? '#4F8CFF' : '#fff'} 
+                  color={isTTSPlaying ? '#999' : (selectedTool === 'pen' ? '#4F8CFF' : '#fff')} 
                 />
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[
                   styles.topBarIcon, 
-                  selectedTool === 'keyboard' && styles.selectedToolIcon
+                  selectedTool === 'keyboard' && styles.selectedToolIcon,
+                  isTTSPlaying && styles.disabledSubToolIcon // 🆕 TTS再生中はグレーアウト
                 ]} 
                 onPress={handleKeyboardToolPress}
+                disabled={isTTSPlaying} // 🆕 TTS再生中は無効化
               >
                 <MaterialCommunityIcons 
                   name="keyboard-outline" 
                   size={22} 
-                  color={selectedTool === 'keyboard' ? '#4F8CFF' : '#fff'} 
+                  color={isTTSPlaying ? '#999' : (selectedTool === 'keyboard' ? '#4F8CFF' : '#fff')} 
                 />
               </TouchableOpacity>
               
@@ -2530,17 +2615,19 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                   <TouchableOpacity 
                     style={[
                       styles.topBarIcon, 
-                      selectedTool === 'voice' && styles.selectedToolIcon
+                      selectedTool === 'voice' && styles.selectedToolIcon,
+                      isTTSPlaying && styles.disabledSubToolIcon // 🆕 TTS再生中はグレーアウト
                     ]} 
                     onPress={() => {
                       handleVoiceToolPress();
                       handleStartRecording();
                     }}
+                    disabled={isTTSPlaying} // 🆕 TTS再生中は無効化
                   >
                     <Ionicons 
                       name="mic-outline" 
                       size={22} 
-                      color={selectedTool === 'voice' ? '#4F8CFF' : '#fff'} 
+                      color={isTTSPlaying ? '#999' : (selectedTool === 'voice' ? '#4F8CFF' : '#fff')} 
                     />
               </TouchableOpacity>
                 ) : (
@@ -2583,18 +2670,37 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                               <TouchableOpacity 
                   style={[
                     styles.topBarIcon,
-                    bookmarkData.hasBookmarks && styles.selectedToolIcon
+                    bookmarkData.hasBookmarks && styles.selectedToolIcon,
+                    isTTSPlaying && styles.disabledSubToolIcon // 🆕 TTS再生中はグレーアウト
                   ]} 
-                  onPress={handleBookmarkAction}
+                  onPress={() => {
+                    if (!checkEditingAllowed('しおり機能の使用は')) return;
+                    handleBookmarkAction();
+                  }}
+                  disabled={isTTSPlaying} // 🆕 TTS再生中は無効化
                 >
                   <MaterialIcons 
                     name={bookmarkData.hasBookmarks ? "bookmark" : "bookmark-border"} 
                     size={22} 
-                    color={bookmarkData.hasBookmarks ? "#4F8CFF" : "#fff"} 
+                    color={isTTSPlaying ? '#999' : (bookmarkData.hasBookmarks ? "#4F8CFF" : "#fff")} 
                   />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.topBarIcon} onPress={handlePageSettings}>
-                <MaterialCommunityIcons name="content-copy" size={22} color="#fff" />
+              <TouchableOpacity 
+                style={[
+                  styles.topBarIcon,
+                  isTTSPlaying && styles.disabledSubToolIcon // 🆕 TTS再生中はグレーアウト
+                ]} 
+                onPress={() => {
+                  if (!checkEditingAllowed('ページ設定の使用は')) return;
+                  handlePageSettings();
+                }}
+                disabled={isTTSPlaying} // 🆕 TTS再生中は無効化
+              >
+                <MaterialCommunityIcons 
+                  name="content-copy" 
+                  size={22} 
+                  color={isTTSPlaying ? '#999' : '#fff'} 
+                />
               </TouchableOpacity>
             </View>
             )}
@@ -2602,8 +2708,22 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
           
           {/* 三点リーダー（右端） */}
           {(recordingState === 'idle') && (
-          <TouchableOpacity style={styles.moreButtonContainer} onPress={handleMoreSettings}>
-            <MaterialIcons name="more-horiz" size={24} color="#fff" />
+          <TouchableOpacity 
+            style={[
+              styles.moreButtonContainer,
+              isTTSPlaying && styles.disabledSubToolIcon // 🆕 TTS再生中はグレーアウト
+            ]} 
+            onPress={() => {
+              if (!checkEditingAllowed('設定メニューの使用は')) return;
+              handleMoreSettings();
+            }}
+            disabled={isTTSPlaying} // 🆕 TTS再生中は無効化
+          >
+            <MaterialIcons 
+              name="more-horiz" 
+              size={24} 
+              color={isTTSPlaying ? '#999' : '#fff'} 
+            />
           </TouchableOpacity>
           )}
         </View>
