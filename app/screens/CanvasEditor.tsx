@@ -272,6 +272,14 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
 
   const titleInputRef = useRef<TextInput>(null);
   const contentInputRef = useRef<TextInput>(null);
+  
+  // 🎯 Phase 2: 自動スクロール機能用のref
+  const scrollViewRef = useRef<ScrollView>(null);
+  
+  // 🎯 Phase 2: 自動スクロール機能用の状態
+  const lineCoordinates = useRef<Record<number, number>>({});
+  const lastManualScrollTime = useRef<number>(0);
+  const AUTO_SCROLL_DELAY = 5000; // 5秒間は自動スクロール停止
 
   // 📝 ノートブック・ページの初期化（新規作成）
   useEffect(() => {
@@ -2182,6 +2190,66 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     }
   }, [content, currentSentenceIndex, isTTSPlaying, ttsAudioPlayer, updateHighlights]);
 
+  // 🎯 Phase 2: 自動スクロール機能
+  const handleTextLayout = useCallback((event: any) => {
+    const { layout } = event.nativeEvent;
+    console.log('📏 テキストレイアウト更新:', { 
+      height: layout.height, 
+      width: layout.width 
+    });
+    
+    // テキストの高さから行数を推定（フォントサイズベース）
+    const estimatedLineHeight = fontSize * lineSpacing;
+    const estimatedLines = Math.ceil(layout.height / estimatedLineHeight);
+    
+    // 行ごとの座標を推定して保存
+    for (let i = 0; i < estimatedLines; i++) {
+      lineCoordinates.current[i] = i * estimatedLineHeight;
+    }
+  }, [fontSize, lineSpacing]);
+
+  const handleManualScroll = useCallback(() => {
+    lastManualScrollTime.current = Date.now();
+    console.log('👆 手動スクロール検知 - 自動スクロール一時停止');
+    
+    // 🎯 Phase 2: 音声再生中は手動スクロールでもキャンバス選択処理を実行しない
+    if (isTTSPlaying) {
+      console.log('🎵 音声再生中のため、スクロールによるキャンバス選択をスキップ');
+      return;
+    }
+  }, [isTTSPlaying]);
+
+  const performAutoScroll = useCallback((sentenceIndex: number) => {
+    const now = Date.now();
+    if (now - lastManualScrollTime.current < AUTO_SCROLL_DELAY) {
+      console.log('⏸️ 手動スクロール後のため自動スクロールをスキップ');
+      return; // 手動スクロール後は一定時間停止
+    }
+
+    // 文章インデックスから対応する行を推定
+    const sentences = splitIntoSentencesWithDetails(content);
+    if (sentenceIndex >= 0 && sentenceIndex < sentences.length) {
+      const sentence = sentences[sentenceIndex];
+      const textBeforeSentence = content.substring(0, sentence.startPosition);
+      const lineIndex = textBeforeSentence.split('\n').length - 1;
+      
+      const targetY = lineCoordinates.current[lineIndex];
+      if (targetY !== undefined && scrollViewRef.current) {
+        console.log('📜 自動スクロール実行:', {
+          sentenceIndex,
+          lineIndex,
+          targetY,
+          scrollTo: Math.max(0, targetY - 80)
+        });
+        
+        scrollViewRef.current.scrollTo({
+          y: Math.max(0, targetY - 80), // 80px上に余白
+          animated: true
+        });
+      }
+    }
+  }, [content]);
+
   // 🎤 TTS プロバイダー切り替えハンドラー
   const handleTTSProviderChange = (providerId: 'google' | 'minimax' | 'gemini') => {
     setCurrentTTSProvider(providerId);
@@ -2326,7 +2394,9 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
         if (currentIndex !== -1 && currentIndex !== currentSentenceIndex) {
           setCurrentSentenceIndex(currentIndex);
           updateHighlights(content, currentIndex);
-          console.log('🎵 TTS同期ハイライト更新:', currentIndex);
+          // 🎯 Phase 2: 自動スクロール実行
+          performAutoScroll(currentIndex);
+          console.log('🎵 TTS同期ハイライト更新 + 自動スクロール:', currentIndex);
         }
       }, 100); // 100ms間隔で更新
     }
@@ -3092,12 +3162,17 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                 <View style={styles.contentArea}>
                 {/* ✅ 修正: ScrollView内にTextInputを配置してスクロール対応 */}
                 <ScrollView 
+                  ref={scrollViewRef}
                   style={[styles.contentScrollView]}
                   contentContainerStyle={[styles.contentScrollContainer]}
                   showsVerticalScrollIndicator={true}
                   scrollIndicatorInsets={{ right: 1 }} // スクロールバーを右端に寄せる
                   keyboardDismissMode="interactive"
                   keyboardShouldPersistTaps="handled"
+                  onScroll={handleManualScroll}
+                  scrollEventThrottle={100}
+                  // 🎯 Phase 2: 音声再生中はキャンバス全体を無効化
+                  pointerEvents={isTTSPlaying ? 'none' : 'auto'}
                 >
                   <TextInput
                     ref={contentInputRef}
@@ -3145,6 +3220,8 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                     spellCheck={false}
                     // 🎯 下線表示のために削除: textContentType, clearButtonMode
                     selectionColor="#4F8CFF"
+                    // 🎯 Phase 2: レイアウト情報取得
+                    onLayout={handleTextLayout}
                   />
                 </ScrollView>
                 
