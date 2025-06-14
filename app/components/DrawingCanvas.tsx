@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState, useEffect } from 'react';
+import React, { useCallback, useRef, useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { View, StyleSheet, PanResponder, Dimensions, Text } from 'react-native';
 import {
   Canvas,
@@ -7,6 +7,7 @@ import {
   Group,
   useCanvasRef,
   Circle,
+  type SkImage,
 } from '@shopify/react-native-skia';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -29,6 +30,11 @@ export interface DrawingCanvasProps {
   onRedo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+}
+
+// 🆕 DrawingCanvasの外部から呼び出せるメソッドの型定義
+export interface DrawingCanvasRef {
+  captureHandwritingImage: () => Promise<string | null>;
 }
 
 // 📐 座標点の型定義
