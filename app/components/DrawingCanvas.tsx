@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState, useEffect, useImperativeHandle, forwardRef } from 'react';
+import React, { useCallback, useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { View, StyleSheet, PanResponder, Dimensions, Text } from 'react-native';
 import {
   Canvas,
@@ -7,7 +7,6 @@ import {
   Group,
   useCanvasRef,
   Circle,
-  type SkImage,
 } from '@shopify/react-native-skia';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -32,9 +31,12 @@ export interface DrawingCanvasProps {
   canRedo: boolean;
 }
 
-// 🆕 DrawingCanvasの外部から呼び出せるメソッドの型定義
-export interface DrawingCanvasRef {
-  captureHandwritingImage: () => Promise<string | null>;
+export interface DrawingCanvasHandle {
+  /**
+   * キャンバスの手書きレイヤーを PNG Base64 で取得する
+   * 形式: "data:image/png;base64,..."
+   */
+  captureHandwriting: () => string | null;
 }
 
 // 📐 座標点の型定義
@@ -109,7 +111,7 @@ class SmoothDrawing {
   }
 }
 
-const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
+const DrawingCanvasInner: React.ForwardRefRenderFunction<DrawingCanvasHandle, DrawingCanvasProps> = ({
   selectedTool,
   selectedColor,
   strokeWidth,
@@ -119,7 +121,7 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   onRedo,
   canUndo,
   canRedo,
-}) => {
+}, ref) => {
   const canvasRef = useCanvasRef();
   const [currentPath, setCurrentPath] = useState<DrawingPath | null>(null);
   const currentPathRef = useRef<DrawingPath | null>(null);
@@ -508,6 +510,78 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     }
   };
 
+  // 📸 手書きレイヤーのPNG Base64を取得（OCR用に白い背景を合成）
+  const captureHandwriting = useCallback((): string | null => {
+    if (!canvasRef.current) return null;
+    try {
+      // 1️⃣ 元の透明背景画像を取得
+      const originalImage = canvasRef.current.makeImageSnapshot();
+      if (!originalImage) return null;
+      
+      console.log('🖼️ Original image captured:', {
+        width: originalImage.width(),
+        height: originalImage.height()
+      });
+      
+      // 2️⃣ OCR用に白い背景付きの画像を作成
+      const width = originalImage.width();
+      const height = originalImage.height();
+      
+      // 新しいSurfaceを作成
+      const surface = Skia.Surface.Make(width, height);
+      if (!surface) {
+        console.warn('🖼️ Failed to create surface for white background');
+        // フォールバック: 元の透明背景画像を返す
+        const base64 = originalImage.encodeToBase64();
+        return `data:image/png;base64,${base64}`;
+      }
+      
+      const canvas = surface.getCanvas();
+      
+      // 3️⃣ 白い背景を描画
+      canvas.clear(Skia.Color('#FFFFFF'));
+      console.log('🖼️ White background applied');
+      
+      // 4️⃣ 元の手書きを白い背景の上に描画
+      canvas.drawImage(originalImage, 0, 0);
+      console.log('🖼️ Original handwriting drawn on white background');
+      
+      // 5️⃣ 最終画像を取得してBase64で返却
+      const finalImage = surface.makeImageSnapshot();
+      if (!finalImage) {
+        console.warn('🖼️ Failed to create final image');
+        // フォールバック: 元の透明背景画像を返す
+        const base64 = originalImage.encodeToBase64();
+        return `data:image/png;base64,${base64}`;
+      }
+      
+      const base64 = finalImage.encodeToBase64();
+      console.log('🖼️ Final image with white background created:', {
+        originalSize: originalImage.encodeToBase64().length,
+        finalSize: base64.length
+      });
+      
+      return `data:image/png;base64,${base64}`;
+    } catch (err) {
+      console.warn('🖼️ captureHandwriting error:', err);
+      // エラー時のフォールバック: 元の方法で取得
+      try {
+        const image = canvasRef.current?.makeImageSnapshot();
+        if (!image) return null;
+        const base64 = image.encodeToBase64();
+        return `data:image/png;base64,${base64}`;
+      } catch (fallbackErr) {
+        console.warn('🖼️ Fallback captureHandwriting also failed:', fallbackErr);
+        return null;
+      }
+    }
+  }, [canvasRef]);
+
+  // ref にメソッドを公開
+  useImperativeHandle(ref, () => ({
+    captureHandwriting,
+  }));
+
   return (
     <View style={styles.container}>
       {/* デバッグ情報表示 - 開発時のみ表示 */}
@@ -633,4 +707,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default DrawingCanvas; 
+export default forwardRef(DrawingCanvasInner); 

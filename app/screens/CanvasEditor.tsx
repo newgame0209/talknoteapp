@@ -6,7 +6,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import { useDatabaseStore } from '../store/databaseStore';
 import { notebooksApi, pagesApi } from '../services/api';
-import DrawingCanvas, { DrawingPath } from '../components/DrawingCanvas';
+import DrawingCanvas, { DrawingPath, DrawingCanvasHandle } from '../components/DrawingCanvas';
 import AIChatWidget from '../components/AIChatWidget';
 import Ruler from '../components/Ruler'; // 📏 定規コンポーネントをインポート
 import database, { 
@@ -38,6 +38,7 @@ import database, {
   import { splitIntoSentencesWithDetails } from '../utils/textSplitter';
   // expo-av を直接ラップした独自 AudioPlayer クラスを使用
   import { AudioPlayer } from '../utils/audioHelpers';
+  import HandwritingTTSClient from '../services/HandwritingTTSClient';
 
   // 🎤 TTS関連の型定義追加
   interface TTSSentence {
@@ -1391,6 +1392,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
   const handlePathsChange = (newPaths: DrawingPath[]) => {
     setDrawingPaths(newPaths);
     setRedoStack([]); // 新しい手書きでRedoスタックをクリア
+    setTTSAudioUrl(null); // 🆕 手書き変更時にTTS音声URLをリセット
     markAsChanged(); // 変更フラグのみ
   };
 
@@ -1406,6 +1408,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
       
       // パスを更新
       setDrawingPaths(newPaths);
+      setTTSAudioUrl(null); // 🆕 Undo時にもTTS音声URLをリセット
       markAsChanged(); // 🔥 追加: Undo時も変更フラグを立てる
       
       // console.log('🔙 Undo: Removed last path', {
@@ -1434,6 +1437,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
       
       // パスを更新
       setDrawingPaths(newPaths);
+      setTTSAudioUrl(null); // 🆕 Redo時にもTTS音声URLをリセット
       markAsChanged(); // 🔥 追加: Redo時も変更フラグを立てる
       
       // console.log('🔜 Redo: Restored path', {
@@ -2084,123 +2088,6 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     handleFontSizeChange(fontSize - 2);
   };
 
-  // 🆕 手書き→OCR→TTS統合処理関数
-  const performHandwritingToSpeech = async (): Promise<string | null> => {
-    try {
-      console.log('🎨 手書き→OCR→TTS統合処理開始');
-      
-      // Step 1: キャンバスから画像をキャプチャ
-      console.log('📸 キャンバス画像キャプチャ開始...');
-      const canvasImageBase64 = await captureCanvasImage();
-      
-      if (!canvasImageBase64) {
-        console.error('🚨 キャンバス画像キャプチャ失敗');
-        return null;
-      }
-      
-      console.log('✅ キャンバス画像キャプチャ成功:', {
-        imageDataLength: canvasImageBase64.length,
-        imageDataPreview: canvasImageBase64.substring(0, 100) + '...'
-      });
-      
-      // Step 2: バックエンドの統合APIを呼び出し
-      console.log('🔗 手書き→OCR→TTS統合API呼び出し開始...');
-      
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/ocr/handwriting-to-speech`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await getAuthToken()}`, // 認証トークン取得
-        },
-        body: JSON.stringify({
-          image_data: canvasImageBase64,
-          language_hints: ['ja'],
-          speaking_rate: audioSpeed,
-          audio_format: 'mp3'
-        }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('🚨 手書き→OCR→TTS API エラー:', errorData);
-        throw new Error(errorData.detail || '手書き音声変換に失敗しました');
-      }
-      
-      const result = await response.json();
-      console.log('✅ 手書き→OCR→TTS API 成功:', {
-        success: result.success,
-        extractedTextLength: result.extracted_text?.length || 0,
-        hasAudioUrl: !!result.audio_url,
-        ocrConfidence: result.ocr_confidence
-      });
-      
-      if (!result.success || !result.extracted_text) {
-        console.error('🚨 OCR処理失敗:', result);
-        return null;
-      }
-      
-      // Step 3: 音声URLをTTSプレイヤーに設定
-      if (result.audio_url) {
-        console.log('🎵 手書き音声をTTSプレイヤーに設定...');
-        await ttsAudioPlayer.loadTTSAudio(result.audio_url, []);
-        setTTSAudioUrl(result.audio_url);
-        console.log('✅ 手書き音声設定完了');
-      }
-      
-      // Step 4: 抽出されたテキストを返却
-      return result.extracted_text;
-      
-    } catch (error) {
-      console.error('🚨 手書き→OCR→TTS統合処理エラー:', error);
-      return null;
-    }
-  };
-
-  // 🆕 キャンバス画像キャプチャ関数
-  const captureCanvasImage = async (): Promise<string | null> => {
-    try {
-      console.log('📸 キャンバス画像キャプチャ開始');
-      
-      // DrawingCanvasコンポーネントから画像をキャプチャ
-      // TODO: DrawingCanvasにref経由でキャプチャ機能を追加する必要があります
-      // 現在は仮実装として、drawingPathsからSVGを生成してBase64に変換
-      
-      if (drawingPaths.length === 0) {
-        console.log('🚨 描画パスが空です');
-        return null;
-      }
-      
-      // 仮実装: drawingPathsの情報をログ出力
-      console.log('📝 描画パス情報:', {
-        pathCount: drawingPaths.length,
-        paths: drawingPaths.map((path, index) => ({
-          index,
-          tool: path.tool,
-          color: path.color,
-          strokeWidth: path.strokeWidth,
-          pathLength: path.path.length
-        }))
-      });
-      
-      // TODO: 実際のキャンバス画像キャプチャ実装
-      // 現在は開発用のダミーBase64画像を返却
-      const dummyBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==';
-      
-      console.log('⚠️ 開発用ダミー画像を返却（実装要）');
-      return dummyBase64;
-      
-    } catch (error) {
-      console.error('🚨 キャンバス画像キャプチャエラー:', error);
-      return null;
-    }
-  };
-
-  // 🆕 認証トークン取得関数（仮実装）
-  const getAuthToken = async (): Promise<string> => {
-    // TODO: 実際の認証トークン取得ロジックを実装
-    return 'dummy-auth-token';
-  };
-
   // 🎤 TTS関連の状態管理
   const [audioPlayer] = useState(() => new AudioPlayer()); // 独自AudioPlayerインスタンス作成
   const [ttsAudioPlayer] = useState(() => {
@@ -2386,41 +2273,87 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     markAsChanged('voice_record', { provider: providerId });
   };
 
-  // 🎤 TTS音声生成関数（手書き→OCR→TTS統合対応）
+  // 🎤 TTS音声生成関数
   const generateTTSAudio = async (): Promise<string | null> => {
     try {
       setIsTTSLoading(true);
       console.log('🎤 TTS音声生成開始');
+      
+      // 🔍 詳細デバッグ: drawingPaths の状態を確認
+      console.log('🔍 generateTTSAudio - drawingPaths詳細分析:', {
+        pathsLength: drawingPaths?.length || 0,
+        pathsExists: !!drawingPaths,
+        canvasRefExists: !!drawingCanvasRef.current,
+        pathsDetails: drawingPaths?.map((path, index) => ({
+          index,
+          tool: path.tool,
+          color: path.color,
+          strokeWidth: path.strokeWidth,
+          timestamp: path.timestamp,
+          pathLength: path.path.length,
+          pathPreview: path.path.substring(0, 100) + '...'
+        })) || []
+      });
 
-      // 現在のテキストコンテンツを取得
-      let textToSpeak = content.trim();
+      // 1️⃣ まず手書きが存在するか判定
+      if (drawingPaths && drawingPaths.length > 0 && drawingCanvasRef.current) {
+        console.log('🖊️ 手書き検出: Handwriting OCR→TTS パスへ');
+        console.log('🖊️ 手書きパス数:', drawingPaths.length);
+        
+        // 🔧 React Native Skiaのレンダリング完了を待機
+        console.log('⏳ キャンバスレンダリング完了待機中...');
+        await new Promise(resolve => setTimeout(resolve, 100));
+        console.log('✅ キャンバスレンダリング待機完了');
+        
+        const base64Img = drawingCanvasRef.current.captureHandwriting();
+        console.log('🖊️ 画像キャプチャ結果:', base64Img ? `${base64Img.length}文字のBase64` : 'null');
+        
+        // 🔍 追加デバッグ: 画像サイズとパス数の関係を確認
+        if (base64Img) {
+          console.log('🔍 画像キャプチャ詳細分析:', {
+            base64Length: base64Img.length,
+            pathsCount: drawingPaths.length,
+            expectedChange: '画像サイズがパス数に応じて変化しているか？',
+            base64Preview: base64Img.substring(0, 100) + '...'
+          });
+        }
+        if (base64Img) {
+          try {
+            console.log('🖊️ HandwritingTTSClient呼び出し開始...');
+            const mp3Path = await handwritingTTSClient.synthesizeFromBase64(base64Img, {
+              speakingRate: audioSpeed,
+            });
+            console.log('🖊️ 音声ファイル生成完了:', mp3Path);
+            await ttsAudioPlayer.loadTTSAudio(mp3Path, []); // sentence timing未対応
+            setTTSAudioUrl(mp3Path);
+            console.log('✅ 手書き音声生成完了');
+            return mp3Path;
+          } catch (handErr) {
+            console.error('🚨 Handwriting TTS エラー:', handErr);
+            console.error('🚨 エラー詳細:', {
+              message: handErr instanceof Error ? handErr.message : String(handErr),
+              stack: handErr instanceof Error ? handErr.stack : undefined,
+              base64Length: base64Img?.length || 0
+            });
+            Alert.alert('手書き認識エラー', '手書き文字の音声変換に失敗しました。テキスト入力での読み上げを試してください。');
+            // フォールバックでテキストTTSを試みる
+          }
+        } else {
+          console.log('🖊️ 画像キャプチャ失敗 - テキストTTSにフォールバック');
+        }
+      }
+
+      // 2️⃣ フォールバック: テキストTTS
+      const textToSpeak = content.trim();
       console.log('🎤 テキスト確認:', {
         textLength: textToSpeak.length,
         textPreview: textToSpeak.substring(0, 100) + (textToSpeak.length > 100 ? '...' : ''),
-        hasText: !!textToSpeak,
-        hasDrawingPaths: drawingPaths.length > 0
+        hasText: !!textToSpeak
       });
       
-             // 🆕 テキストがない場合は手書き→OCR→TTSを実行
-       if (!textToSpeak && drawingPaths.length > 0) {
-         console.log('🎨 テキストなし、手書きあり → OCR→TTS実行');
-         const extractedText = await performHandwritingToSpeech();
-         
-         if (!extractedText) {
-           console.error('🚨 手書き文字の認識に失敗しました');
-           Alert.alert('エラー', '手書き文字を認識できませんでした。もう一度お試しください。');
-           return null;
-         }
-         
-         textToSpeak = extractedText;
-        
-        console.log('✅ OCR成功:', {
-          extractedTextLength: textToSpeak.length,
-          extractedTextPreview: textToSpeak.substring(0, 100) + (textToSpeak.length > 100 ? '...' : '')
-        });
-      } else if (!textToSpeak && drawingPaths.length === 0) {
-        console.error('🚨 テキストも手書きもありません');
-        Alert.alert('エラー', '読み上げるテキストまたは手書き文字がありません。');
+      if (!textToSpeak) {
+        console.error('🚨 読み上げテキストが空です');
+        Alert.alert('エラー', '読み上げるテキストがありません。');
         return null;
       }
 
@@ -2736,6 +2669,9 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
       unsubscribeBlur();
     };
   }, [navigation, isTTSPlaying, ttsAudioPlayer]);
+
+  const drawingCanvasRef = useRef<DrawingCanvasHandle>(null);
+  const [handwritingTTSClient] = useState(() => new HandwritingTTSClient());
 
   return (
     <TouchableWithoutFeedback onPress={() => setIsCanvasIconsVisible(false)}>
@@ -3368,6 +3304,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                   selectedTool !== 'pen' && styles.drawingCanvasDisabled
                 ]}>
                   <DrawingCanvas
+                    ref={drawingCanvasRef}
                     selectedTool={selectedTool === 'pen' ? (selectedPenTool || 'pen') : null}
                     selectedColor={selectedColor}
                     strokeWidth={strokeWidth}

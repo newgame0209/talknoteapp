@@ -17,6 +17,8 @@ openai==1.1.1
 anthropic==0.5.0
 prometheus-client==0.20.0
 Pillow==10.0.1
+opencv-python==4.8.1.78
+numpy==1.24.3
 
 # テスト用ライブラリ
 pytest==7.4.3

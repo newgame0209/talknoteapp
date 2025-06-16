@@ -8,6 +8,9 @@ Google Cloud Vision APIを使用してOCR（光学文字認識）を実行する
 import logging
 from typing import Dict, List, Optional, Any
 import io
+import numpy as np
+import os
+import uuid
 
 try:
     from google.cloud import vision
@@ -17,6 +20,13 @@ except ImportError:
     GOOGLE_VISION_AVAILABLE = False
     vision = None
     gcp_exceptions = None
+
+try:
+    import cv2
+    OPENCV_AVAILABLE = True
+except ImportError:
+    OPENCV_AVAILABLE = False
+    cv2 = None
 
 from .base import OCRProvider, OCRResult, OCRError
 
@@ -44,6 +54,9 @@ class GoogleVisionOCRProvider(OCRProvider):
                 provider="google_vision"
             )
         
+        if not OPENCV_AVAILABLE:
+            logger.warning("OpenCV is not available. Image preprocessing will be limited.")
+        
         try:
             # Vision APIクライアントを初期化
             self.client = vision.ImageAnnotatorClient()
@@ -55,6 +68,137 @@ class GoogleVisionOCRProvider(OCRProvider):
                 provider="google_vision"
             )
     
+    def _preprocess_image(self, image_bytes: bytes) -> bytes:
+        """
+        MVPの成功例に基づく画像前処理
+        手書き文字認識の精度を向上させるための処理を実行
+        
+        Args:
+            image_bytes: 元の画像データ
+            
+        Returns:
+            bytes: 前処理済み画像データ
+        """
+        logger.info(f"🔧 _preprocess_image called with {len(image_bytes)} bytes")
+        
+        if not OPENCV_AVAILABLE:
+            logger.warning("OpenCV not available, skipping image preprocessing")
+            return image_bytes
+        
+        logger.info("🔧 OpenCV is available, starting preprocessing")
+        try:
+            # デバッグ用ディレクトリ設定
+            debug_dir = os.getenv("HANDWRITING_DEBUG_DIR", "/tmp/handwriting_debug")
+            debug_id = str(uuid.uuid4())
+            logger.info(f"🔧 Debug directory: {debug_dir}, Debug ID: {debug_id}")
+            
+            # デバッグディレクトリを作成
+            os.makedirs(debug_dir, exist_ok=True)
+            
+            # 1. バイト配列をnumpy配列に変換
+            nparr = np.frombuffer(image_bytes, np.uint8)
+            
+            # 🔧 RGBA対応: アルファチャンネル付きで読み込み
+            image = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
+            
+            if image is None:
+                logger.error("Failed to decode image with OpenCV")
+                return image_bytes
+            
+            logger.info(f"📸 Original image shape: {image.shape}")
+            
+            # 🔧 RGBA→RGB変換（透明背景を白背景に変換）
+            if len(image.shape) == 3 and image.shape[2] == 4:
+                # RGBA画像の場合
+                logger.info("📸 Converting RGBA to RGB with white background")
+                
+                # アルファチャンネルを分離
+                bgr = image[:, :, :3]
+                alpha = image[:, :, 3:4] / 255.0
+                
+                # 白背景を作成
+                white_background = np.ones_like(bgr, dtype=np.uint8) * 255
+                
+                # アルファブレンディング（透明部分を白背景で埋める）
+                image = (bgr * alpha + white_background * (1 - alpha)).astype(np.uint8)
+                
+                logger.info(f"📸 RGBA→RGB conversion completed: {image.shape}")
+            elif len(image.shape) == 3 and image.shape[2] == 3:
+                # 既にBGR画像の場合はそのまま使用
+                logger.info("📸 Image is already BGR format")
+            else:
+                # グレースケールの場合はBGRに変換
+                if len(image.shape) == 2:
+                    image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+                    logger.info("📸 Converted grayscale to BGR")
+            
+            # デバッグ: RGB変換後の画像を保存
+            try:
+                rgb_path = os.path.join(debug_dir, f"{debug_id}_00_rgb_converted.png")
+                cv2.imwrite(rgb_path, image)
+                logger.info(f"📸 Saved RGB converted image: {rgb_path}")
+            except Exception as e:
+                logger.warning(f"Could not save RGB debug image: {e}")
+            
+            # 2. グレースケール変換
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            
+            # デバッグ: グレースケール画像を保存
+            try:
+                gray_path = os.path.join(debug_dir, f"{debug_id}_01_gray.png")
+                cv2.imwrite(gray_path, gray)
+                logger.info(f"📸 Saved grayscale image: {gray_path}")
+            except Exception as e:
+                logger.warning(f"Could not save grayscale debug image: {e}")
+            
+            # 3. ガウシアンブラーでノイズ除去
+            blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+            
+            # 4. 適応的二値化（MVPの成功例）
+            binary = cv2.adaptiveThreshold(
+                blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
+            )
+            
+            # デバッグ: 二値化画像を保存
+            try:
+                binary_path = os.path.join(debug_dir, f"{debug_id}_02_binary.png")
+                cv2.imwrite(binary_path, binary)
+                logger.info(f"📸 Saved binary image: {binary_path}")
+            except Exception as e:
+                logger.warning(f"Could not save binary debug image: {e}")
+            
+            # 5. 形態学的処理（ノイズ除去と文字の補強）
+            kernel = np.ones((2, 2), np.uint8)
+            
+            # ノイズ除去（opening）
+            opened = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
+            
+            # 文字の補強（closing）
+            processed = cv2.morphologyEx(opened, cv2.MORPH_CLOSE, kernel)
+            
+            # デバッグ: 最終処理画像を保存
+            try:
+                final_path = os.path.join(debug_dir, f"{debug_id}_03_final.png")
+                cv2.imwrite(final_path, processed)
+                logger.info(f"📸 Saved final processed image: {final_path}")
+            except Exception as e:
+                logger.warning(f"Could not save final debug image: {e}")
+            
+            # 6. 処理済み画像をバイト配列に変換
+            success, encoded_image = cv2.imencode('.png', processed)
+            if not success:
+                logger.error("Failed to encode processed image")
+                return image_bytes
+            
+            processed_bytes = encoded_image.tobytes()
+            logger.info(f"📸 Image preprocessing completed: {len(image_bytes)} -> {len(processed_bytes)} bytes")
+            
+            return processed_bytes
+            
+        except Exception as e:
+            logger.error(f"Image preprocessing failed: {e}")
+            return image_bytes
+
     async def extract_text(
         self, 
         image_data: bytes, 
@@ -71,8 +215,10 @@ class GoogleVisionOCRProvider(OCRProvider):
             OCRResult: 抽出結果
         """
         try:
-            # 画像データを前処理
-            processed_image_data = self.preprocess_image(image_data)
+            # 🔧 画像前処理を有効化（RGBA→RGB変換を含む）
+            logger.info(f"🔧 Starting image preprocessing for {len(image_data)} bytes")
+            processed_image_data = self._preprocess_image(image_data)
+            logger.info(f"🔧 Image preprocessing completed: {len(processed_image_data)} bytes")
             
             # Vision API用の画像オブジェクトを作成
             image = vision.Image(content=processed_image_data)
@@ -83,15 +229,16 @@ class GoogleVisionOCRProvider(OCRProvider):
                 image_context = vision.ImageContext(
                     language_hints=language_hints
                 )
+                logger.info(f"🔍 Using language hints: {language_hints}")
             
-            # テキスト検出を実行
+            # MVPと同じdocument_text_detectionを使用（高精度）
             if image_context:
-                response = self.client.text_detection(
+                response = self.client.document_text_detection(
                     image=image, 
                     image_context=image_context
                 )
             else:
-                response = self.client.text_detection(image=image)
+                response = self.client.document_text_detection(image=image)
             
             # エラーチェック
             if response.error.message:
@@ -101,11 +248,34 @@ class GoogleVisionOCRProvider(OCRProvider):
                     error_code=str(response.error.code)
                 )
             
-            # テキスト注釈を取得
+            # ドキュメントテキスト注釈を取得
+            if response.full_text_annotation:
+                full_text = response.full_text_annotation.text
+                logger.info(f"🔍 Document text detected: '{full_text}'")
+                
+                # 信頼度を計算
+                confidence = 0.9  # document_text_detectionは高精度
+                
+                # 言語検出
+                detected_language = self._detect_language(full_text)
+                
+                return OCRResult(
+                    text=full_text,
+                    confidence=confidence,
+                    language=detected_language,
+                    metadata={
+                        "provider": "google_vision",
+                        "method": "document_text_detection",
+                        "preprocessed": OPENCV_AVAILABLE
+                    }
+                )
+            
+            # フォールバック: 通常のtext_detection
             texts = response.text_annotations
             
             if not texts:
                 # テキストが検出されなかった場合
+                logger.warning("🔍 No text detected in image")
                 return OCRResult(
                     text="",
                     confidence=0.0,
@@ -115,6 +285,7 @@ class GoogleVisionOCRProvider(OCRProvider):
             
             # 最初の要素が全体のテキスト
             full_text = texts[0].description
+            logger.info(f"🔍 Text detected: '{full_text}'")
             
             # 信頼度を計算（個別の文字の信頼度の平均）
             total_confidence = 0.0
@@ -136,16 +307,9 @@ class GoogleVisionOCRProvider(OCRProvider):
                 bounding_boxes.append(bounding_box)
             
             # 言語検出
-            detected_language = None
-            if hasattr(response, 'text_annotations') and response.text_annotations:
-                # 最初のテキスト注釈から言語を推定
-                # Google Vision APIは言語を直接返さないため、
-                # テキストの内容から推定する簡易的な方法を使用
-                detected_language = self._detect_language(full_text)
+            detected_language = self._detect_language(full_text)
             
             # 信頼度の計算（簡易版）
-            # Google Vision APIは文字レベルの信頼度を直接提供しないため、
-            # テキストの長さと検出された文字数から推定
             confidence = min(0.95, len(full_text.strip()) / max(1, len(full_text)) * 0.9 + 0.1)
             
             return OCRResult(
@@ -155,8 +319,10 @@ class GoogleVisionOCRProvider(OCRProvider):
                 bounding_boxes=bounding_boxes,
                 metadata={
                     "provider": "google_vision",
+                    "method": "text_detection",
                     "texts_count": len(texts),
-                    "has_bounding_boxes": len(bounding_boxes) > 0
+                    "has_bounding_boxes": len(bounding_boxes) > 0,
+                    "preprocessed": OPENCV_AVAILABLE
                 }
             )
             
