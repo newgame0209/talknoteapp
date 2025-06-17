@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons, FontAwesome } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system';
 import { useDatabaseStore } from '../store/databaseStore';
 import { notebooksApi, pagesApi } from '../services/api';
 import DrawingCanvas, { DrawingPath, DrawingCanvasHandle } from '../components/DrawingCanvas';
@@ -39,6 +40,7 @@ import database, {
   // expo-av を直接ラップした独自 AudioPlayer クラスを使用
   import { AudioPlayer } from '../utils/audioHelpers';
   import HandwritingTTSClient from '../services/HandwritingTTSClient';
+import { preprocessTextForTTS } from '../utils/ttsPreprocessor';
 
   // 🎤 TTS関連の型定義追加
   interface TTSSentence {
@@ -1980,8 +1982,8 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
           setAudioPlayState('playing');
           console.log('🎵 TTS再生開始完了');
         } else {
-          console.error('🚨 TTS音声生成後もURLが設定されていません');
-          Alert.alert('エラー', 'TTS音声の生成に失敗しました。');
+          // 音声生成失敗時は既にgenerateTTSAudioでエラー処理済み
+          console.log('🎵 音声生成失敗のため再生をスキップ');
         }
       }
       markAsChanged('voice_record', { playState: audioPlayState }); // 🎯 統一自動保存
@@ -2275,9 +2277,10 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
 
   // 🎤 TTS音声生成関数
   const generateTTSAudio = async (): Promise<string | null> => {
+    setTTSErrorShown(false); // 🎯 毎回初期化
     try {
       setIsTTSLoading(true);
-      console.log('🎤 TTS音声生成開始');
+      console.log('🎤🎤🎤 TTS音声生成開始 - generateTTSAudio関数実行中');
       
       // 🔍 詳細デバッグ: drawingPaths の状態を確認
       console.log('🔍 generateTTSAudio - drawingPaths詳細分析:', {
@@ -2329,14 +2332,13 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
             console.log('✅ 手書き音声生成完了');
             return mp3Path;
           } catch (handErr) {
-            console.error('🚨 Handwriting TTS エラー:', handErr);
-            console.error('🚨 エラー詳細:', {
-              message: handErr instanceof Error ? handErr.message : String(handErr),
-              stack: handErr instanceof Error ? handErr.stack : undefined,
-              base64Length: base64Img?.length || 0
-            });
-            Alert.alert('手書き認識エラー', '手書き文字の音声変換に失敗しました。テキスト入力での読み上げを試してください。');
-            // フォールバックでテキストTTSを試みる
+            // 手書き認識エラー時はログを出力せずにアラートのみ表示
+            if (!ttsErrorShown) {
+              Alert.alert('文字が認識できません！', 'もう一度書き直すかテキストを入力して音声にしてみてください！');
+              setTTSErrorShown(true);
+            }
+            // 手書きエラー時は即座に終了（フォールバック処理をスキップ）
+            return null;
           }
         } else {
           console.log('🖊️ 画像キャプチャ失敗 - テキストTTSにフォールバック');
@@ -2344,16 +2346,38 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
       }
 
       // 2️⃣ フォールバック: テキストTTS
-      const textToSpeak = content.trim();
-      console.log('🎤 テキスト確認:', {
-        textLength: textToSpeak.length,
-        textPreview: textToSpeak.substring(0, 100) + (textToSpeak.length > 100 ? '...' : ''),
-        hasText: !!textToSpeak
+      const rawText = content.trim();
+      console.log('🔧 TTS前処理前のテキスト:', {
+        rawTextLength: rawText.length,
+        rawTextPreview: rawText.substring(0, 200) + (rawText.length > 200 ? '...' : ''),
+        containsAsterisk: rawText.includes('*'),
+        containsDoubleAsterisk: rawText.includes('**')
       });
       
+      const textToSpeak = preprocessTextForTTS(rawText);
+      console.log('🎤 テキスト確認（TTS前処理後）:', {
+        originalLength: rawText.length,
+        processedLength: textToSpeak.length,
+        textPreview: textToSpeak.substring(0, 100) + (textToSpeak.length > 100 ? '...' : ''),
+        hasText: !!textToSpeak,
+        hasChanges: rawText !== textToSpeak
+      });
+      
+      // 🧪 開発環境でのみデバッグ情報を表示
+      if (__DEV__ && rawText !== textToSpeak) {
+        console.log('🔧 TTS前処理詳細:', {
+          originalText: rawText.substring(0, 200) + (rawText.length > 200 ? '...' : ''),
+          processedText: textToSpeak.substring(0, 200) + (textToSpeak.length > 200 ? '...' : ''),
+          removedCharacters: rawText.length - textToSpeak.length
+      });
+      }
+      
       if (!textToSpeak) {
-        console.error('🚨 読み上げテキストが空です');
+        console.warn('⚠️ 読み上げテキストが空です');
+        if (!ttsErrorShown) {
         Alert.alert('エラー', '読み上げるテキストがありません。');
+          setTTSErrorShown(true);
+        }
         return null;
       }
 
@@ -2436,8 +2460,11 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
       return ttsResponse.audio_url;
 
     } catch (error) {
-      console.error('🚨 TTS音声生成エラー:', error);
+      console.warn('⚠️ TTS音声生成エラー:', error);
+      if (!ttsErrorShown) {
       Alert.alert('エラー', 'テキストの音声変換に失敗しました。');
+        setTTSErrorShown(true);
+      }
       setIsTTSLoading(false);
       return null;
     } finally {
@@ -2672,6 +2699,11 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
 
   const drawingCanvasRef = useRef<DrawingCanvasHandle>(null);
   const [handwritingTTSClient] = useState(() => new HandwritingTTSClient());
+
+
+
+  // 🚨 TTSエラーフラグ：同一操作中に複数回アラートを出さないため
+  const [ttsErrorShown, setTTSErrorShown] = useState(false);
 
   return (
     <TouchableWithoutFeedback onPress={() => setIsCanvasIconsVisible(false)}>
@@ -3539,6 +3571,8 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
           onMove={handleRulerMove}
           onAngleAdjust={handleRulerAngleAdjust}
         />
+
+
 
       </KeyboardAvoidingView>
     </TouchableWithoutFeedback>
@@ -4505,6 +4539,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
   },
+
 
 
 });

@@ -1,0 +1,83 @@
+2025-06-17T11:38:03.674Z expo:telemetry Switching strategy from detached to instant
+2025-06-17T11:38:03.745Z expo:telemetry Recording 1 event(s)
+2025-06-17T11:38:03.749Z expo:env Loaded environment variables from: /Users/mishimayu/Desktop/talknote/.env
+2025-06-17T11:38:03.749Z expo:env /Users/mishimayu/Desktop/talknote/.env.development does not exist, skipping this env file
+2025-06-17T11:38:03.749Z expo:env /Users/mishimayu/Desktop/talknote/.env.local does not exist, skipping this env file
+2025-06-17T11:38:03.749Z expo:env /Users/mishimayu/Desktop/talknote/.env.development.local does not exist, skipping this env file
+2025-06-17T11:38:03.750Z expo:env "DEBUG" is already defined and IS NOT overwritten
+env: load .env
+env: export EXPO_PUBLIC_API_BASE_URL EXPO_PUBLIC_STT_BASE_URL EXPO_PUBLIC_ENVIRONMENT OPENAI_API_KEY OPENAI_MODEL ANTHROPIC_API_KEY ANTHROPIC_MODEL FIREBASE_PROJECT_ID GOOGLE_APPLICATION_CREDENTIALS GCP_PROJECT_ID GCS_BUCKET GCS_UPLOAD_FOLDER PUBSUB_ENABLED PUBSUB_MEDIA_TOPIC STT_PROVIDER DATABASE_URL FEATURE_OFFLINE_MODE FEATURE_ASYNC_PROCESSING FEATURE_OCR FEATURE_AI_CHAT FEATURE_RESEARCH TEST_USER_EMAIL TEST_USER_PASSWORD BYPASS_AUTH YAHOO_API_CLIENT_ID FEATURE_PUBSUB TTS_DEFAULT_PROVIDER MINIMAX_TTS_API_KEY MINIMAX_TTS_ENDPOINT GEMINI_TTS_API_KEY GEMINI_TTS_ENDPOINT TTS_AVAILABLE_PROVIDERS AZURE_VISION_ENDPOINT AZURE_VISION_KEY
+2025-06-17T11:38:03.864Z expo:utils:scheme ios application Info.plist path: app/Info.plist
+2025-06-17T11:38:03.869Z expo:utils:scheme ios application schemes: [
+  'com.googleusercontent.apps.309882614658-gql2t1kodc74bt80qeaqbq89gsguehm1',
+  'com.talknote.app',
+  'com.talknote.app',
+  'exp+talknote'
+]
+2025-06-17T11:38:03.893Z expo:utils:scheme android application schemes: [ 'com.talknote.app', 'exp+talknote' ]
+Starting project at /Users/mishimayu/Desktop/talknote
+2025-06-17T11:38:04.063Z expo:utils:fileNotifier Observing /Users/mishimayu/Desktop/talknote/babel.config.js
+2025-06-17T11:38:04.172Z expo:start:server:devServer Stopping dev server (bundler: metro)
+2025-06-17T11:38:04.172Z expo:start:server:devServer Stopped dev server (bundler: metro)
+2025-06-17T11:38:04.181Z expo:start:server:metro:router Using app as the root directory for Expo Router.
+2025-06-17T11:38:04.243Z expo:doctor:apple:simulatorApp Simulator app id: com.apple.iphonesimulator
+2025-06-17T11:38:04.473Z expo:metro:config react-native-reanimated package.json: /Users/mishimayu/Desktop/talknote/node_modules/react-native-reanimated/package.json
+
+Expo Metro config:
+- Version: 0.20.14
+- Extensions: ts, tsx, mjs, js, jsx, json, cjs, scss, sass, css
+- React Native: /Users/mishimayu/Desktop/talknote/node_modules/react-native
+- Watch Folders: 
+- Node Module Paths: 
+- Sass: null
+- Reanimated: 3.17.5
+
+2025-06-17T11:38:04.612Z expo:metro:withMetroResolvers Appending 8 custom resolvers to Metro config. (has custom resolver: false)
+2025-06-17T11:38:04.669Z expo:start:server:urlCreator URL: http://127.0.0.1:8081
+Starting Metro Bundler
+2025-06-17T11:38:04.747Z expo:start:server:middleware:serveStatic Serving static files from: /Users/mishimayu/Desktop/talknote/public
+2025-06-17T11:38:04.781Z expo:start:server:urlCreator URL: http://192.168.0.46:8081
+2025-06-17T11:38:04.781Z expo:start:server:urlCreator Dev client URL: exp+talknote://expo-development-client/?url=http%3A%2F%2F192.168.0.46%3A8081 -- manifestUrl: http://192.168.0.46:8081 -- {}
+warning: Bundler cache is empty, rebuilding (this may take a minute)
+2025-06-17T11:38:04.794Z expo:start:server:developmentSession Development session ping (runtime: native, url: exp+talknote://expo-development-client/?url=http%3A%2F%2F192.168.0.46%3A8081)
+2025-06-17T11:38:05.148Z expo:utils:fileNotifier Observing /Users/mishimayu/Desktop/talknote/metro.config.js
+2025-06-17T11:38:05.148Z expo:start:server:metro:waitForTypescript Watching file changes: [
+  '/Users/mishimayu/Desktop/talknote/.env.development.local',
+  '/Users/mishimayu/Desktop/talknote/.env.local',
+  '/Users/mishimayu/Desktop/talknote/.env.development',
+  '/Users/mishimayu/Desktop/talknote/.env'
+]
+2025-06-17T11:38:05.148Z expo:doctor:typescriptSupport Ensuring TypeScript support is setup
+2025-06-17T11:38:05.151Z expo:doctor:dependencies:getMissingPackages Required package "typescript" found (no version constraint specified).
+2025-06-17T11:38:05.152Z expo:doctor:dependencies:getMissingPackages Required package "@types/react" found (no version constraint specified).
+2025-06-17T11:38:05.154Z expo:typed-routes Removing typed routes side-effects (experiments.typedRoutes: false)
+Waiting on http://localhost:8081
+Logs for your project will appear below.
+2025-06-17T11:43:10.737Z expo:start:project:devices Saving devices: 6DA4D4A8-48BF-4DFD-859D-E43628036737
+2025-06-17T11:43:10.777Z expo:start:server:middleware:manifest Resolved entry point: node_modules/expo/AppEntry.js (project root: /Users/mishimayu/Desktop/talknote)
+2025-06-17T11:43:10.777Z expo:start:server:urlCreator URL: 192.168.0.46:8081
+2025-06-17T11:43:10.777Z expo:start:server:urlCreator URL: 192.168.0.46:8081
+2025-06-17T11:43:10.777Z expo:start:server:metro:router Using app as the root directory for Expo Router.
+2025-06-17T11:43:10.779Z expo:start:server:urlCreator URL: http://192.168.0.46:8081
+2025-06-17T11:43:10.796Z expo:start:server:middleware:resolveRuntimeVersion Using expo-updates runtimeversion:resolve CLI for runtime version resolution
+2025-06-17T11:43:10.811Z expo:start:project:devices Saving devices: 6DA4D4A8-48BF-4DFD-859D-E43628036737
+2025-06-17T11:43:10.817Z expo:start:server:middleware:manifest Resolved entry point: node_modules/expo/AppEntry.js (project root: /Users/mishimayu/Desktop/talknote)
+2025-06-17T11:43:10.817Z expo:start:server:urlCreator URL: 192.168.0.46:8081
+2025-06-17T11:43:10.817Z expo:start:server:urlCreator URL: 192.168.0.46:8081
+2025-06-17T11:43:10.817Z expo:start:server:metro:router Using app as the root directory for Expo Router.
+2025-06-17T11:43:10.817Z expo:start:server:urlCreator URL: http://192.168.0.46:8081
+2025-06-17T11:43:10.818Z expo:start:server:middleware:resolveRuntimeVersion Using expo-updates runtimeversion:resolve CLI for runtime version resolution
+2025-06-17T11:43:21.805Z expo:start:project:devices Saving devices: 6DA4D4A8-48BF-4DFD-859D-E43628036737
+2025-06-17T11:43:21.815Z expo:start:server:middleware:manifest Resolved entry point: node_modules/expo/AppEntry.js (project root: /Users/mishimayu/Desktop/talknote)
+2025-06-17T11:43:21.815Z expo:start:server:urlCreator URL: 192.168.0.46:8081
+2025-06-17T11:43:21.815Z expo:start:server:urlCreator URL: 192.168.0.46:8081
+2025-06-17T11:43:21.815Z expo:start:server:metro:router Using app as the root directory for Expo Router.
+2025-06-17T11:43:21.816Z expo:start:server:urlCreator URL: http://192.168.0.46:8081
+2025-06-17T11:43:21.817Z expo:start:server:middleware:resolveRuntimeVersion Using expo-updates runtimeversion:resolve CLI for runtime version resolution
+2025-06-17T11:43:21.829Z expo:start:project:devices Saving devices: 6DA4D4A8-48BF-4DFD-859D-E43628036737
+2025-06-17T11:43:21.836Z expo:start:server:middleware:manifest Resolved entry point: node_modules/expo/AppEntry.js (project root: /Users/mishimayu/Desktop/talknote)
+2025-06-17T11:43:21.836Z expo:start:server:urlCreator URL: 192.168.0.46:8081
+2025-06-17T11:43:21.836Z expo:start:server:urlCreator URL: 192.168.0.46:8081
+2025-06-17T11:43:21.836Z expo:start:server:metro:router Using app as the root directory for Expo Router.
+2025-06-17T11:43:21.837Z expo:start:server:urlCreator URL: http://192.168.0.46:8081
+2025-06-17T11:43:21.838Z expo:start:server:middleware:resolveRuntimeVersion Using expo-updates runtimeversion:resolve CLI for runtime version resolution

@@ -19,6 +19,7 @@ import * as Crypto from 'expo-crypto';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import * as AuthSession from 'expo-auth-session';
+import { resetLocalDatabase } from './database';
 
 /**
  * Google Sign-In の初期化
@@ -92,6 +93,8 @@ export const signInWithGoogle = async (): Promise<User> => {
     await AsyncStorage.setItem('isAuthenticated', 'true');
     await AsyncStorage.setItem('userId', userCredential.user.uid);
     await AsyncStorage.setItem('idToken', userInfo.idToken);
+    
+    await AsyncStorage.setItem('lastUid', userCredential.user.uid);
     
     return userCredential.user;
 
@@ -235,6 +238,8 @@ export const signInWithLine = async (): Promise<User> => {
     await AsyncStorage.setItem('userId', userCredential.user.uid);
     await AsyncStorage.setItem('idToken', tokenData.access_token);
     
+    await AsyncStorage.setItem('lastUid', userCredential.user.uid);
+    
     return userCredential.user;
 
   } catch (error: any) {
@@ -347,6 +352,8 @@ export const signInWithApple = async (): Promise<User> => {
     await AsyncStorage.setItem('userId', userCredential.user.uid);
     await AsyncStorage.setItem('idToken', appleCredential.identityToken);
     
+    await AsyncStorage.setItem('lastUid', userCredential.user.uid);
+    
     return userCredential.user;
 
   } catch (error: any) {
@@ -379,6 +386,8 @@ export const signInWithEmail = async (email: string, password: string): Promise<
     const idToken = await userCredential.user.getIdToken();
     await AsyncStorage.setItem('idToken', idToken);
     
+    await AsyncStorage.setItem('lastUid', userCredential.user.uid);
+    
     return userCredential.user;
   } catch (error: any) {
     console.error('❌ Email認証エラー:', error);
@@ -403,6 +412,8 @@ export const createAccount = async (email: string, password: string): Promise<Us
     // ID Tokenを取得して保存
     const idToken = await userCredential.user.getIdToken();
     await AsyncStorage.setItem('idToken', idToken);
+    
+    await AsyncStorage.setItem('lastUid', userCredential.user.uid);
     
     return userCredential.user;
   } catch (error: any) {
@@ -430,10 +441,11 @@ export const signOut = async (): Promise<void> => {
     ]);
     console.log('✅ ローカルストレージクリア完了');
     
-    console.log('✅ ログアウト完了');
+    // サインアウト時点ではローカルDBは保持し、次回ログイン時にUID差分で判定してリセット
+    console.log('🚪 Signed out successfully');
   } catch (error: any) {
     console.error('❌ ログアウトエラー:', error);
-    throw new Error(error.message || 'ログアウトに失敗しました');
+    throw new Error('サインアウトに失敗しました');
   }
 };
 

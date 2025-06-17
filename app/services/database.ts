@@ -3,6 +3,7 @@
 import { Platform } from 'react-native';
 import * as SQLite from 'expo-sqlite';
 import { aiApi } from './api';
+import { auth } from './firebase';
 
 
 /**
@@ -106,6 +107,12 @@ export const getDatabase = (): SQLite.SQLiteDatabase => {
   return db;
 };
 
+// 🔑 現在ログイン中のFirebase UIDを取得するヘルパー
+const getCurrentUid = (): string => {
+  // auth.currentUser は未ログイン時 null → 空文字を返す
+  return auth?.currentUser?.uid ?? '';
+};
+
 // データベース初期化
 export const initDatabase = async (): Promise<void> => {
   try {
@@ -120,8 +127,11 @@ export const initDatabase = async (): Promise<void> => {
         created_at INTEGER NOT NULL,
         uploaded INTEGER DEFAULT 0,
         media_id TEXT,
-        transcription TEXT
+        transcription TEXT,
+        user_id TEXT NOT NULL DEFAULT ''
     );`);
+    // 既存テーブルにuser_id列が無い場合に追加（エラー時は無視）
+    await db.execAsync(`ALTER TABLE recordings ADD COLUMN user_id TEXT;`).catch(() => {});
     console.log('Recordings table created successfully');
     
     // インポートファイルテーブル
@@ -133,8 +143,10 @@ export const initDatabase = async (): Promise<void> => {
         file_size INTEGER NOT NULL,
         created_at INTEGER NOT NULL,
         uploaded INTEGER DEFAULT 0,
-        media_id TEXT
+        media_id TEXT,
+        user_id TEXT NOT NULL DEFAULT ''
     );`);
+    await db.execAsync(`ALTER TABLE imports ADD COLUMN user_id TEXT;`).catch(() => {});
     console.log('Imports table created successfully');
     
     // 🆕 通常ノート（ManualNote）テーブル
@@ -146,8 +158,10 @@ export const initDatabase = async (): Promise<void> => {
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         uploaded INTEGER DEFAULT 0,
-        media_id TEXT
+        media_id TEXT,
+        user_id TEXT NOT NULL DEFAULT ''
     );`);
+    await db.execAsync(`ALTER TABLE manual_notes ADD COLUMN user_id TEXT;`).catch(() => {});
     console.log('Manual notes table created successfully');
     
     // アップロードキューテーブル
@@ -169,8 +183,10 @@ export const initDatabase = async (): Promise<void> => {
         photos TEXT NOT NULL,
         created_at INTEGER NOT NULL,
         uploaded INTEGER DEFAULT 0,
-        media_id TEXT
+        media_id TEXT,
+        user_id TEXT NOT NULL DEFAULT ''
     );`);
+    await db.execAsync(`ALTER TABLE photo_scans ADD COLUMN user_id TEXT;`).catch(() => {});
     console.log('Photo scans table created successfully');
     
     // 🆕 しおり機能用の新しいインターフェース
@@ -216,16 +232,16 @@ export const saveManualNote = async (
     if (existing) {
       // 既存の場合は更新
       await db.runAsync(
-        `UPDATE manual_notes SET title = ?, content = ?, canvas_data = ?, updated_at = ? WHERE id = ?;`,
-        [title, content, canvasJson, now, id]
+        `UPDATE manual_notes SET title = ?, content = ?, canvas_data = ?, updated_at = ?, user_id = ? WHERE id = ?;`,
+        [title, content, canvasJson, now, getCurrentUid(), id]
       );
       console.log('Manual note updated successfully');
     } else {
       // 新規の場合はINSERT
       await db.runAsync(
-        `INSERT INTO manual_notes (id, title, content, canvas_data, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?);`,
-        [id, title, content, canvasJson, now, now]
+        `INSERT INTO manual_notes (id, title, content, canvas_data, created_at, updated_at, user_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?);`,
+        [id, title, content, canvasJson, now, now, getCurrentUid()]
       );
       console.log('Manual note created successfully');
     }
@@ -243,7 +259,8 @@ export const getManualNotes = async (): Promise<ManualNote[]> => {
   try {
     const db = getDatabase();
     const result = await db.getAllAsync<ManualNote>(
-      'SELECT * FROM manual_notes ORDER BY updated_at DESC;'
+      'SELECT * FROM manual_notes WHERE user_id = ? ORDER BY updated_at DESC;',
+      [getCurrentUid()]
     );
     console.log('[getManualNotes] 取得したManualNote数:', result.length);
     return result || [];
@@ -326,13 +343,12 @@ export const saveRecording = async (
   try {
     const db = getDatabase();
     const now = Date.now();
-    
+    const uid = getCurrentUid();
     await db.runAsync(
-      `INSERT INTO recordings (id, title, duration, file_path, created_at, transcription)
-            VALUES (?, ?, ?, ?, ?, ?);`,
-      [id, title, duration, filePath, now, transcription || null]
+      `INSERT INTO recordings (id, title, duration, file_path, created_at, transcription, user_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?);`,
+      [id, title, duration, filePath, now, transcription || null, uid]
     );
-    
     console.log('Recording saved successfully');
     return Promise.resolve();
   } catch (error: unknown) {
@@ -378,13 +394,12 @@ export const saveImport = async (
   try {
     const db = getDatabase();
     const now = Date.now();
-    
+    const uid = getCurrentUid();
     await db.runAsync(
-      `INSERT INTO imports (id, title, file_path, file_type, file_size, created_at)
-           VALUES (?, ?, ?, ?, ?, ?);`,
-      [id, title, filePath, fileType, fileSize, now]
+      `INSERT INTO imports (id, title, file_path, file_type, file_size, created_at, user_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?);`,
+      [id, title, filePath, fileType, fileSize, now, uid]
     );
-    
     console.log('Import saved successfully');
     return Promise.resolve();
   } catch (error: unknown) {
@@ -403,30 +418,24 @@ export const savePhotoScan = async (
   try {
     const db = getDatabase();
     const now = Date.now();
-    
-    // 既存レコードをチェック
+    const uid = getCurrentUid();
     const existing = await db.getFirstAsync<{id: string}>(
       `SELECT id FROM photo_scans WHERE id = ?;`,
       [id]
     );
-    
     if (existing) {
-      // 既存の場合はphotosのみ更新
       await db.runAsync(
-        `UPDATE photo_scans SET photos = ? WHERE id = ?;`,
-        [JSON.stringify(photos), id]
+        `UPDATE photo_scans SET photos = ?, user_id = ? WHERE id = ?;`,
+        [JSON.stringify(photos), uid, id]
       );
-      console.log('Photo scan updated successfully');
     } else {
-      // 新規の場合はINSERT
     await db.runAsync(
-      `INSERT INTO photo_scans (id, title, photos, created_at)
-       VALUES (?, ?, ?, ?);`,
-      [id, title, JSON.stringify(photos), now]
+        `INSERT INTO photo_scans (id, title, photos, created_at, user_id)
+         VALUES (?, ?, ?, ?, ?);`,
+        [id, title, JSON.stringify(photos), now, uid]
     );
-    console.log('Photo scan saved successfully');
     }
-    
+    console.log('Photo scan saved successfully');
     return Promise.resolve();
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -489,11 +498,11 @@ export const addToUploadQueue = async (
 export const getRecordings = async (): Promise<Recording[]> => {
   try {
     const db = getDatabase();
-    
+    const uid = getCurrentUid();
     const result = await db.getAllAsync<Recording>(
-      'SELECT * FROM recordings ORDER BY created_at DESC;'
+      'SELECT * FROM recordings WHERE user_id = ? ORDER BY created_at DESC;',
+      [uid]
     );
-    
     return result || [];
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -508,7 +517,8 @@ export const getImports = async (): Promise<ImportFile[]> => {
     const db = getDatabase();
     
     const result = await db.getAllAsync<ImportFile>(
-      'SELECT * FROM imports ORDER BY created_at DESC;'
+      'SELECT * FROM imports WHERE user_id = ? ORDER BY created_at DESC;',
+      [getCurrentUid()]
     );
     
     return result || [];
@@ -524,20 +534,27 @@ export const getPhotoScans = async (): Promise<PhotoScan[]> => {
   try {
     const db = getDatabase();
     
-    const result = await db.getAllAsync<{
+    const raw = await db.getAllAsync<{
       id: string;
       title: string;
       photos: string;
       created_at: number;
       uploaded: number;
       media_id?: string;
-    }>('SELECT * FROM photo_scans ORDER BY created_at DESC;');
-    
-    // photosフィールドをJSONパースして返す
-    return (result || []).map(row => ({
-      ...row,
-      photos: JSON.parse(row.photos)
+    }>(
+      'SELECT * FROM photo_scans WHERE user_id = ? ORDER BY created_at DESC;',
+      [getCurrentUid()]
+    );
+    const result: PhotoScan[] = (raw || []).map((row) => ({
+      id: row.id,
+      title: row.title,
+      photos: JSON.parse(row.photos || '[]'),
+      created_at: row.created_at,
+      uploaded: row.uploaded,
+      media_id: row.media_id
     }));
+    
+    return result;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Error getting photo scans:', errorMessage);
@@ -1029,57 +1046,26 @@ export const deleteNote = async (noteId: string): Promise<void> => {
 export const getAllNotes = async (): Promise<Recording[]> => {
   try {
     const db = getDatabase();
-    
-    // 録音データ、インポートファイル、写真スキャン、通常ノートを統合してRecording型として返す
-    const result = await db.getAllAsync<Recording>(
-      `SELECT 
-        id,
-        title,
-        duration,
-        file_path,
-        created_at,
-        uploaded,
-        media_id,
-        transcription
-      FROM recordings
-      UNION ALL
-      SELECT 
-        id,
-        title,
-        0 as duration,
-        file_path,
-        created_at,
-        uploaded,
-        media_id,
-        NULL as transcription
-      FROM imports
-      UNION ALL
-      SELECT 
-        id,
-        title,
-        0 as duration,
-        'photo_scan' as file_path,
-        created_at,
-        uploaded,
-        media_id,
-        photos as transcription
-      FROM photo_scans
-      UNION ALL
-      SELECT 
-        id,
-        title,
-        0 as duration,
-        'manual' as file_path,
-        created_at as created_at,
-        uploaded,
-        media_id,
-        canvas_data as transcription
-      FROM manual_notes
-      ORDER BY created_at DESC;`
+    const uid = getCurrentUid();
+    const recs = await db.getAllAsync<Recording>(
+      'SELECT id,title,duration,file_path,created_at,uploaded,media_id,transcription FROM recordings WHERE user_id = ?',
+      [uid]
     );
-    
-    console.log('[getAllNotes] 取得したノート数（全4ノートタイプ統合）:', result.length);
-    return result || [];
+    const imps = await db.getAllAsync<Recording>(
+      'SELECT id,title,0 as duration,file_path,created_at,uploaded,media_id,NULL as transcription FROM imports WHERE user_id = ?',
+      [uid]
+    );
+    const photos = await db.getAllAsync<Recording>(
+      `SELECT id,title,0 as duration,'photo_scan' as file_path,created_at,uploaded,media_id,photos as transcription FROM photo_scans WHERE user_id = ?`,
+      [uid]
+    );
+    const manuals = await db.getAllAsync<Recording>(
+      `SELECT id,title,0 as duration,'manual' as file_path,created_at,uploaded,media_id,canvas_data as transcription FROM manual_notes WHERE user_id = ?`,
+      [uid]
+    );
+    const all = [...recs, ...imps, ...photos, ...manuals].sort((a,b)=>b.created_at - a.created_at);
+    console.log('[getAllNotes] ユーザー別ノート取得:', all.length);
+    return all;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Error getting all notes:', errorMessage);
@@ -1226,6 +1212,22 @@ export const getLastBookmarkPage = async (noteId: string): Promise<number> => {
   } catch (error) {
     console.error('Error getting last bookmark page:', error);
     return 1; // エラー時はページ1を返す
+  }
+};
+
+// 🎛️ ローカルDB完全リセット（ログアウト時に呼び出す）
+export const resetLocalDatabase = async (): Promise<void> => {
+  try {
+    const db = getDatabase();
+    await db.execAsync('DELETE FROM recordings;');
+    await db.execAsync('DELETE FROM imports;');
+    await db.execAsync('DELETE FROM photo_scans;');
+    await db.execAsync('DELETE FROM manual_notes;');
+    await db.execAsync('DELETE FROM bookmarks;');
+    await db.execAsync('DELETE FROM upload_queue;');
+    console.log('[resetLocalDatabase] ローカルDBをクリアしました');
+  } catch (error) {
+    console.error('[resetLocalDatabase] ローカルDBクリア失敗:', error);
   }
 };
 

@@ -72,8 +72,8 @@ export default class HandwritingTTSClient {
       console.log('🎉 Handwriting TTS completed successfully');
       return mp3Path;
     } catch (error) {
-      console.error('🚨 Handwriting TTS error:', error);
-      throw error;
+      // エラーログを出力せずに例外をそのまま再スロー
+      throw error; // 依然として呼び出し元でハンドリング
     }
   }
 } 
