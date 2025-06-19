@@ -15,7 +15,6 @@ export default ({ config }) => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.yumishijikken.talknote',
-    deploymentTarget: '15.1',
   },
   android: {
     adaptiveIcon: {
@@ -23,7 +22,6 @@ export default ({ config }) => ({
       backgroundColor: '#ffffff',
     },
     package: 'com.yumishijikken.talknote',
-    minSdkVersion: 21,
   },
   web: {
     favicon: './assets/favicon.png',
