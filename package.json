@@ -70,7 +70,7 @@
   "overrides": {
     "react-dom": "19.0.0",
     "balanced-match": "2.0.0",
-    "ajv-keywords": "5.1.0"
+    "ajv-keywords": "3.5.2"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
