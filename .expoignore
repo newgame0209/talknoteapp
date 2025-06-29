@@ -1,0 +1,16 @@
+# Expo / EAS でバンドル・アップロード対象から除外したいパス
+# バックアップ用や一時的な node_modules を無視
+node_modules_old
+node_modules_old_delete
+node_modules_temp
+node_modules_temp_delete
+
+# 巨大なサンプルやテスト用アセット
+test-samples/
+
+# ビルド生成物
+*.ipa
+build-*/*
+
+# パッチファイルや不要ディレクトリ
+patches/ 
