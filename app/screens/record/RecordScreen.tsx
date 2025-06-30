@@ -15,6 +15,7 @@ import axios from 'axios';
 import { getCurrentIdToken } from '../../services/auth';
 import * as Crypto from 'expo-crypto';
 import * as FileSystem from 'expo-file-system';
+import api from '../../services/api';
 
 /**
  * 録音画面
@@ -46,25 +47,37 @@ const RecordScreen: React.FC = () => {
   // WebSocket接続を初期化
   const initializeSTTSocket = async () => {
     try {
+      // 🚨 強制デバッグ: STTSocket初期化詳細
+      console.log('🚨 [initializeSTTSocket] 初期化開始');
       console.log('[RecordScreen] STTSocket初期化開始');
       setIsConnecting(true);
       
       // 既存の接続があれば閉じる
       if (sttSocketRef.current) {
+        console.log('🚨 [initializeSTTSocket] 既存接続をクローズ');
         console.log('[RecordScreen] 既存のWebSocket接続を閉じます');
         sttSocketRef.current.closeConnection(); // disconnect() から closeConnection() に変更
       }
       
+      // 🚨 強制デバッグ: WebSocket URL取得
+      console.log('🚨 [initializeSTTSocket] WebSocket URL取得中...');
       const wsUrl = getWsUrl(); // WebSocket URLを取得
+      console.log('🚨 [initializeSTTSocket] 取得したWebSocket URL:', wsUrl);
+      // 🚨 強制デバッグ: 認証情報取得
+      console.log('🚨 [initializeSTTSocket] 認証情報取得中...');
       const currentUser = auth.currentUser;
+      console.log('🚨 [initializeSTTSocket] currentUser:', currentUser ? 'あり' : 'なし');
       let idToken: string | null = null;
 
       if (!currentUser) {
+        console.warn('🚨 [initializeSTTSocket] ユーザー未認証 - デモモード');
         console.warn('[RecordScreen] ユーザーが認証されていません。デモモードで続行します。');
         idToken = 'demo_token_for_development'; // デモトークン
       } else {
+        console.log('🚨 [initializeSTTSocket] IDトークン取得中...');
         console.log('[RecordScreen] 認証済みユーザーのIDトークンを取得中');
         idToken = await currentUser.getIdToken();
+        console.log('🚨 [initializeSTTSocket] IDトークン取得:', idToken ? '成功' : '失敗');
       }
 
       const sttConfig = {
@@ -74,8 +87,17 @@ const RecordScreen: React.FC = () => {
         interim_results: true, // 中間結果を有効化（リアルタイム表示のため）
       };
 
-      // 新しいSTTSocket接続を作成
+      // 🚨 強制デバッグ: STTSocket作成
+      console.log('🚨 [initializeSTTSocket] STTSocket作成開始');
+      console.log('🚨 [initializeSTTSocket] 設定:', sttConfig);
       console.log('[RecordScreen] 新しいSTTSocket接続を作成');
+      
+      // 🚨 強制デバッグ: 作成前パラメータ確認
+      console.log('🚨 [initializeSTTSocket] 作成パラメータ:');
+      console.log('🚨   - URL:', wsUrl);
+      console.log('🚨   - Token長:', idToken ? idToken.length : 0);
+      console.log('🚨   - Config:', JSON.stringify(sttConfig));
+      
       sttSocketRef.current = new STTSocket(
         wsUrl, 
         idToken,
@@ -126,11 +148,21 @@ const RecordScreen: React.FC = () => {
         }
       );
       
+      // 🚨 強制デバッグ: 接続開始判定
+      console.log('🚨 [initializeSTTSocket] 接続開始判定:', idToken ? 'トークンあり' : 'トークンなし');
+      
       if (idToken) {
+        console.log('🚨 [initializeSTTSocket] STTSocket.connect()呼び出し中...');
         console.log(`[RecordScreen] WebSocket接続を開始 (URL: ${wsUrl}, Token: ${idToken ? 'あり' : 'なし'})`);
+        
+        // 🚨 強制デバッグ: connect()実行直前
+        console.log('🚨 [initializeSTTSocket] sttSocketRef.current:', sttSocketRef.current ? 'あり' : 'なし');
+        
         sttSocketRef.current.connect(); // 引数なしでconnectを呼び出し
+        console.log('🚨 [initializeSTTSocket] STTSocket.connect()呼び出し完了');
       } else {
         // トークンがない場合はエラー処理またはデモモードの継続など
+        console.error('🚨 [initializeSTTSocket] IDトークンなし - 接続中止');
         console.error('[RecordScreen] IDトークンが取得できませんでした。接続を開始できません。');
         setIsConnecting(false);
         Alert.alert('エラー', '認証情報が取得できず、サーバーに接続できません。');
@@ -522,14 +554,9 @@ const RecordScreen: React.FC = () => {
     try {
       console.log('🔍 録音文字起こしのAI整形開始:', { textLength: rawText.length });
       
-      // APIベースURLを取得
-      const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:8000';
-      
-      // 認証トークンを取得
-      const token = await getCurrentIdToken();
-      const authHeader = token ? `Bearer ${token}` : 'Bearer demo_token_for_development';
-      
-      const response = await axios.post(`${API_BASE_URL}/api/v1/ai/enhance-scanned-text`, {
+      // 共通 API クライアントと環境変数ユーティリティを使用してリクエストを送信
+      // API ベース URL は `app/config/env.ts` の getApiBaseUrl で一元管理されています
+      const response = await api.post('/api/v1/ai/enhance-scanned-text', {
         text: rawText,
         analyze_structure: true,          // 文章構造解析
         correct_grammar: true,            // 文法修正
@@ -545,11 +572,8 @@ const RecordScreen: React.FC = () => {
         enhance_clarity: true,            // 明瞭性の向上
         preserve_speaker_intent: true     // 話者の意図を保持
       }, {
-        headers: { 
-          Authorization: authHeader,
-          'Content-Type': 'application/json'
-        },
-        timeout: 30000
+        // 30 秒タイムアウト。必要に応じて調整可能。
+        timeout: 30000,
       });
       
       if (response.data && response.data.enhanced_text) {

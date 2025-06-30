@@ -5,12 +5,19 @@ import { getCurrentIdToken } from './auth';
 
 // 環境変数から動的にAPIベースURLを取得
 const getApiBaseUrl = () => {
+  // 🔍 デバッグ: 全ての環境変数をログ出力
+  console.log('[API DEBUG] process.env keys:', Object.keys(process.env).filter(key => key.startsWith('EXPO_PUBLIC')));
+  console.log('[API DEBUG] EXPO_PUBLIC_API_BASE_URL:', process.env.EXPO_PUBLIC_API_BASE_URL);
+  console.log('[API DEBUG] __DEV__:', __DEV__);
+  
   // 環境変数からAPIベースURLを取得
   const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
   if (baseUrl) {
     console.log('[API] 環境変数からベースURL取得:', baseUrl);
     return baseUrl;
   }
+  
+  console.log('[API DEBUG] 環境変数が未設定、フォールバックロジックに移行');
   
   // フォールバック：開発環境と本番環境
   if (__DEV__) {
@@ -31,10 +38,10 @@ const getApiBaseUrl = () => {
     return fallbackUrl;
   }
   
-  // 本番環境
-  const prodUrl = 'https://api.talknote.app';
-  console.log('[API] 本番環境URL使用:', prodUrl);
-  return prodUrl;
+  // 開発段階: 常にローカル開発環境を使用
+  const devUrl = 'http://192.168.0.46:8000';
+  console.log('[API] 開発環境URL使用:', devUrl);
+  return devUrl;
 };
 
 // API設定
@@ -51,16 +58,10 @@ const getWsBaseUrl = () => {
     return `${wsUrl}/api/v1/stt/stream`;
     }
     
-    // フォールバック
-  if (__DEV__) {
-    const fallbackWsUrl = 'ws://localhost:8002/api/v1/stt/stream';
-    console.log('[WS] フォールバックWebSocketURL使用:', fallbackWsUrl);
-    return fallbackWsUrl;
-    } else {
-    const prodWsUrl = 'wss://api.talknote.app/api/v1/stt/stream';
-    console.log('[WS] 本番WebSocketURL使用:', prodWsUrl);
-    return prodWsUrl;
-  }
+    // 開発段階: 常にローカル開発環境を使用
+    const devWsUrl = 'ws://192.168.0.46:8002/api/v1/stt/stream';
+    console.log('[WS] 開発WebSocketURL使用:', devWsUrl);
+    return devWsUrl;
 };
 
 const WS_BASE_URL = getWsBaseUrl();
@@ -198,18 +199,32 @@ export const mediaApi = {
 
   // Expo Go対応: ファイルアップロード
   uploadFile: async (fileUri: string, fileType: string) => {
+    console.log('🚀 [uploadFile] 開始 - fileUri:', fileUri, 'fileType:', fileType);
+    
     const formData = new FormData();
+    // React Native対応: ファイルオブジェクトの形式を修正
     formData.append('file', {
       uri: fileUri,
       name: 'recording.wav',
       type: fileType,
     } as any);
+    
+    console.log('🚀 [uploadFile] FormData作成完了');
+    
+    try {
     const response = await api.post('/api/v1/media/upload-file', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+        timeout: 60000, // 60秒タイムアウト
     });
+      
+      console.log('🚀 [uploadFile] 成功 - response:', response.data);
     return response.data;
+    } catch (error) {
+      console.error('❌ [uploadFile] エラー:', error);
+      throw error;
+    }
   },
 };
 
