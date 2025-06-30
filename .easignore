@@ -1,0 +1,69 @@
+# Backend files (not needed for mobile build)
+backend/
+terraform/
+
+# Build logs
+build*.log
+*.log
+
+# Development files
+docs/
+cursor/
+test-samples/
+mock_stt_server.py
+stt_server.py
+test_websocket_stt.py
+test_audio.wav
+
+# Temporary files
+node_modules_temp_delete/
+node_modules_old_delete/
+
+# Lock files
+package-lock*.json
+yarn.lock
+
+# Config duplicates
+app 2.json
+App 2.tsx
+babel.config 2.js
+tailwind.config 2.js
+tsconfig 2.json
+types.d 2.ts
+package 2.json
+
+# Docker
+docker-compose.yml
+
+# Other
+todo.mdc
+TTS_implementation_plan.md
+GOOGLE_CLOUD_SETUP.md
+ANDROID_SETUP.md
+README.md
+switch-env.sh
+expo_debug.log
+expo_verbose.log
+
+# Keep iOS Supporting files
+!ios/app/Supporting/
+
+# 依存ライブラリ（ビルドマシンで再インストールされるため不要）
+node_modules/
+
+# 古い / 一時的な node_modules フォルダー
+node_modules_old/
+node_modules_old_delete/
+node_modules_temp/
+node_modules_temp_delete/
+
+# Android ネイティブプロジェクト（iOS ビルド時には不要）
+android/
+
+# テストカバレッジ・ローカルビルド生成物
+coverage/
+.nyc_output/
+
+# CocoaPods のビルド成果物（毎回再生成される）
+ios/Pods/
+ios/Podfile.lock 

@@ -1,0 +1,83 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 🚀 しゃべるノート – 修正 / 新機能 実装フロー
+
+このドキュメントは、バグ修正や新機能追加を行ったあと **10〜15 分以内** に実機で動作確認するまでの手順を標準化したものです。
+
+---
+## 0. 前提
+* **Dev Client 最新版 IPA** が iPhone/iPad にインストール済み。
+* **バックエンド API** はローカル (`http://192.168.0.xx`) で起動可能。
+* `eas.json` にホーム用(`dev-home`) / オフィス用(`dev-office`) など IP 切替用のプロファイルを用意済み。
+* `infoPlist` には ATS 例外 (`NSAllowsArbitraryLoads: true`) を設定済み。
+
+---
+## 1. コード変更
+1. フロントエンド (`app/`) またはバックエンド (`backend/`) を修正 / 新機能追加。
+2. **ESLint / Prettier / MyPy** が通ることを確認。
+3. `todo.mdc` を更新してタスクをクローズ。
+
+---
+## 2. フロントエンドのみ変更 (ネイティブ変更なし)
+| 所要時間 | 手順 |
+|---|---|
+| 30–60 秒 | `eas update --branch development --platform ios --non-interactive --message "feat: xxx"` |
+| +15 秒 | OTA アップロード完了 → Dev Client 再起動 or Dev Menu → **Updates > Check** |
+| +20 秒 | **新しい Dev Client を入れた直後は JS が空のため**<br>Home 画面 → Enter URL manually に<br>`exp://u.expo.dev/289c2b35-e74b-4c11-abc4-d0c7e2f9df79?channel-name=development` を1度入力 → 次回以降はキャッシュで不要 |
+| ✅ | 動作確認完了 |
+
+⚠️ **ネイティブコードや `app.config.js > ios/android` に変更が無いこと** を必ず確認。
+
+---
+## 3. ネイティブ設定を変更した場合 (InfoPlist, Pod 追加 等)
+| 所要時間 | 手順 |
+|---|---|
+| 7–10 分 | `eas build --profile dev-home --platform ios --non-interactive`<br>※ オフィス用なら `dev-office` |
+| +1 分  | ビルド完了メール/URL から IPA ダウンロード & インストール |
+| +30 秒 | Dev Client 起動 → 動作確認 |
+| ➕ 必要なら `eas update` で JS 差し替え |
+
+---
+## 4. バックエンド変更のみ
+1. `cd backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000` でローカル起動。
+2. 実機が同一 LAN にあり、`EXPO_PUBLIC_API_BASE_URL` がローカル IP を指していることを確認。
+3. フロントエンド側は再起動不要。即座に API 変更をテスト可能。
+
+---
+## 5. 高速化 Tips
+* **.easignore** に `backend/`, `docs/`, `android/` を必ず含める。
+* `assetBundlePatterns` は `assets/**/*` など最小範囲に限定。
+* `EAS_CLI` は月1で `npm i -g eas-cli` で更新。新機能でビルド時間短縮あり。
+* 画像・音声など大容量アセットは Cloud Storage/CDN で配信し、OTA には含めない。
+
+---
+## 6. トラブルシューティング
+| 症状 | 原因 | 対策 |
+|---|---|---|
+| OTA が取得されない | runtimeVersion 不一致 | Dev Client と同じ commit から `eas update` |
+| `Exporting…` が長い | ファイルスキャン過多 | `.easignore`, `assetBundlePatterns` を最適化 |
+| HTTP API へ繋がらない | ATS ブロック | `infoPlist.NSAppTransportSecurity` で許可 or HTTPS トンネル |
+| iOS ビルド失敗 | Certificate/Provision 問題 | Expo Dev Console で Credentials を再同期 |
+
+---
+## 7. よく使うコマンド
+```bash
+# JS/Asset だけ更新 (最速)
+eas update --branch development --platform ios --non-interactive -m "fix: auto-save"
+
+# Dev Client 再ビルド (ホーム)
+eas build --profile dev-home --platform ios --non-interactive
+
+# バックエンド起動
+cd backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# OTA デバッグログ付き
+eas update --branch development -p ios --non-interactive \
+  --message "debug" --clear-cache EAS_DEBUG=1
+```
+
+---
+最終更新: 2024-06-25
