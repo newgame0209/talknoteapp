@@ -312,7 +312,10 @@ export const signInWithApple = async (): Promise<User> => {
 
     console.log('🔐 Nonce生成完了');
 
-    // Apple認証実行
+    // NOTE: expo-apple-authentication の API には clientId オプションがなく、
+    // aud はアプリの Bundle ID になります。
+    // Firebase 側で「Bundle ID = com.yumishijikken.talknote」を登録することで
+    // 認証が通ります。
     const appleCredential = await AppleAuthentication.signInAsync({
       requestedScopes: [
         AppleAuthentication.AppleAuthenticationScope.FULL_NAME,

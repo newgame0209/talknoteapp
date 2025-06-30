@@ -4,8 +4,6 @@
   <dict>
     <key>CADisableMinimumFrameDurationOnPhone</key>
     <true/>
-    <key>CFBundleAllowMixedLocalizations</key>
-    <true/>
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
@@ -27,24 +25,6 @@
     <key>CFBundleURLTypes</key>
     <array>
       <dict>
-        <key>CFBundleURLName</key>
-        <string>google-auth</string>
-        <key>CFBundleURLSchemes</key>
-        <array>
-          <string>com.googleusercontent.apps.309882614658-gql2t1kodc74bt80qeaqbq89gsguehm1</string>
-        </array>
-      </dict>
-      <dict>
-        <key>CFBundleURLName</key>
-        <string>talknote-auth</string>
-        <key>CFBundleURLSchemes</key>
-        <array>
-          <string>com.talknote.app</string>
-        </array>
-      </dict>
-      <dict>
-        <key>CFBundleURLName</key>
-        <string>line-auth</string>
         <key>CFBundleURLSchemes</key>
         <array>
           <string>com.talknote.app</string>
@@ -54,6 +34,12 @@
         <key>CFBundleURLSchemes</key>
         <array>
           <string>exp+talknote</string>
+        </array>
+      </dict>
+      <dict>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>com.googleusercontent.apps.309882614658-gql2t1kodc74bt80qeaqbq89gsguehm1</string>
         </array>
       </dict>
     </array>
@@ -68,16 +54,52 @@
     <key>NSAppTransportSecurity</key>
     <dict>
       <key>NSAllowsArbitraryLoads</key>
-      <false/>
+      <true/>
       <key>NSAllowsLocalNetworking</key>
       <true/>
+      <key>NSExceptionDomains</key>
+      <dict>
+        <key>192.168.0.46</key>
+        <dict>
+          <key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
+          <true/>
+          <key>NSIncludesSubdomains</key>
+          <true/>
+          <key>NSExceptionAllowsInsecureHTTPLoads</key>
+          <true/>
+          <key>NSExceptionRequiresForwardSecrecy</key>
+          <false/>
+          <key>NSExceptionMinimumTLSVersion</key>
+          <string>1.0</string>
+          <key>NSExceptionAllowsInsecureHTTPSLoads</key>
+          <true/>
+        </dict>
+        <key>localhost</key>
+        <dict>
+          <key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
+          <true/>
+          <key>NSIncludesSubdomains</key>
+          <true/>
+          <key>NSExceptionAllowsInsecureHTTPLoads</key>
+          <true/>
+        </dict>
+      </dict>
     </dict>
     <key>NSCameraUsageDescription</key>
     <string>写真スキャン機能を利用するためにカメラへのアクセスを許可してください。</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>録音機能を利用するためにマイクへのアクセスを許可してください。</string>
-    <key>NSPhotoLibraryUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your photos</string>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>音声認識のために同一ネットワーク上のサーバーへ接続します。</string>
+    <key>NSBonjourServices</key>
+    <array>
+      <string>_http._tcp</string>
+      <string>_ws._tcp</string>
+    </array>
+    <key>NSUserActivityTypes</key>
+    <array>
+      <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>
+    </array>
     <key>UILaunchStoryboardName</key>
     <string>SplashScreen</string>
     <key>UIRequiredDeviceCapabilities</key>

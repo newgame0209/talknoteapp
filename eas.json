@@ -1,25 +1,67 @@
 {
   "cli": {
-    "version": ">= 16.0.0",
+    "version": ">= 12.0.0",
     "appVersionSource": "local"
   },
   "build": {
     "development": {
       "distribution": "internal",
       "developmentClient": true,
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "http://192.168.0.46:8000",
+        "EXPO_PUBLIC_API_URL": "http://192.168.0.46:8000",
+        "EXPO_PUBLIC_STT_BASE_URL": "http://192.168.0.46:8002",
+        "EXPO_PUBLIC_TTS_BASE_URL": "http://192.168.0.46:8002",
+        "EXPO_PUBLIC_ENVIRONMENT": "development",
+        "FIREBASE_PROJECT_ID": "talknoteapp",
+        "GCP_PROJECT_ID": "talknoteapp",
+        "STT_PROVIDER": "google",
+        "TTS_DEFAULT_PROVIDER": "google",
+        "DEBUG": "true",
+        "BYPASS_AUTH": "true"
+      },
       "ios": {
         "resourceClass": "m-medium",
-        "buildConfiguration": "Debug"
+        "buildConfiguration": "Debug",
+        "credentialsSource": "remote"
       },
       "android": {
         "resourceClass": "medium",
         "buildType": "apk"
       }
     },
+    "dev-home": {
+      "distribution": "internal",
+      "developmentClient": true,
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "http://192.168.0.46:8000",
+        "EXPO_PUBLIC_API_URL": "http://192.168.0.46:8000",
+        "EXPO_PUBLIC_STT_BASE_URL": "http://192.168.0.46:8002",
+        "EXPO_PUBLIC_TTS_BASE_URL": "http://192.168.0.46:8002",
+        "EXPO_PUBLIC_ENVIRONMENT": "home",
+        "FIREBASE_PROJECT_ID": "talknoteapp",
+        "GCP_PROJECT_ID": "talknoteapp",
+        "STT_PROVIDER": "google",
+        "TTS_DEFAULT_PROVIDER": "google",
+        "DEBUG": "true",
+        "BYPASS_AUTH": "true"
+      },
+      "ios": {
+        "resourceClass": "m-medium",
+        "buildConfiguration": "Debug"
+      }
+    },
     "preview": {
       "distribution": "internal",
+      "developmentClient": true,
+      "channel": "development",
       "ios": {
-        "buildConfiguration": "Release"
+        "buildConfiguration": "Release",
+        "resourceClass": "m-medium"
+      },
+      "android": {
+        "buildType": "apk",
+        "resourceClass": "medium"
       }
     },
     "production": {

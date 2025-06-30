@@ -2,13 +2,26 @@
 
 // WebSocketの設定を環境変数から取得
 const getSTTWebSocketURL = (): string => {
+  // 🚨 強制デバッグ: WebSocket URL生成
+  console.log('🚨 [getSTTWebSocketURL] 実行開始');
+  console.log('🚨 [getSTTWebSocketURL] __DEV__:', __DEV__);
+  
   if (__DEV__) {
     // 開発環境：EXPO_PUBLIC_STT_BASE_URLを使用
-    const sttBaseUrl = process.env.EXPO_PUBLIC_STT_BASE_URL || 'http://192.168.0.166:8002';
-    // HTTPをWSに変換してWebSocketパスを追加
-    return sttBaseUrl.replace('http://', 'ws://').replace('https://', 'wss://') + '/api/v1/stt/stream';
+    const rawSttBaseUrl = process.env.EXPO_PUBLIC_STT_BASE_URL;
+    const sttBaseUrl = rawSttBaseUrl || 'http://192.168.0.46:8002';
+    const wsUrl = sttBaseUrl.replace('http://', 'ws://').replace('https://', 'wss://') + '/api/v1/stt/stream';
+    
+    // 🚨 強制デバッグ: 開発環境詳細
+    console.log('🚨 [getSTTWebSocketURL] 開発環境モード');
+    console.log('🚨 [getSTTWebSocketURL] 環境変数 EXPO_PUBLIC_STT_BASE_URL:', rawSttBaseUrl);
+    console.log('🚨 [getSTTWebSocketURL] 使用するSTT Base URL:', sttBaseUrl);
+    console.log('🚨 [getSTTWebSocketURL] 最終WebSocket URL:', wsUrl);
+    
+    return wsUrl;
   } else {
     // 本番環境
+    console.log('🚨 [getSTTWebSocketURL] 本番環境モード: wss://api.talknote.app/api/v1/stt/stream');
     return 'wss://api.talknote.app/api/v1/stt/stream';
   }
 };
@@ -74,16 +87,26 @@ export class STTSocket {
   }
 
   public connect(): void {
+    // 🚨 強制デバッグ: WebSocket接続詳細
+    console.log('🚨 [STTSocket.connect] 接続開始');
+    console.log('🚨 [STTSocket.connect] Base URL:', this.url);
+    console.log('🚨 [STTSocket.connect] Token有無:', this.token ? 'あり' : 'なし');
+    console.log('🚨 [STTSocket.connect] 最終URL:', this.urlWithToken);
+    console.log('🚨 [STTSocket.connect] 現在の接続状態:', this.state);
+    
     if (this.ws && this.ws.readyState !== WebSocket.CLOSED && this.ws.readyState !== WebSocket.CLOSING) {
-      console.warn('[STTSocket] WebSocket is already connected or connecting/closing.');
+      console.warn('🚨 [STTSocket] WebSocket is already connected or connecting/closing.');
       return;
     }
 
     console.log('[STTSocket] STTサーバーへの接続を開始します URL:', this.urlWithToken);
+    console.log('🚨 [STTSocket.connect] WebSocketを新規作成中...');
     this.state = 'CONNECTING';
     try {
       this.ws = new WebSocket(this.urlWithToken);
+      console.log('🚨 [STTSocket.connect] WebSocket作成成功');
     } catch (error) {
+      console.error('🚨 [STTSocket] WebSocket constructor failed:', error);
       console.error('[STTSocket] WebSocket constructor failed:', error);
       if (this.onErrorCallback) {
         this.onErrorCallback(error instanceof Error ? error : new Error('WebSocket instantiation failed'));
@@ -139,12 +162,38 @@ export class STTSocket {
     };
 
     this.ws.onerror = (event: Event) => {
-      // The Event object itself is often not very informative for WebSocket errors.
-      // The browser console usually logs more detailed information.
-      console.error('[STTSocket] WebSocketエラーが発生しました。詳細はブラウザコンソールを確認してください。', event);
+      // 🚨 強制デバッグ: WebSocketエラー詳細
+      console.error('🚨 [STTSocket] WebSocketエラー発生');
+      console.error('🚨 [STTSocket] Event:', event);
+      console.error('🚨 [STTSocket] Event type:', event.type);
+      console.error('🚨 [STTSocket] Event target:', event.target);
+      console.error('🚨 [STTSocket] WebSocket URL:', this.urlWithToken);
+      console.error('🚨 [STTSocket] WebSocket readyState:', this.ws?.readyState);
+      
+      // WebSocketエラーの可能性を列挙してログ出力
+      const errorDetails = {
+        url: this.urlWithToken,
+        readyState: this.ws?.readyState,
+        readyStateText: this.getReadyState(),
+        timestamp: new Date().toISOString(),
+        event: {
+          type: event.type,
+          target: event.target?.constructor?.name || 'unknown'
+        }
+      };
+      
+      console.error('[STTSocket] WebSocketエラーが発生しました:', JSON.stringify(errorDetails, null, 2));
+      console.error('[STTSocket] 可能な原因:');
+      console.error('  1. サーバーが起動していない');
+      console.error('  2. ネットワーク接続の問題');
+      console.error('  3. ファイアウォールによるブロック');
+      console.error('  4. 認証トークンの問題');
+      console.error('  5. WebSocketプロトコルの非対応');
+      
       if (this.onErrorCallback) {
-        this.onErrorCallback(new Error('WebSocket error occurred. See browser console for details.'));
+        this.onErrorCallback(new Error(`WebSocket connection failed to ${this.urlWithToken}. Details: ${JSON.stringify(errorDetails)}`));
       }
+      
       // Ensure state is updated and ws is cleaned up if error leads to closure
       if (this.ws && (this.ws.readyState === WebSocket.CLOSING || this.ws.readyState === WebSocket.CLOSED)) {
         this.state = 'CLOSED';

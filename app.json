@@ -4,27 +4,23 @@
     "slug": "talknote",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "scheme": "com.talknote.app",
+    "scheme": "com.yumishijikken.talknote",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
     "assetBundlePatterns": [
-      "**/*"
+      "assets/**/*"
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.talknote.app",
-      "developmentTeam": "26C27955TZ",
+      "bundleIdentifier": "com.yumishijikken.talknote",
       "jsEngine": "jsc",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "録音機能を利用するためにマイクへのアクセスを許可してください。",
-        "NSCameraUsageDescription": "写真スキャン機能を利用するためにカメラへのアクセスを許可してください。",
-        "ITSAppUsesNonExemptEncryption": false,
         "CFBundleURLTypes": [
-          {
-            "CFBundleURLName": "google-auth",
-            "CFBundleURLSchemes": [
-              "com.googleusercontent.apps.309882614658-gql2t1kodc74bt80qeaqbq89gsguehm1"
-            ]
-          },
           {
             "CFBundleURLName": "talknote-auth",
             "CFBundleURLSchemes": [
@@ -37,20 +33,29 @@
               "com.talknote.app"
             ]
           }
-        ]
-      },
-      "appleTeamId": "26C27955TZ"
+        ],
+        "NSMicrophoneUsageDescription": "録音機能を利用するためにマイクへのアクセスを許可してください。",
+        "NSCameraUsageDescription": "写真スキャン機能を利用するためにカメラへのアクセスを許可してください。",
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAllowsArbitraryLoads": true,
+        "NSExceptionDomains": {
+          "192.168.0.46": {
+            "NSExceptionAllowsInsecureHTTPLoads": true,
+            "NSExceptionMinimumTLSVersion": "1.0",
+            "NSExceptionRequiresForwardSecrecy": false
+          }
+        }
+      }
     },
     "android": {
-      "package": "com.talknote.app",
-      "permissions": [
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.CAMERA"
-      ]
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.yumishijikken.talknote"
     },
     "web": {
-      "bundler": "metro"
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-dev-client",
@@ -67,6 +72,10 @@
         "projectId": "289c2b35-e74b-4c11-abc4-d0c7e2f9df79"
       }
     },
-    "owner": "yumishijikken"
+    "owner": "yumishijikken",
+    "runtimeVersion": "1.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/289c2b35-e74b-4c11-abc4-d0c7e2f9df79"
+    }
   }
 }
