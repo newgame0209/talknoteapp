@@ -1,0 +1,9 @@
+if (process.env.NODE_ENV === 'production') {
+  /* Expo SDK 53 (Metro 0.82) は拡張子 .cjs を解決できますが、react-is@19.1.0 には
+   * `react-is.production.js` が同梱されておらず、代わりに `react-is.production.min.js`
+   * だけが配置されています。そのため Metro バンドラがファイルを見つけられず
+   * `Unable to resolve module` エラーになります。
+   * 本パッチでは require 先を .production.min.js に変更し、ビルドを通ります。
+   */
+  module.exports = require('./cjs/react-is.production.min.js');
+} 
