@@ -1,5 +1,335 @@
 ---
-description:
-globs:
+description: 
+globs: 
 alwaysApply: false
 ---
+まず、このファイルを参照したら、このファイル名を発言すること
+
+# しゃべるノート開発環境移行ガイド
+
+## 📋 概要
+
+MacBook AirからMacBook Proへの完全開発環境移行手順書。
+バックエンドサーバー、フロントエンド、認証情報をすべて新しいMacに移行する。
+
+## 🎯 移行前提条件
+
+### ✅ 利用可能な環境
+- **iCloud同期**: プロジェクトファイルは自動同期済み
+- **完全移行**: MacBook Airは使用停止、MacBook Proで全て実行
+- **IPアドレス変更**: 必須（同一ネットワーク内の新しいIP）
+
+### ⚠️ 手動移行が必要な項目
+1. **Apple Developer証明書**（キーチェーン）
+2. **IPアドレス設定**（環境変数・設定ファイル）
+3. **開発ツール**（Node.js, Python, Xcode等）
+
+## 🚀 移行手順（全体：20分）
+
+### Phase 1: 基本環境構築（5分）
+
+```bash
+# MacBook Proで実行
+
+# 1. Homebrew + 開発ツール
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+brew install node yarn python
+
+# 2. グローバルパッケージ
+npm install -g @expo/cli eas-cli
+
+# 3. Xcode Command Line Tools
+xcode-select --install
+
+# 4. Python依存関係（バックエンド用）
+pip install uvicorn fastapi
+```
+
+### Phase 2: IPアドレス確認＆設定変更（5分）
+
+```bash
+# 1. 新しいIPアドレス確認
+NEW_IP=$(ipconfig getifaddr en0)
+echo "新しいIPアドレス: $NEW_IP"
+echo "変更前IPアドレス: 192.168.0.46"
+
+# 2. プロジェクトディレクトリに移動
+cd ~/Desktop/talknote
+
+# 3. 設定ファイルの一括IP変更
+sed -i '' "s/192.168.0.46/$NEW_IP/g" .env.home
+sed -i '' "s/192.168.0.46/$NEW_IP/g" eas.json
+
+# 4. 変更確認
+echo "=== 変更結果確認 ==="
+grep -n "$NEW_IP" .env.home eas.json
+echo "上記に新しいIPアドレスが表示されていればOK"
+```
+
+### Phase 3: 依存関係インストール（5分）
+
+```bash
+# 1. フロントエンド依存関係
+yarn install
+
+# 2. バックエンド依存関係
+cd backend
+pip install -r requirements.txt
+cd ..
+
+# 3. EAS認証（Expoアカウント）
+eas login
+eas whoami  # アカウント確認
+```
+
+### Phase 4: サーバー起動＆動作確認（5分）
+
+```bash
+# 1. バックエンドサーバー起動（バックグラウンド）
+cd backend
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload &
+cd ..
+
+# 2. STTサーバー起動（別ターミナルで実行）
+# 注意: STTサーバーの具体的な起動コマンドは環境により異なる
+# 通常はポート8002で起動
+
+# 3. サーバー動作確認
+curl http://localhost:8000/health  # FastAPI確認
+curl http://localhost:8002/health  # STTサーバー確認（起動している場合）
+
+# 4. ポート使用状況確認
+netstat -an | grep :8000  # ポート8000確認
+netstat -an | grep :8002  # ポート8002確認
+```
+
+## 📝 変更対象ファイル詳細
+
+### 1. `.env.home` ファイル
+
+```bash
+# 変更前（MacBook Air）
+EXPO_PUBLIC_API_BASE_URL=http://192.168.0.46:8000
+EXPO_PUBLIC_STT_BASE_URL=http://192.168.0.46:8002
+
+# 変更後（MacBook Pro - 例：新しいIPが192.168.0.50の場合）
+EXPO_PUBLIC_API_BASE_URL=http://192.168.0.50:8000
+EXPO_PUBLIC_STT_BASE_URL=http://192.168.0.50:8002
+```
+
+### 2. `eas.json` ファイル
+
+```json
+{
+  "build": {
+    "dev-home": {
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "http://192.168.0.50:8000",
+        "EXPO_PUBLIC_API_URL": "http://192.168.0.50:8000",
+        "EXPO_PUBLIC_STT_BASE_URL": "http://192.168.0.50:8002",
+        "EXPO_PUBLIC_TTS_BASE_URL": "http://192.168.0.50:8002"
+      }
+    }
+  }
+}
+```
+
+## 🔐 Apple Developer証明書移行
+
+### MacBook Airで実行（移行前）
+
+```bash
+# 1. キーチェーンアクセスを開く
+open "/Applications/Utilities/Keychain Access.app"
+
+# 2. 証明書をエクスポート
+# - 左側で「ログイン」→「証明書」を選択
+# - iOS Development証明書を右クリック→「書き出し」
+# - 形式：Personal Information Exchange (.p12)
+# - パスワード設定してiCloudまたはUSBに保存
+
+# 3. エクスポート対象
+# - iOS Development証明書
+# - Apple Distribution証明書
+# - 関連する秘密鍵
+```
+
+### MacBook Proで実行（移行後）
+
+```bash
+# 1. キーチェーンアクセスを開く
+open "/Applications/Utilities/Keychain Access.app"
+
+# 2. 証明書をインポート
+# - ファイル→読み込む
+# - .p12ファイルを選択
+# - 設定したパスワードを入力
+
+# 3. 信頼設定
+# - インポートした証明書をダブルクリック
+# - 「信頼」セクションで「常に信頼」に設定
+```
+
+## 📱 移行完了後の確認手順
+
+### Step 1: EAS Update実行
+
+```bash
+# 新しいIPアドレスでEAS Updateを実行
+eas update --branch development --message "Complete migration to MacBook Pro with new IP: $NEW_IP"
+
+# 実行結果確認
+# ✅ "Published!" が表示されればOK
+# ✅ Update IDが生成されればOK
+```
+
+### Step 2: 実機テスト
+
+```bash
+# アプリを再起動してEAS Updateを適用後、以下をテスト
+
+# 1. 録音機能テスト
+# - 録音開始 → 文字起こし確認 → 録音停止
+# - AI整形処理の成功確認
+# - ノート作成の確認
+
+# 2. 写真スキャン機能テスト  
+# - カメラ撮影 → OCR処理 → AI整形
+# - トリミング機能の動作確認
+
+# 3. コンソールログ確認
+# ✅ "✅ 録音文字起こしAI整形完了"
+# ✅ 新しいIPアドレスが環境変数に反映
+# ❌ "❌ Network Error" が出ないこと
+```
+
+### Step 3: 開発サーバー確認
+
+```bash
+# バックエンドサーバー状況確認
+ps aux | grep uvicorn      # FastAPIサーバー確認
+ps aux | grep stt          # STTサーバー確認
+lsof -i :8000             # ポート8000使用状況
+lsof -i :8002             # ポート8002使用状況
+```
+
+## 🚨 トラブルシューティング
+
+### 問題1: IPアドレスが取得できない
+
+```bash
+# 解決方法：手動でIPアドレスを確認
+ifconfig | grep "inet 192"
+# または
+ipconfig getifaddr en0    # Wi-Fi接続の場合
+ipconfig getifaddr en1    # 有線接続の場合
+```
+
+### 問題2: EAS認証エラー
+
+```bash
+# 解決方法：再認証
+eas logout
+eas login
+eas whoami
+```
+
+### 問題3: サーバー起動失敗
+
+```bash
+# ポート競合確認
+lsof -i :8000
+lsof -i :8002
+
+# プロセス終了（必要に応じて）
+kill -9 [PID]
+
+# 再起動
+cd backend
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### 問題4: 証明書エラー
+
+```bash
+# 解決方法：証明書の再確認
+security find-identity -v -p codesigning
+
+# Xcodeで確認
+open -a Xcode
+# Preferences → Accounts → Apple ID → Manage Certificates
+```
+
+## ✅ 移行完了チェックリスト
+
+### 基本環境
+- [ ] Node.js, yarn, Python インストール完了
+- [ ] @expo/cli, eas-cli インストール完了
+- [ ] Xcode Command Line Tools インストール完了
+
+### 設定変更
+- [ ] `.env.home` のIPアドレス更新完了
+- [ ] `eas.json` のIPアドレス更新完了
+- [ ] 新しいIPアドレスの確認完了
+
+### 認証・証明書
+- [ ] EAS login 完了
+- [ ] Apple Developer証明書移行完了
+- [ ] キーチェーンアクセスでの証明書確認完了
+
+### サーバー起動
+- [ ] FastAPIサーバー起動完了（ポート8000）
+- [ ] STTサーバー起動完了（ポート8002）
+- [ ] curl でのヘルスチェック成功
+
+### 動作確認
+- [ ] EAS Update実行成功
+- [ ] 録音→AI整形機能の動作確認完了
+- [ ] 写真スキャン→OCR機能の動作確認完了
+- [ ] コンソールエラーなしの確認完了
+
+## 📊 成功指標
+
+### 🎯 必須達成項目
+1. **バックエンド**: `curl http://localhost:8000/health` → 200 OK
+2. **STTサーバー**: `curl http://localhost:8002/health` → 200 OK  
+3. **フロントエンド**: EAS Update → "Published!" 表示
+4. **実機テスト**: 録音→AI整形 → エラーなし
+5. **環境変数**: 新しいIPアドレスが正しく反映
+
+### 📈 品質確認項目
+1. **応答速度**: API呼び出しが3秒以内に完了
+2. **AI整形**: 自然な改行・句読点が生成される
+3. **エラーハンドリング**: ネットワークエラーが発生しない
+4. **ログ出力**: 適切なデバッグ情報が表示される
+
+## 📚 参考情報
+
+### 関連ドキュメント
+- `backend.mdc`: バックエンドAPI仕様
+- `frontend.mdc`: フロントエンド構成
+- `implementation.mdc`: 実装計画
+- `todo.mdc`: タスク管理
+
+### 重要なコマンド
+```bash
+# 開発環境確認
+npx expo doctor
+eas build:list --limit=3
+eas update --branch development
+
+# サーバー管理
+ps aux | grep uvicorn
+lsof -i :8000
+netstat -an | grep LISTEN
+```
+
+### 緊急時の連絡先
+- Expo Dashboard: https://expo.dev/accounts/yumishijikken/projects/talknote
+- Apple Developer: https://developer.apple.com/account
+- プロジェクトリポジトリ: [GitHubリンク]
+
+---
+
+**注意**: この移行ガイドは2025年1月時点の環境に基づいています。
+将来的な環境変更やツールアップデートにより手順が変更される可能性があります。

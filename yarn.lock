@@ -3624,15 +3624,7 @@ expo-camera@~16.1.7:
   dependencies:
     invariant "^2.2.4"
 
-expo-constants@^17.1.6:
-  version "17.1.6"
-  resolved "https://registry.yarnpkg.com/expo-constants/-/expo-constants-17.1.6.tgz#a31b019216f7f7bb4907aeffa2d6bf856751985e"
-  integrity sha512-q5mLvJiLtPcaZ7t2diSOlQ2AyxIO8YMVEJsEfI/ExkGj15JrflNQ7CALEW6IF/uNae/76qI/XcjEuuAyjdaCNw==
-  dependencies:
-    "@expo/config" "~11.0.9"
-    "@expo/env" "~1.0.5"
-
-expo-constants@~17.1.5, expo-constants@~17.1.6:
+expo-constants@^17.1.6, expo-constants@~17.1.5, expo-constants@~17.1.6:
   version "17.1.6"
   resolved "https://registry.npmjs.org/expo-constants/-/expo-constants-17.1.6.tgz"
   integrity sha512-q5mLvJiLtPcaZ7t2diSOlQ2AyxIO8YMVEJsEfI/ExkGj15JrflNQ7CALEW6IF/uNae/76qI/XcjEuuAyjdaCNw==
