@@ -29,7 +29,7 @@ export const getDevWsBaseUrl = (): string => {
   
   // 環境変数から取得（本番判定削除）
   const rawSttBaseUrl = process.env.EXPO_PUBLIC_STT_BASE_URL;
-  const sttBaseUrl = rawSttBaseUrl || 'http://192.168.0.46:8002';
+  const sttBaseUrl = rawSttBaseUrl || 'http://192.168.0.92:8002';
   const wsUrl = sttBaseUrl.replace('http://', 'ws://').replace('https://', 'wss://') + '/api/v1/stt/stream';
   
   // 🚨 強制デバッグ: 詳細情報
@@ -58,7 +58,7 @@ export const getApiBaseUrl = (): string => {
   // 環境変数から取得（本番判定削除）
   const rawApiUrl = process.env.EXPO_PUBLIC_API_URL;
   const rawApiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
-  const apiUrl = rawApiUrl || rawApiBaseUrl || 'http://192.168.0.46:8000';
+  const apiUrl = rawApiUrl || rawApiBaseUrl || 'http://192.168.0.92:8000';
   
   // 🚨 強制デバッグ: 詳細情報
   console.log('🚨 [getApiBaseUrl] 環境変数 EXPO_PUBLIC_API_URL:', rawApiUrl);

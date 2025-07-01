@@ -129,7 +129,7 @@ async def synthesize_text(
         # クライアントがアクセスできるURLを構築
         # 注意: ここではAPIサーバーのベースURLを静的に記述していますが、
         # 本番環境では設定から動的に取得するのが望ましいです。
-        base_url = "http://192.168.0.46:8000" # Expoデバッグ用のローカルIP
+        base_url = "http://192.168.0.92:8000" # Expoデバッグ用のローカルIP
         audio_url = f"{base_url}/api/v1/tts/audio/{file_name}"
 
         # レスポンス構築

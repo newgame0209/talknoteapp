@@ -39,7 +39,7 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSAllowsArbitraryLoads": true,
         "NSExceptionDomains": {
-          "192.168.0.46": {
+          "192.168.0.92": {
             "NSExceptionAllowsInsecureHTTPLoads": true,
             "NSExceptionMinimumTLSVersion": "1.0",
             "NSExceptionRequiresForwardSecrecy": false

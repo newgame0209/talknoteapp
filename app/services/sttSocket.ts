@@ -9,7 +9,7 @@ const getSTTWebSocketURL = (): string => {
   if (__DEV__) {
     // 開発環境：EXPO_PUBLIC_STT_BASE_URLを使用
     const rawSttBaseUrl = process.env.EXPO_PUBLIC_STT_BASE_URL;
-    const sttBaseUrl = rawSttBaseUrl || 'http://192.168.0.46:8002';
+    const sttBaseUrl = rawSttBaseUrl || 'http://192.168.0.92:8002';
     const wsUrl = sttBaseUrl.replace('http://', 'ws://').replace('https://', 'wss://') + '/api/v1/stt/stream';
     
     // 🚨 強制デバッグ: 開発環境詳細

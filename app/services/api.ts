@@ -39,7 +39,7 @@ const getApiBaseUrl = () => {
   }
   
   // 開発段階: 常にローカル開発環境を使用
-  const devUrl = 'http://192.168.0.46:8000';
+  const devUrl = 'http://192.168.0.92:8000';
   console.log('[API] 開発環境URL使用:', devUrl);
   return devUrl;
 };
@@ -59,7 +59,7 @@ const getWsBaseUrl = () => {
     }
     
     // 開発段階: 常にローカル開発環境を使用
-    const devWsUrl = 'ws://192.168.0.46:8002/api/v1/stt/stream';
+    const devWsUrl = 'ws://192.168.0.92:8002/api/v1/stt/stream';
     console.log('[WS] 開発WebSocketURL使用:', devWsUrl);
     return devWsUrl;
 };

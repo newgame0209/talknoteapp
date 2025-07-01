@@ -81,7 +81,7 @@ interface DraggableCropFrameProps {
 // API関数
 const apiClient = {
   post: async (url: string, data: any, options: any = {}) => {
-    const response = await fetch(`http://192.168.0.46:8000${url}`, {
+    const response = await fetch(`http://192.168.0.92:8000${url}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

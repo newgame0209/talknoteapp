@@ -50,7 +50,7 @@ export default ({ config }) => ({
               NSAllowsArbitraryLoads: true,
               NSAllowsLocalNetworking: true,
               NSExceptionDomains: {
-                '192.168.0.46': {
+                '192.168.0.92': {
                   NSTemporaryExceptionAllowsInsecureHTTPLoads: true,
                   NSIncludesSubdomains: true,
                   NSExceptionAllowsInsecureHTTPLoads: true,

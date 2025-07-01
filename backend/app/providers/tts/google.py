@@ -8,6 +8,9 @@ from typing import Dict, List, Optional, Any
 import base64
 import time
 
+# loggerを最初に定義
+logger = logging.getLogger(__name__)
+
 try:
     from google.cloud import texttospeech
     from google.api_core import exceptions as gcp_exceptions
@@ -18,8 +21,6 @@ except ImportError:
 
 from app.core.settings import settings
 from .base import BaseTTSProvider, SynthesisResult, VoiceInfo, SentenceTimestamp
-
-logger = logging.getLogger(__name__)
 
 
 class GoogleTTSProvider(BaseTTSProvider):
