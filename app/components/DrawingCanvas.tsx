@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { View, StyleSheet, PanResponder, Dimensions, Text } from 'react-native';
+import { View, StyleSheet, Dimensions, Text } from 'react-native';
 import {
   Canvas,
   Path,
@@ -8,6 +8,8 @@ import {
   useCanvasRef,
   Circle,
 } from '@shopify/react-native-skia';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { isTablet } from '../utils/deviceUtils';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -140,6 +142,9 @@ const DrawingCanvasInner: React.ForwardRefRenderFunction<DrawingCanvasHandle, Dr
   const [eraserPosition, setEraserPosition] = useState<Point | null>(null);
   const [showEraserCursor, setShowEraserCursor] = useState(false);
 
+  // 👉 指タッチを無視するためのフラグ
+  const drawingBlockedRef = useRef(false);
+
   // selectedColorとstrokeWidthを常に最新の値で参照
   const selectedColorRef = useRef<string>(selectedColor);
   const strokeWidthRef = useRef<number>(strokeWidth);
@@ -197,8 +202,9 @@ const DrawingCanvasInner: React.ForwardRefRenderFunction<DrawingCanvasHandle, Dr
   const updateCurrentPathFromPoints = useCallback((points: Point[]) => {
     if (!currentPathRef.current || points.length === 0) return;
     
-    // 📐 座標の間引き処理（パフォーマンス向上）
-    const filteredPoints = SmoothDrawing.filterPoints(points, 2);
+    // 📐 座標の間引き処理（Apple Pencil使用時はより細かく）
+    const filterDistance = isTablet() ? 1 : 2; // iPadでは間引きを少なくして感度向上
+    const filteredPoints = SmoothDrawing.filterPoints(points, filterDistance);
     
     // 🌊 スムーズなベジェ曲線パスを生成
     const smoothPath = SmoothDrawing.createSmoothPath(filteredPoints);
@@ -313,159 +319,104 @@ const DrawingCanvasInner: React.ForwardRefRenderFunction<DrawingCanvasHandle, Dr
     return coords;
   }, []);
 
-  // PanResponder for touch handling - スムーズ描画対応版
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => {
-        const currentTool = selectedToolRef.current;
-        const shouldSet = currentTool !== null && currentTool !== undefined;
-        setDebugInfo(`Should set: ${shouldSet}, tool:'${currentTool}'`);
-        return shouldSet;
-      },
-      onMoveShouldSetPanResponder: () => selectedToolRef.current !== null,
-      
-      onPanResponderGrant: (event) => {
-        const currentTool = selectedToolRef.current;
-        if (!currentTool) {
-          setDebugInfo('Grant: No tool selected');
+  // ✏️ 指タッチを無効化し、Apple Pencil(=Stylus)のみ描画を許可
+  const panGesture = Gesture.Pan()
+    .runOnJS(true) // すべてJSスレッドで実行し、Reanimated依存を排除
+    .minDistance(1) // 最小移動距離を1pxに設定（感度向上）
+    .activeOffsetX([-2, 2]) // X軸の反応範囲を狭く（感度向上）
+    .activeOffsetY([-2, 2]) // Y軸の反応範囲を狭く（感度向上）
+    .onBegin((event) => {
+      const currentTool = selectedToolRef.current;
+      if (!currentTool) return;
+
+      // iPad + ペン系ツールの場合のみフィルタリング
+      const isPenTool = currentTool === 'pen' || currentTool === 'pencil' || currentTool === 'marker';
+      if (isTablet() && isPenTool) {
+        // pointerTypeは数値のenum: TOUCH=0, STYLUS=1, MOUSE=2
+        const pointerType = event.pointerType;
+        const isStylus = pointerType === 1; // 1 = STYLUS
+        drawingBlockedRef.current = !isStylus; // 指(0)ならブロック
+        
+        console.log(`🎯 Pointer detected: type=${pointerType} (0=touch, 1=stylus, 2=mouse), isStylus=${isStylus}`);
+        
+        if (drawingBlockedRef.current) {
+          console.log('🚫 Touch blocked - pen tool requires stylus');
           return;
         }
         
-        const { locationX, locationY } = event.nativeEvent;
-        const x = locationX || 50;
-        const y = locationY || 50;
-        
-        // 🗑️ 消しゴムモードの場合は削除処理
-        if (currentTool === 'eraser') {
-          eraseAtPoint({ x, y });
-          setEraserPosition({ x, y });
-          setShowEraserCursor(true);
-          setDebugInfo(`Eraser: x=${x.toFixed(1)}, y=${y.toFixed(1)}`);
-          return;
+        // Apple Pencil検出時は即座に描画開始（感度向上）
+        if (isStylus) {
+          console.log('✏️ Apple Pencil detected - enhanced sensitivity mode');
         }
-        
-        const newPath = createNewPath();
-        if (!newPath) {
-          setDebugInfo('Grant: Failed to create path');
-          return;
-        }
-        
-        // 📐 座標配列を初期化
-        currentPointsRef.current = [{ x, y }];
-        
-        // 初期パス（単一点）
-        newPath.path = `M${x.toFixed(3)},${y.toFixed(3)}`;
-        
-        setCurrentPath(newPath);
-        currentPathRef.current = newPath;
-        setIsDrawing(true);
-        setMoveCount(0);
-        
-        setDebugInfo(`Grant: x=${x.toFixed(1)}, y=${y.toFixed(1)}, tool=${currentTool}`);
-      },
-      
-      onPanResponderMove: (event) => {
-        const { locationX, locationY } = event.nativeEvent;
-        const x = locationX || 50;
-        const y = locationY || 50;
-        
-        setMoveCount(prev => prev + 1);
-        
-        const currentTool = selectedToolRef.current;
-        if (!currentTool) {
-          setDebugInfo(`Move ${moveCount}: No tool`);
-          return;
-        }
-        
-        // 🗑️ 消しゴムモードの場合は削除処理を継続
-        if (currentTool === 'eraser') {
-          eraseAtPoint({ x, y });
-          setEraserPosition({ x, y });
-          setDebugInfo(`Eraser Move ${moveCount}: x=${x.toFixed(1)}, y=${y.toFixed(1)}`);
-          return;
-        }
-        
-        if (!currentPathRef.current) {
-          setDebugInfo(`Move ${moveCount}: No path`);
-          return;
-        }
-        
-        // 📐 新しい座標を配列に追加
-        currentPointsRef.current.push({ x, y });
-        
-        // 🚀 座標配列からスムーズパスを生成
-        updateCurrentPathFromPoints(currentPointsRef.current);
-        
-        setDebugInfo(`Move ${moveCount}: Points=${currentPointsRef.current.length}, tool=${currentTool}`);
-      },
-      
-      onPanResponderRelease: () => {
-        // console.log('🎨 DrawingCanvas: onPanResponderRelease called', {
-        //   currentPath: currentPathRef.current,
-        //   currentPoints: currentPointsRef.current?.length || 0,
-        //   selectedTool: selectedToolRef.current
-        // });
-        
-        // 🗑️ 消しゴムカーソルを非表示にする
-        setShowEraserCursor(false);
-        setEraserPosition(null);
-        
-        if (selectedToolRef.current === 'eraser') {
-          setIsDrawing(false);
-          setMoveCount(0);
-          return;
-        }
-        
-        if (currentPathRef.current && currentPointsRef.current && currentPointsRef.current.length > 0) {
-          // 🎯 最終的な座標間引き処理（より厳しく）
-          const finalFilteredPoints = SmoothDrawing.filterPoints(currentPointsRef.current, 3);
-          
-          // 🌊 最終的なスムーズパスを生成
-          const finalSmoothPath = SmoothDrawing.createSmoothPath(finalFilteredPoints);
-          
-          const finalPath = {
-            ...currentPathRef.current,
-            path: finalSmoothPath
-          };
-          
-          const newPaths = [...pathsRef.current, finalPath];
-          
-          // console.log('🚀 DrawingCanvas: Saving new path', {
-          //   tool: finalPath.tool,
-          //   color: finalPath.color,
-          //   strokeWidth: finalPath.strokeWidth,
-          //   pathLength: finalPath.path.length,
-          //   originalPoints: currentPointsRef.current.length,
-          //   filteredPoints: finalFilteredPoints.length,
-          //   existingPathsLength: pathsRef.current.length,
-          //   newPathsLength: newPaths.length,
-          //   newPaths: newPaths.map((p, i) => ({ 
-          //     index: i, 
-          //     tool: p.tool, 
-          //     timestamp: p.timestamp,
-          //     pathLength: p.path.length
-          //   }))
-          // });
-          
-          setDebugInfo(`Release: Saved smooth path with ${finalFilteredPoints.length} points`);
-          onPathsChange(newPaths);
-        } else {
-          setDebugInfo(`Release: NOT saved - no path or points`);
-          // console.log('❌ DrawingCanvas: Path NOT saved - no path or points');
-        }
-        
-        // 🧹 クリーンアップ
-        setCurrentPath(null);
-        currentPathRef.current = null;
-        currentPointsRef.current = [];
-        setIsDrawing(false);
-        setMoveCount(0);
-      },
-      
-      onPanResponderTerminationRequest: () => false,
-      onShouldBlockNativeResponder: () => true,
+      }
+
+      const { x, y } = event;
+
+      // 消しゴム
+      if (currentTool === 'eraser') {
+        eraseAtPoint({ x, y });
+        setEraserPosition({ x, y });
+        setShowEraserCursor(true);
+        return;
+      }
+
+      const newPath = createNewPath();
+      if (!newPath) return;
+
+      currentPointsRef.current = [{ x, y }];
+      newPath.path = `M${x.toFixed(3)},${y.toFixed(3)}`;
+      setCurrentPath(newPath);
+      currentPathRef.current = newPath;
+      setIsDrawing(true);
     })
-  ).current;
+    .onUpdate((event) => {
+      const currentTool = selectedToolRef.current;
+      if (!currentTool) return;
+
+      const { x, y } = event;
+
+      if (currentTool === 'eraser') {
+        eraseAtPoint({ x, y });
+        setEraserPosition({ x, y });
+        return;
+      }
+
+      if (drawingBlockedRef.current) {
+        console.log('🚫 Touch blocked during move - pen tool requires stylus');
+        return; // 指タッチ→無視
+      }
+
+      if (!currentPathRef.current) return;
+
+      currentPointsRef.current.push({ x, y });
+      updateCurrentPathFromPoints(currentPointsRef.current);
+    })
+    .onEnd(() => {
+      setShowEraserCursor(false);
+      setEraserPosition(null);
+
+      if (drawingBlockedRef.current) {
+        drawingBlockedRef.current = false;
+        setIsDrawing(false);
+        console.log('🚫 Touch ended - was blocked (not stylus)');
+        return;
+      }
+
+      if (currentPathRef.current && currentPointsRef.current.length) {
+        // 最終パス処理でも感度を考慮
+        const finalFilterDistance = isTablet() ? 2 : 3; // iPadでは最終処理でもより細かく
+        const finalFiltered = SmoothDrawing.filterPoints(currentPointsRef.current, finalFilterDistance);
+        const smoothPath = SmoothDrawing.createSmoothPath(finalFiltered);
+        const finalPath = { ...currentPathRef.current, path: smoothPath };
+        onPathsChange([...pathsRef.current, finalPath]);
+      }
+
+      // cleanup
+      setCurrentPath(null);
+      currentPathRef.current = null;
+      currentPointsRef.current = [];
+      setIsDrawing(false);
+    });
 
   // ツール別のスタイル設定 - スムーズ描画対応版
   const getPathStyle = (drawingPath: DrawingPath) => {
@@ -584,96 +535,63 @@ const DrawingCanvasInner: React.ForwardRefRenderFunction<DrawingCanvasHandle, Dr
 
   return (
     <View style={styles.container}>
-      {/* デバッグ情報表示 - 開発時のみ表示 */}
-      {false && (
-        <View style={styles.debugInfo}>
-          <Text style={styles.debugText}>📊 Debug: {debugInfo}</Text>
-          <Text style={styles.debugText}>🎨 Tool: {selectedTool || 'null'}</Text>
-          <Text style={styles.debugText}>🌈 Color: {selectedColor}</Text>
-          <Text style={styles.debugText}>📏 Width: {strokeWidth}px</Text>
-          <Text style={styles.debugText}>💾 Saved Paths: {paths.length}</Text>
-          <Text style={styles.debugText}>✏️ Drawing: {isDrawing ? 'Yes' : 'No'}</Text>
-          <Text style={styles.debugText}>📐 Points: {currentPointsRef.current?.length || 0}</Text>
-          <Text style={styles.debugText}>🔄 Moves: {moveCount}</Text>
-          
-          {/* 📋 Paths配列の詳細表示 */}
-          <Text style={styles.debugText}>--- Paths Details ---</Text>
-          {paths.map((path, index) => (
-            <Text key={index} style={styles.debugText} numberOfLines={1}>
-              #{index}: {path.tool}({path.color.substring(0,7)}) t:{path.timestamp.toString().slice(-4)}
-            </Text>
-          ))}
-          
-          {/* 🚀 現在のパス情報 */}
-          {currentPath && (
-            <Text style={styles.debugText} numberOfLines={1}>
-              🚀 Current: {currentPath.tool}({currentPath.color.substring(0,7)}) len:{currentPath.path.length}
-            </Text>
-          )}
-          
-          {/* 📦 Props vs State 比較 */}
-          <Text style={styles.debugText}>Props→State: {paths.length} paths received</Text>
-          <Text style={styles.debugText}>🌊 Smooth Drawing v2.1</Text>
-        </View>
-      )}
-      
-      <View style={styles.canvasContainer} {...panResponder.panHandlers}>
-        <Canvas
-          ref={canvasRef}
-          style={styles.canvas}
-        >
-          <Group>
-            {/* 保存済みパスを描画 - 常に表示 */}
-            {paths.map((drawingPath, index) => {
-              const pathStyle = getPathStyle(drawingPath);
-              try {
-                const skiaPath = Skia.Path.MakeFromSVGString(drawingPath.path);
-                return skiaPath ? (
+      <GestureDetector gesture={panGesture}>
+        <View style={styles.canvasContainer}>
+          <Canvas
+            ref={canvasRef}
+            style={styles.canvas}
+          >
+            <Group>
+              {/* 🎨 保存済みのパスを描画 */}
+              {paths.map((drawingPath, index) => {
+                if (!drawingPath.path) return null;
+                
+                const pathObj = Skia.Path.MakeFromSVGString(drawingPath.path);
+                if (!pathObj) return null;
+                
+                const pathStyle = getPathStyle(drawingPath);
+                
+                return (
                   <Path
-                    key={`saved-${drawingPath.timestamp}-${index}`}
-                    path={skiaPath}
+                    key={`${drawingPath.timestamp}-${index}`}
+                    path={pathObj}
                     {...pathStyle}
                   />
-                ) : null;
-              } catch (error) {
-                // console.log('Invalid saved path:', drawingPath.path);
-                return null;
-              }
-            })}
-            
-            {/* 現在描画中のパスを描画 */}
-            {currentPath && currentPath.path && (
-              (() => {
-                try {
-                  const skiaPath = Skia.Path.MakeFromSVGString(currentPath.path);
-                  return skiaPath ? (
+                );
+              })}
+              
+              {/* 🚀 現在描画中のパス */}
+              {currentPath && currentPath.path && (
+                (() => {
+                  const currentPathObj = Skia.Path.MakeFromSVGString(currentPath.path);
+                  if (!currentPathObj) return null;
+                  
+                  const currentPathStyle = getPathStyle(currentPath);
+                  
+                  return (
                     <Path
-                      key={`current-${currentPath.timestamp}`}
-                      path={skiaPath}
-                      {...getPathStyle(currentPath)}
+                      path={currentPathObj}
+                      {...currentPathStyle}
                     />
-                  ) : null;
-                } catch (error) {
-                  // console.log('Invalid current path:', currentPath.path);
-                  return null;
-                }
-              })()
-            )}
-            
-            {/* 🗑️ 消しゴムカーソル */}
-            {showEraserCursor && eraserPosition && (
-              <Circle
-                cx={eraserPosition.x}
-                cy={eraserPosition.y}
-                r={15}
-                style="stroke"
-                strokeWidth={2}
-                color="rgba(255, 0, 0, 0.5)"
-              />
-            )}
-          </Group>
-        </Canvas>
-      </View>
+                  );
+                })()
+              )}
+              
+              {/* 🗑️ 消しゴムカーソル */}
+              {showEraserCursor && eraserPosition && (
+                <Circle
+                  cx={eraserPosition.x}
+                  cy={eraserPosition.y}
+                  r={15}
+                  color="rgba(255, 0, 0, 0.3)"
+                  style="stroke"
+                  strokeWidth={2}
+                />
+              )}
+            </Group>
+          </Canvas>
+        </View>
+      </GestureDetector>
     </View>
   );
 };
