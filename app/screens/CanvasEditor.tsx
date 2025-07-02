@@ -41,6 +41,8 @@ import database, {
   import { AudioPlayer } from '../utils/audioHelpers';
   import HandwritingTTSClient from '../services/HandwritingTTSClient';
 import { preprocessTextForTTS } from '../utils/ttsPreprocessor';
+  // 📱 デバイス判定ユーティリティ
+  import { isTablet, isIPad, getDeviceInfo } from '../utils/deviceUtils';
 
   // 🎤 TTS関連の型定義追加
   interface TTSSentence {
@@ -100,6 +102,10 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
   // 📸 写真スキャンノート判定と関連状態
   const [isPhotoScanNote, setIsPhotoScanNote] = useState<boolean>(false);
 
+  // 📱 デバイス判定状態管理（iPad版対応）
+  const deviceInfo = getDeviceInfo();
+  const isTabletDevice = deviceInfo.isTablet;
+  const isIPadDevice = deviceInfo.isIPad;
 
   // 🎵 Phase 4: 音声プレイヤー表示状態管理（全ノート共通）
   const [showAudioPlayer, setShowAudioPlayer] = useState<boolean>(false);
@@ -1175,9 +1181,8 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     setShowColorSettings(false);
     setShowStrokeSettings(false);
     
-    // ✅ 追加修正: ツールバータッチで罫線アイコン非表示 → 音声プレイヤー表示
+    // ✅ 修正: ツールバータッチで罫線アイコン非表示（音声プレイヤーは音声読み上げボタン専用）
     setIsCanvasIconsVisible(false);
-    setShowAudioPlayer(true);
   };
 
   // キーボードツール選択ハンドラ
@@ -1202,9 +1207,8 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     contentInputRef.current?.blur();
     setIsEditing(false);
     setIsEditingTitle(false);
-    // ✅ 追加修正: ツールバータッチで罫線アイコン非表示 → 音声プレイヤー表示
+    // ✅ 修正: ツールバータッチで罫線アイコン非表示（音声プレイヤーは音声読み上げボタン専用）
     setIsCanvasIconsVisible(false);
-    setShowAudioPlayer(true);
   };
 
   // キーボードツール内の選択ハンドラ
@@ -1276,10 +1280,44 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     contentInputRef.current?.blur();
     setIsEditing(false);
     setIsEditingTitle(false);
-    // ✅ 追加修正: ツールバータッチで罫線アイコン非表示 → 音声プレイヤー表示
+    // ✅ 修正: ツールバータッチで罫線アイコン非表示（音声プレイヤーは音声読み上げボタン専用）
     setIsCanvasIconsVisible(false);
-    setShowAudioPlayer(true);
     markAsChanged(); // 🔥 追加: 音声ツール選択時に変更フラグを立てる
+  };
+
+  // 🎵 音声読み上げボタン専用のハンドラー
+  const handleTTSButtonPress = () => {
+    console.log('🎵 音声読み上げボタンがタップされました');
+    
+    // 編集中の場合は編集状態を解除
+    if (isEditing) {
+      setIsEditing(false);
+      // TextInputのフォーカスを解除
+      if (contentInputRef.current) {
+        contentInputRef.current.blur();
+      }
+      console.log('📝 編集状態を解除しました');
+    }
+    
+    // 音声プレイヤーの表示・非表示をトグル
+    const newShowAudioPlayer = !showAudioPlayer;
+    setShowAudioPlayer(newShowAudioPlayer);
+    
+    if (newShowAudioPlayer) {
+      console.log('🔊 音声プレイヤーを表示しました');
+    } else {
+      console.log('🔇 音声プレイヤーを非表示にしました');
+    }
+    
+    // 他のサブメニューを閉じる
+    setSelectedTool(null);
+    setSelectedPenTool(null);
+    setSelectedKeyboardTool(null);
+    setShowColorSettings(false);
+    setShowStrokeSettings(false);
+    setIsCanvasIconsVisible(false);
+    
+    markAsChanged(); // 音声読み上げボタン押下
   };
 
   // キャンバスアイコンタップ時のハンドラ（アイコン非表示）
@@ -2553,7 +2591,6 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     setIsEditing(false);
     setIsEditingTitle(false);
     setIsCanvasIconsVisible(false);
-    setShowAudioPlayer(true);
   };
 
   // 🔍 検索実行
@@ -2835,6 +2872,22 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                   </>
                 )}
               </View>
+              
+              {/* 音声読み上げボタン */}
+              <TouchableOpacity 
+                style={[
+                  styles.topBarIcon,
+                  isTTSPlaying && styles.disabledSubToolIcon // TTS再生中はグレーアウト
+                ]} 
+                onPress={handleTTSButtonPress}
+                disabled={isTTSPlaying} // TTS再生中は無効化
+              >
+                <Ionicons 
+                  name="volume-high-outline" 
+                  size={22} 
+                  color={isTTSPlaying ? '#999' : '#fff'} 
+                />
+              </TouchableOpacity>
             </View>
             
             {/* グループ3: しおり・ページ設定 */}
@@ -3295,8 +3348,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                     placeholderTextColor="#B0B0B0"
                     onBlur={() => {
                       setIsEditing(false);
-                      // ✅ テキスト編集終了時に音声プレイヤーを再表示
-                      setShowAudioPlayer(true);
+                      // ✅ 修正: テキスト編集終了時は音声プレイヤーを再表示しない（音声読み上げボタン専用）
                       handleContentSave();
                     }}
                     editable={selectedTool !== 'pen'} // ペンツール時は編集不可
@@ -3409,35 +3461,30 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
               <View style={styles.canvasIconsBar}>
                 <TouchableOpacity style={styles.canvasIcon} onPress={() => {
                   setIsCanvasIconsVisible(false);
-                  setShowAudioPlayer(true);
                 }}>
                   <MaterialCommunityIcons name="notebook-outline" size={20} color="#B0B0B0" />
                   <Text style={styles.canvasIconText}>罫線</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.canvasIcon} onPress={() => {
                   setIsCanvasIconsVisible(false);
-                  setShowAudioPlayer(true);
                 }}>
                   <MaterialCommunityIcons name="grid" size={20} color="#B0B0B0" />
                   <Text style={styles.canvasIconText}>格子</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.canvasIcon} onPress={() => {
                   setIsCanvasIconsVisible(false);
-                  setShowAudioPlayer(true);
                 }}>
                   <MaterialCommunityIcons name="dots-grid" size={20} color="#B0B0B0" />
                   <Text style={styles.canvasIconText}>ドット</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.canvasIcon} onPress={() => {
                   setIsCanvasIconsVisible(false);
-                  setShowAudioPlayer(true);
                 }}>
                   <MaterialCommunityIcons name="file-document-outline" size={20} color="#B0B0B0" />
                   <Text style={styles.canvasIconText}>テンプレート</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.canvasIcon} onPress={() => {
                   setIsCanvasIconsVisible(false);
-                  setShowAudioPlayer(true);
                 }}>
                   <MaterialCommunityIcons name="camera-outline" size={20} color="#B0B0B0" />
                   <Text style={styles.canvasIconText}>スキャン</Text>
