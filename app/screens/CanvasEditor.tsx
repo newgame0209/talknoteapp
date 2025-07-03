@@ -2761,13 +2761,17 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
           {/* 中央のアイコン群 */}
           <View style={[
             styles.centerIcons,
-            (recordingState === 'recording' || recordingState === 'paused') && styles.centerIconsRecording
+            isTablet() && styles.centerIconsTablet // iPad専用スタイル追加
           ]}>
             {/* グループ1: 戻る・検索 */}
-            <View style={styles.iconGroup}>
+            <View style={[
+              styles.iconGroup,
+              isTablet() && styles.iconGroupTablet // iPad専用スタイル追加
+            ]}>
               <TouchableOpacity 
                 style={[
                   styles.topBarIcon, 
+                  isTablet() && styles.topBarIconTablet, // iPad専用スタイル追加
                   isSearchVisible && styles.selectedToolIcon,
                   isTTSPlaying && styles.disabledSubToolIcon // 🆕 TTS再生中はグレーアウト
                 ]} 
@@ -2786,10 +2790,14 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
             </View>
             
             {/* グループ2: ペンツール・キーボード・マイク */}
-            <View style={styles.iconGroup}>
+            <View style={[
+              styles.iconGroup,
+              isTablet() && styles.iconGroupTablet // iPad専用スタイル追加
+            ]}>
               <TouchableOpacity 
                 style={[
                   styles.topBarIcon, 
+                  isTablet() && styles.topBarIconTablet, // iPad専用スタイル追加
                   selectedTool === 'pen' && styles.selectedToolIcon,
                   isTTSPlaying && styles.disabledSubToolIcon // 🆕 TTS再生中はグレーアウト
                 ]} 
@@ -2805,6 +2813,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
               <TouchableOpacity 
                 style={[
                   styles.topBarIcon, 
+                  isTablet() && styles.topBarIconTablet, // iPad専用スタイル追加
                   selectedTool === 'keyboard' && styles.selectedToolIcon,
                   isTTSPlaying && styles.disabledSubToolIcon // 🆕 TTS再生中はグレーアウト
                 ]} 
@@ -2891,8 +2900,11 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
             </View>
             
             {/* グループ3: しおり・ページ設定 */}
-            {(recordingState === 'idle') && (
-            <View style={styles.rightIconGroup}>
+            {recordingState === 'idle' ? (
+            <View style={[
+              styles.rightIconGroup,
+              isTablet() && styles.rightIconGroupTablet // iPad専用スタイル追加
+            ]}>
                               <TouchableOpacity 
                   style={[
                     styles.topBarIcon,
@@ -2929,11 +2941,21 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                 />
               </TouchableOpacity>
             </View>
+            ) : (
+              // 録音中：右側の幅を保持する透明ダミー
+              <View style={[
+                styles.rightIconGroup,
+                isTablet() && styles.rightIconGroupTablet,
+                {opacity: 0} // 透明にして幅だけ保持
+              ]}>
+                <View style={styles.topBarIcon} />
+                <View style={styles.topBarIcon} />
+              </View>
             )}
           </View>
           
           {/* 三点リーダー（右端） */}
-          {(recordingState === 'idle') && (
+          {recordingState === 'idle' ? (
           <TouchableOpacity 
             style={[
               styles.moreButtonContainer,
@@ -2951,6 +2973,9 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
               color={isTTSPlaying ? '#999' : '#fff'} 
             />
           </TouchableOpacity>
+          ) : (
+            // 録音中：三点リーダーの幅を保持する透明ダミー
+            <View style={[styles.moreButtonContainer, {opacity: 0}]} />
           )}
         </View>
 
@@ -3015,16 +3040,28 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
 
         {/* サブツールバー - 選択されたツールによって表示 */}
         {selectedTool && selectedTool !== 'voice' && (
-          <View style={styles.subToolbar}>
+          <View style={[
+            styles.subToolbar,
+            isTablet() && styles.subToolbarTablet // iPad専用スタイル追加
+          ]}>
             {selectedTool === 'pen' && (
               <ScrollView 
                 horizontal 
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ paddingHorizontal: 8 }}
+                contentContainerStyle={[
+                  { paddingHorizontal: 8 },
+                  isTablet() && { paddingHorizontal: 0, justifyContent: 'center' } // iPad専用
+                ]}
               >
-                <View style={styles.subToolbarContent}>
+                <View style={[
+                  styles.subToolbarContent,
+                  isTablet() && styles.subToolbarContentTablet // iPad専用スタイル追加
+                ]}>
                   {/* サブツール：戻す、進める、ペン、鉛筆、マーカー、消しゴム、太さ、色、画像、定規 */}
-                  <View style={styles.subToolGroup}>
+                  <View style={[
+                    styles.subToolGroup,
+                    isTablet() && styles.subToolGroupTablet // iPad専用スタイル追加
+                  ]}>
                     {/* 戻す・進める */}
                     <View style={styles.compactUndoRedoContainer}>
                       <TouchableOpacity 
@@ -3156,10 +3193,19 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
               <ScrollView 
                 horizontal 
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ paddingHorizontal: 8 }}
+                contentContainerStyle={[
+                  { paddingHorizontal: 8 },
+                  isTablet() && { paddingHorizontal: 0, justifyContent: 'center' } // iPad専用
+                ]}
               >
-                <View style={styles.subToolbarContent}>
-                  <View style={styles.subToolGroup}>
+                <View style={[
+                  styles.subToolbarContent,
+                  isTablet() && styles.subToolbarContentTablet // iPad専用スタイル追加
+                ]}>
+                  <View style={[
+                    styles.subToolGroup,
+                    isTablet() && styles.subToolGroupTablet // iPad専用スタイル追加
+                  ]}>
                     {/* 戻す・進める - compactUndoRedoContainer形式に統一 */}
                     <View style={styles.compactUndoRedoContainer}>
                       <TouchableOpacity 
@@ -3656,21 +3702,47 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    justifyContent: 'space-between',
+    justifyContent: 'space-between', // 左右に適切に配置
     marginHorizontal: 8,
+  },
+  // 🌟 iPad専用：中央寄せで余白調整
+  centerIconsTablet: {
+    justifyContent: 'center', // 中央寄せ
+    marginHorizontal: 0, // 外側マージンを削除
+    paddingHorizontal: 0, // 内側パディングも削除
+    flex: 1, // flex: 1を確保
+    maxWidth: '70%', // 最大幅を制限して中央に寄せる
+    alignSelf: 'center', // 自身を中央配置
   },
   iconGroup: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center', // 録音中のボタン群を中央寄せ
+  },
+  // 🌟 iPad専用：アイコングループの余白調整
+  iconGroupTablet: {
+    marginHorizontal: 20, // グループ間の余白をさらに増加
+    paddingHorizontal: 12, // 内側パディングも増加
   },
   rightIconGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     marginRight: -8,
   },
+  // 🌟 iPad専用：右側グループの調整
+  rightIconGroupTablet: {
+    marginRight: 0, // 右側の負のマージンを削除
+    marginHorizontal: 12, // 統一した余白
+    paddingHorizontal: 8,
+  },
   topBarIcon: {
     marginHorizontal: 6,
     padding: 4,
+  },
+  // 🌟 iPad専用：アイコンの余白調整
+  topBarIconTablet: {
+    marginHorizontal: 8, // アイコン間の余白を増加
+    padding: 6, // パディングも少し増加
   },
   moreButtonContainer: {
     width: 40,
@@ -3820,6 +3892,10 @@ const styles = StyleSheet.create({
     elevation: 1,
     width: '100%',
   },
+  // 🌟 iPad専用：サブツールバー中央寄せ
+  subToolbarTablet: {
+    alignItems: 'center', // 中央寄せ
+  },
   subToolbarContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -3827,11 +3903,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     width: '100%',
   },
+  // 🌟 iPad専用：サブツールバーコンテンツ幅制限
+  subToolbarContentTablet: {
+    width: 'auto', // 自動幅
+    maxWidth: '70%', // 最大幅70%
+    justifyContent: 'center', // 中央寄せ
+    alignItems: 'center', // 垂直方向も中央寄せ
+    alignSelf: 'center', // 自身を中央に配置
+  },
   subToolGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
     flex: 1,
+  },
+  // 🌟 iPad専用：サブツールグループ中央寄せ
+  subToolGroupTablet: {
+    flex: 0, // flexを無効化
+    justifyContent: 'center', // 中央寄せ
+    alignItems: 'center',
   },
   colorSettingsGroup: {
     flexDirection: 'row',
@@ -4139,6 +4229,7 @@ const styles = StyleSheet.create({
   voiceRecordingArea: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center', // 中央寄せ追加
   },
   recordingTimeDisplay: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
@@ -4153,9 +4244,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   centerIconsRecording: {
-    justifyContent: 'flex-start',
+    justifyContent: 'center', // 中央寄せに変更
     marginHorizontal: 0,
-    marginLeft: -8,
+    marginLeft: 0, // 負のマージンを削除
     paddingLeft: 0,
   },
   disabledSubToolIcon: {

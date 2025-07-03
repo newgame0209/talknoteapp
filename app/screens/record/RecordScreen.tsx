@@ -824,7 +824,7 @@ const styles = StyleSheet.create({
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start', // 左寄せに変更
+    justifyContent: 'center', // 中央寄せに変更
     paddingVertical: 12,
     paddingHorizontal: 16,
     backgroundColor: '#FFFFFF', // 背景色を白に変更
@@ -859,13 +859,15 @@ const styles = StyleSheet.create({
   // 録音情報スタイル - 背景を削除し、余白を調整
   recordingInfo: {
     padding: 16,
-    marginTop: 20, // 上の余白を増やす
+    marginTop: 40, // 上の余白を増やして中央寄せに
     marginBottom: 16,
+    alignItems: 'center', // 全体を中央寄せ
   },
   timeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    justifyContent: 'center', // 中央寄せ
+    marginBottom: 24, // 下の余白を増やす
   },
   recordingIcon: {
     width: 32,
@@ -886,6 +888,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 8,
     marginTop: 10,
+    alignSelf: 'stretch', // 幅いっぱいに表示
   },
   transcriptionContainer: {
     padding: 16,
@@ -912,14 +915,15 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     letterSpacing: 0.5,
     textAlign: 'center',
-    marginTop: 30,
-    marginBottom: 20,
+    marginTop: 60, // 上の余白を増やして中央寄せ
+    marginBottom: 40, // 下の余白を増やす
+    paddingHorizontal: 20, // 左右の余白を追加
   },
   illustrationContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 10,
-    marginBottom: 20,
+    marginTop: 40, // 上の余白を増やして中央寄せ
+    marginBottom: 60, // 下の余白を増やす
   },
   waveformContainer: {
     height: 40,

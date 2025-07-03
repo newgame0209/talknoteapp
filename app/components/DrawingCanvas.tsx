@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { View, StyleSheet, Dimensions, Text } from 'react-native';
+import { View, StyleSheet, Dimensions, Text, PixelRatio } from 'react-native';
 import {
   Canvas,
   Path,
@@ -7,6 +7,7 @@ import {
   Group,
   useCanvasRef,
   Circle,
+  Paint,
 } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { isTablet } from '../utils/deviceUtils';
@@ -111,6 +112,117 @@ class SmoothDrawing {
     
     return filtered;
   }
+
+  // 🌟 iPad専用：高品質ベジェ曲線生成（GoodNotes風）
+  static createHighQualityPath(points: Point[], isTablet: boolean): string {
+    if (!isTablet) {
+      // モバイルは従来の処理
+      return this.createSmoothPath(points);
+    }
+
+    if (points.length === 0) return '';
+    if (points.length === 1) return `M${points[0].x.toFixed(4)},${points[0].y.toFixed(4)}`;
+    if (points.length === 2) {
+      return `M${points[0].x.toFixed(4)},${points[0].y.toFixed(4)}L${points[1].x.toFixed(4)},${points[1].y.toFixed(4)}`;
+    }
+
+    // 📏 直線検出：ほぼ直線なら完璧な直線として描画
+    if (this.isAlmostStraightLine(points, 3)) {
+      const start = points[0];
+      const end = points[points.length - 1];
+      return `M${start.x.toFixed(4)},${start.y.toFixed(4)}L${end.x.toFixed(4)},${end.y.toFixed(4)}`;
+    }
+
+    // 🎯 高精度パス生成（小数点4桁まで）
+    let path = `M${points[0].x.toFixed(4)},${points[0].y.toFixed(4)}`;
+    
+    // 🌊 キュービックベジェ曲線を使用（より滑らか）
+    for (let i = 0; i < points.length - 1; i++) {
+      const current = points[i];
+      const next = points[i + 1];
+      
+      // 制御点を計算（より自然な曲線のため）
+      let cp1x, cp1y, cp2x, cp2y;
+      
+      if (i === 0) {
+        // 最初の点
+        cp1x = current.x;
+        cp1y = current.y;
+      } else {
+        const prev = points[i - 1];
+        const dx = next.x - prev.x;
+        const dy = next.y - prev.y;
+        cp1x = current.x + dx * 0.15;
+        cp1y = current.y + dy * 0.15;
+      }
+      
+      if (i === points.length - 2) {
+        // 最後の点
+        cp2x = next.x;
+        cp2y = next.y;
+      } else {
+        const nextNext = points[i + 2];
+        const dx = nextNext.x - current.x;
+        const dy = nextNext.y - current.y;
+        cp2x = next.x - dx * 0.15;
+        cp2y = next.y - dy * 0.15;
+      }
+      
+      // C コマンド: キュービックベジェ曲線（より高品質）
+      path += `C${cp1x.toFixed(4)},${cp1y.toFixed(4)} ${cp2x.toFixed(4)},${cp2y.toFixed(4)} ${next.x.toFixed(4)},${next.y.toFixed(4)}`;
+    }
+    
+    return path;
+  }
+
+  // 🎯 iPad専用：より細かい座標フィルタリング
+  static filterPointsHighQuality(points: Point[], minDistance: number = 0.5): Point[] {
+    if (points.length <= 2) return points;
+    
+    const filtered: Point[] = [points[0]];
+    
+    for (let i = 1; i < points.length - 1; i++) {
+      const lastFiltered = filtered[filtered.length - 1];
+      const current = points[i];
+      
+      // より細かい距離でフィルタリング（高解像度対応）
+      if (this.distance(lastFiltered, current) >= minDistance) {
+        filtered.push(current);
+      }
+    }
+    
+    filtered.push(points[points.length - 1]);
+    
+    return filtered;
+  }
+
+  // 📏 直線検出（GoodNotes風）
+  static isAlmostStraightLine(points: Point[], tolerance: number = 5): boolean {
+    if (points.length < 3) return true;
+    
+    const start = points[0];
+    const end = points[points.length - 1];
+    
+    // 始点と終点を結ぶ直線からの最大距離を計算
+    let maxDistance = 0;
+    
+    for (let i = 1; i < points.length - 1; i++) {
+      const point = points[i];
+      const distance = this.distanceFromLine(point, start, end);
+      maxDistance = Math.max(maxDistance, distance);
+    }
+    
+    return maxDistance < tolerance;
+  }
+
+  // 点から直線までの距離を計算
+  static distanceFromLine(point: Point, lineStart: Point, lineEnd: Point): number {
+    const A = lineEnd.y - lineStart.y;
+    const B = lineStart.x - lineEnd.x;
+    const C = lineEnd.x * lineStart.y - lineStart.x * lineEnd.y;
+    
+    return Math.abs(A * point.x + B * point.y + C) / Math.sqrt(A * A + B * B);
+  }
 }
 
 const DrawingCanvasInner: React.ForwardRefRenderFunction<DrawingCanvasHandle, DrawingCanvasProps> = ({
@@ -202,12 +314,21 @@ const DrawingCanvasInner: React.ForwardRefRenderFunction<DrawingCanvasHandle, Dr
   const updateCurrentPathFromPoints = useCallback((points: Point[]) => {
     if (!currentPathRef.current || points.length === 0) return;
     
-    // 📐 座標の間引き処理（Apple Pencil使用時はより細かく）
-    const filterDistance = isTablet() ? 1 : 2; // iPadでは間引きを少なくして感度向上
-    const filteredPoints = SmoothDrawing.filterPoints(points, filterDistance);
+    const isIPad = isTablet();
     
-    // 🌊 スムーズなベジェ曲線パスを生成
-    const smoothPath = SmoothDrawing.createSmoothPath(filteredPoints);
+    // 📐 座標の間引き処理（iPad専用の高品質設定）
+    let filteredPoints;
+    let smoothPath;
+    
+    if (isIPad) {
+      // iPad: 超高品質設定
+      filteredPoints = SmoothDrawing.filterPointsHighQuality(points, 0.5); // より細かく
+      smoothPath = SmoothDrawing.createHighQualityPath(filteredPoints, true);
+    } else {
+      // モバイル: 従来の設定
+      filteredPoints = SmoothDrawing.filterPoints(points, 2);
+      smoothPath = SmoothDrawing.createSmoothPath(filteredPoints);
+    }
     
     const updatedPath = {
       ...currentPathRef.current,
@@ -403,10 +524,21 @@ const DrawingCanvasInner: React.ForwardRefRenderFunction<DrawingCanvasHandle, Dr
       }
 
       if (currentPathRef.current && currentPointsRef.current.length) {
-        // 最終パス処理でも感度を考慮
-        const finalFilterDistance = isTablet() ? 2 : 3; // iPadでは最終処理でもより細かく
-        const finalFiltered = SmoothDrawing.filterPoints(currentPointsRef.current, finalFilterDistance);
-        const smoothPath = SmoothDrawing.createSmoothPath(finalFiltered);
+        // 最終パス処理でも高品質設定を適用
+        const isIPad = isTablet();
+        let finalFiltered;
+        let smoothPath;
+        
+        if (isIPad) {
+          // iPad: 最終処理も高品質
+          finalFiltered = SmoothDrawing.filterPointsHighQuality(currentPointsRef.current, 1);
+          smoothPath = SmoothDrawing.createHighQualityPath(finalFiltered, true);
+        } else {
+          // モバイル: 従来の処理
+          finalFiltered = SmoothDrawing.filterPoints(currentPointsRef.current, 3);
+          smoothPath = SmoothDrawing.createSmoothPath(finalFiltered);
+        }
+        
         const finalPath = { ...currentPathRef.current, path: smoothPath };
         onPathsChange([...pathsRef.current, finalPath]);
       }
@@ -420,11 +552,17 @@ const DrawingCanvasInner: React.ForwardRefRenderFunction<DrawingCanvasHandle, Dr
 
   // ツール別のスタイル設定 - スムーズ描画対応版
   const getPathStyle = (drawingPath: DrawingPath) => {
-    // 🎨 基本的なスタイル設定
+    const isIPad = isTablet();
+    
+    // 🎨 基本的なスタイル設定（iPad専用の高品質設定追加）
     const baseStyle = {
       style: 'stroke' as const,
       strokeCap: 'round' as const,
       strokeJoin: 'round' as const,
+      // 🌟 iPad専用：アンチエイリアシング最高品質
+      ...(isIPad && {
+        antiAlias: true,
+      }),
     };
 
     switch (drawingPath.tool) {
@@ -433,7 +571,10 @@ const DrawingCanvasInner: React.ForwardRefRenderFunction<DrawingCanvasHandle, Dr
           ...baseStyle,
           color: drawingPath.color,
           strokeWidth: drawingPath.strokeWidth,
-          // 🚀 スムーズ描画のためのアンチエイリアシング有効
+          // 🚀 iPad専用：より鮮明な描画
+          ...(isIPad && {
+            strokeWidth: drawingPath.strokeWidth * PixelRatio.get() / 2, // デバイスピクセル比を考慮
+          }),
         };
       case 'pencil':
         return {
@@ -443,6 +584,10 @@ const DrawingCanvasInner: React.ForwardRefRenderFunction<DrawingCanvasHandle, Dr
           opacity: 0.55, // より鉛筆らしい薄い透明感
           strokeCap: 'round' as const,
           strokeJoin: 'round' as const,
+          // 🚀 iPad専用：鉛筆も高品質
+          ...(isIPad && {
+            strokeWidth: drawingPath.strokeWidth * 0.6 * PixelRatio.get() / 2,
+          }),
         };
       case 'marker':
         return {
@@ -451,12 +596,20 @@ const DrawingCanvasInner: React.ForwardRefRenderFunction<DrawingCanvasHandle, Dr
           strokeWidth: drawingPath.strokeWidth * 2.5, // マーカーは太く
           opacity: 0.6, // マーカーらしい透明感
           strokeCap: 'square' as const, // マーカーらしい角張った端
+          // 🚀 iPad専用：マーカーも高品質
+          ...(isIPad && {
+            strokeWidth: drawingPath.strokeWidth * 2.5 * PixelRatio.get() / 2,
+          }),
         };
       default:
         return {
           ...baseStyle,
           color: drawingPath.color,
           strokeWidth: drawingPath.strokeWidth,
+          // 🚀 iPad専用：デフォルトも高品質
+          ...(isIPad && {
+            strokeWidth: drawingPath.strokeWidth * PixelRatio.get() / 2,
+          }),
         };
     }
   };
@@ -539,7 +692,10 @@ const DrawingCanvasInner: React.ForwardRefRenderFunction<DrawingCanvasHandle, Dr
         <View style={styles.canvasContainer}>
           <Canvas
             ref={canvasRef}
-            style={styles.canvas}
+            style={[
+              styles.canvas,
+              isTablet() && styles.canvasHighQuality
+            ]}
           >
             <Group>
               {/* 🎨 保存済みのパスを描画 */}
@@ -606,6 +762,10 @@ const styles = StyleSheet.create({
   },
   canvas: {
     flex: 1,
+    backgroundColor: 'transparent',
+  },
+  canvasHighQuality: {
+    // 🌟 iPad専用：高品質レンダリング設定
     backgroundColor: 'transparent',
   },
   debugInfo: {
