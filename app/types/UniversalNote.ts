@@ -54,6 +54,19 @@ export interface CanvasData {
   contentLength: number;
   pathsCount: number;
   elementsCount: number;
+  
+  // 🆕 複数ページデータ（オプショナル）
+  multiPageData?: {
+    pages: Array<{
+      id: string;
+      title: string;
+      content: string;
+      drawingPaths: DrawingPath[];
+      canvasData?: CanvasData;
+    }>;
+    currentPageIndex: number;
+    totalPages: number;
+  };
 }
 
 export interface DrawingPath {
@@ -108,6 +121,9 @@ export interface NoteMetadata {
   updatedAt: string;
   tags: string[];
   folder?: string;
+  
+  // 🆕 複数ページ対応
+  totalPages?: number;
   
   // ノートタイプ別メタデータ
   recordingMetadata?: RecordingMetadata;

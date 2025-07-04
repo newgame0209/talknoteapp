@@ -206,31 +206,81 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
   const autoSave = useAutoSave({
     noteId: actualNoteId || newNoteId || noteId || '',
     noteType: determineNoteType(),
-    getCurrentCanvasData: () => ({
-      type: 'canvas' as const,
-      version: '1.0' as const,
-      content: content,
-      drawingPaths: drawingPaths,
-      textElements: [],
-      canvasSettings: {
-        selectedTool,
-        selectedPenTool,
-        selectedColor,
-        strokeWidth,
-        textSettings: {
-          fontSize,
-          textColor,
-          selectedFont,
-          selectedTextType,
-          isBold,
-          lineSpacing,
-          letterSpacing
+    getCurrentCanvasData: () => {
+      // 🆕 現在のページデータを最新状態に同期
+      const currentPageData = {
+        type: 'canvas' as const,
+        version: '1.0' as const,
+        content: content,
+        drawingPaths: drawingPaths,
+        textElements: [],
+        canvasSettings: {
+          selectedTool,
+          selectedPenTool,
+          selectedColor,
+          strokeWidth,
+          textSettings: {
+            fontSize,
+            textColor,
+            selectedFont,
+            selectedTextType,
+            isBold,
+            lineSpacing,
+            letterSpacing
+          }
+        },
+        contentLength: content.length,
+        pathsCount: drawingPaths.length,
+        elementsCount: 0
+      };
+
+      // 🆕 マルチページ対応: 現在のページデータを配列に反映
+      if (pages.length > 0) {
+        const updatedPages = [...pages];
+        if (updatedPages[currentPageIndex]) {
+          updatedPages[currentPageIndex] = {
+            ...updatedPages[currentPageIndex],
+            content: content,
+            drawingPaths: drawingPaths,
+            canvasData: currentPageData
+          };
         }
-      },
-      contentLength: content.length,
-      pathsCount: drawingPaths.length,
-      elementsCount: 0
-    }),
+        
+        // 🔍 デバッグログ: 保存時のマルチページデータ
+        console.log('🔍 getCurrentCanvasData - マルチページデータ保存:', {
+          pagesCount: updatedPages.length,
+          currentPageIndex: currentPageIndex,
+          totalPages: totalPages,
+          currentPageContent: content.substring(0, 50) + '...',
+          currentPageDrawingPaths: drawingPaths.length,
+          allPagesData: updatedPages.map((page, index) => ({
+            index,
+            id: page.id,
+            title: page.title,
+            contentLength: page.content?.length || 0,
+            pathsCount: page.drawingPaths?.length || 0
+          }))
+        });
+        
+        // 🚨 デバッグ用アラート（EAS環境用）
+        Alert.alert('🔍 保存デバッグ', `保存時データ:\nページ数: ${updatedPages.length}\n現在ページ: ${currentPageIndex + 1}\n総ページ: ${totalPages}\n現在コンテンツ: "${content.substring(0, 30)}..."`);
+        
+        
+        // マルチページデータを含むキャンバスデータを返す
+        return {
+          ...currentPageData,
+          // 🆕 マルチページ情報を追加
+          multiPageData: {
+            pages: updatedPages,
+            currentPageIndex: currentPageIndex,
+            totalPages: totalPages
+          }
+        };
+      }
+      
+      // 単一ページの場合は従来通り
+      return currentPageData;
+    },
     getTitle: () => title,
     debugMode: true
   });
@@ -328,22 +378,44 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
           
           setTitle(finalTitle);
 
-          // ローカルのダミーノートを作成（録音用のsaveRecording関数を利用）
+          // ローカルのダミーノートを作成（手書きノート用のsaveManualNote関数を利用）
           // ここでキャンバス用のローカルノートを確実に保存
-          const savedNoteId = await saveRecording(
+          const newNoteId = `manual_${Date.now()}`;
+          
+          // 🔥 CRITICAL: 先にステートへ保存して以降の処理で確実に参照できるようにする
+          setNewNoteId(newNoteId);
+          console.log('✅ 新規手書きノート作成開始 - noteId:', newNoteId);
+          
+          // DB へ初期レコードを登録
+          await saveManualNote(
+            newNoteId,
             finalTitle,
-            0, // duration: 0秒（キャンバスデータ用）
-            '', // filePath: 空（キャンバスデータ用）
-            '' // transcription: 空のコンテンツ（キャンバス用）
+            '', // content: 空のコンテンツ（キャンバス用）
+            {
+              type: 'canvas',
+              version: '1.0',
+              content: '',
+              drawingPaths: [],
+              canvasSettings: {
+                selectedTool: 'pen',
+                selectedPenTool: 'pen',
+                selectedColor: '#000000',
+                strokeWidth: 2,
+                textSettings: {
+                  fontSize: 16,
+                  textColor: '#000000',
+                  selectedFont: 'standard',
+                  selectedTextType: 'body',
+                  isBold: false,
+                  lineSpacing: 1.5,
+                  letterSpacing: 0
+                }
+              }
+            }
           );
           
-          if (savedNoteId) {
-            setNewNoteId(savedNoteId);
-            console.log('✅ 新規ノート作成完了 - noteId:', savedNoteId);
-            console.log('🔄 ダッシュボードで表示されるノートID:', savedNoteId);
-          } else {
-            console.log('⚠️ ノートID取得に失敗、ローカル編集のみ継続');
-          }
+          console.log('✅ 新規手書きノート作成完了 - noteId:', newNoteId);
+          console.log('🔄 ダッシュボードで表示されるノートID:', newNoteId);
         
       } catch (error) {
           console.log('⚠️ ローカル新規ノート作成中にエラー:', error);
@@ -362,7 +434,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     if (isNewNote) {
       initializeNotebookAndPage();
     }
-  }, [isNewNote, notebookId, pageId, saveRecording]);
+  }, [isNewNote, notebookId, pageId, saveManualNote]);
 
   // 📝 既存ノート読み込み（新規作成でない場合）
   useEffect(() => {
@@ -504,10 +576,16 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
         }
 
         // 📝 Step2: 通常のノート読み込み処理
+        Alert.alert('🔍 検索ID確認', `検索しようとしているnoteId: ${noteId}`);
         const note = await getNoteById(noteId);
         
-        // 🆕 Step2.1: 通常ノート（manual）専用処理を追加
-        if (noteId === 'new' || note?.file_path === 'manual') {
+        // 🚨 デバッグ: ノート検出状況を確認
+        Alert.alert('🔍 ノート検出デバッグ', `ノート検出結果:\nnoteId: ${noteId}\nnote存在: ${!!note}\nnoteタイプ: ${note ? typeof note : 'null'}\ncanvas_data存在: ${note && 'canvas_data' in note}\ntranscription存在: ${note && 'transcription' in note}\nfile_path: ${note && 'file_path' in note ? note.file_path : 'なし'}`);
+        
+        // 🆕 Step2.1: 手動作成ノートの処理 - ManualNoteテーブルのノートを判定
+        const isManualNote = note && 'canvas_data' in note && !('transcription' in note);
+        
+        if (noteId === 'new' || isManualNote) {
           console.log('📝 通常ノート（manual）検出:', { noteId, note: !!note });
           
           try {
@@ -547,16 +625,47 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                     : manualNote.canvas_data;
                   
                   if (canvasData && typeof canvasData === 'object' && canvasData.type === 'canvas') {
-                    // コンテンツ復元
-                    if (canvasData.content) {
-                      setContent(canvasData.content);
-                      console.log('✅ 通常ノート - コンテンツ復元完了:', canvasData.content.substring(0, 50) + '...');
-                    }
-                    
-                    // 手書きデータ復元
-                    if (canvasData.drawingPaths && Array.isArray(canvasData.drawingPaths)) {
-                      setDrawingPaths(canvasData.drawingPaths);
-                      console.log('✅ 通常ノート - 描画パス復元完了:', canvasData.drawingPaths.length);
+                    // 🆕 マルチページデータの復元処理を最優先で実行
+                    if (canvasData.multiPageData && canvasData.multiPageData.pages && Array.isArray(canvasData.multiPageData.pages)) {
+                      console.log('🔍 ManualNote - multiPageData復元開始:', {
+                        pagesCount: canvasData.multiPageData.pages.length,
+                        currentPageIndex: canvasData.multiPageData.currentPageIndex,
+                        totalPages: canvasData.multiPageData.totalPages
+                      });
+                      
+                      // 🚨 デバッグ用アラート
+                      Alert.alert('🔍 復元デバッグ', `復元時データ:\nページ数: ${canvasData.multiPageData.pages.length}\n現在ページ: ${(canvasData.multiPageData.currentPageIndex || 0) + 1}\n総ページ: ${canvasData.multiPageData.totalPages || canvasData.multiPageData.pages.length}`);
+                      
+                      // 複数ページデータを復元
+                      setPages(canvasData.multiPageData.pages);
+                      setCurrentPageIndex(canvasData.multiPageData.currentPageIndex || 0);
+                      setTotalPages(canvasData.multiPageData.totalPages || canvasData.multiPageData.pages.length);
+                      
+                      // 現在のページのデータを復元
+                      const currentPage = canvasData.multiPageData.pages[canvasData.multiPageData.currentPageIndex || 0];
+                      if (currentPage) {
+                        setContent(currentPage.content || '');
+                        setDrawingPaths(currentPage.drawingPaths || []);
+                        console.log('✅ ManualNote - 複数ページ復元完了:', {
+                          currentPageContent: currentPage.content?.substring(0, 50) + '...',
+                          currentPagePaths: currentPage.drawingPaths?.length || 0
+                        });
+                      }
+                    } else {
+                      // 🔄 従来の単一ページ復元処理（後方互換性）
+                      console.log('🔄 ManualNote - 単一ページ復元処理');
+                      
+                      // コンテンツ復元
+                      if (canvasData.content) {
+                        setContent(canvasData.content);
+                        console.log('✅ 通常ノート - コンテンツ復元完了:', canvasData.content.substring(0, 50) + '...');
+                      }
+                      
+                      // 手書きデータ復元
+                      if (canvasData.drawingPaths && Array.isArray(canvasData.drawingPaths)) {
+                        setDrawingPaths(canvasData.drawingPaths);
+                        console.log('✅ 通常ノート - 描画パス復元完了:', canvasData.drawingPaths.length);
+                      }
                     }
                     
                     // 🔥 通常ノートのキャンバス設定復元
@@ -617,6 +726,9 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
             title: note.title,
             filePath: note.file_path  // ノートタイプ判定用
           });
+          
+          // 🚨 デバッグアラート: ノート読み込み開始
+          Alert.alert('📖 ノート読み込みデバッグ', `ノート読み込み開始:\nタイトル: ${note.title}\nファイルパス: ${note.file_path}\nコンテンツタイプ: ${typeof note.content}`);
           
           setTitle(note.title);
           
@@ -708,11 +820,32 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
               // 録音データもJSON構造の可能性がある
               const transcriptionData = JSON.parse(transcriptionText);
               if (transcriptionData && typeof transcriptionData === 'object' && transcriptionData.type === 'canvas') {
-                // キャンバスデータ構造の録音結果
-                setContent(transcriptionData.content || '');
-                if (transcriptionData.drawingPaths && Array.isArray(transcriptionData.drawingPaths)) {
-                  setDrawingPaths(transcriptionData.drawingPaths);
-                  console.log('✅ 録音データのキャンバス復元完了:', { pathsCount: transcriptionData.drawingPaths.length });
+                
+                // 🆕 マルチページデータの復元処理を最優先で実行
+                if (transcriptionData.multiPageData && transcriptionData.multiPageData.pages && transcriptionData.multiPageData.pages.length > 0) {
+                  const multiPageData = transcriptionData.multiPageData;
+                  
+                  // 複数ページ状態を復元
+                  setPages(multiPageData.pages);
+                  setCurrentPageIndex(multiPageData.currentPageIndex || 0);
+                  setTotalPages(multiPageData.pages.length);
+                  
+                  // 現在のページのデータを復元
+                  const currentPage = multiPageData.pages[multiPageData.currentPageIndex || 0];
+                  if (currentPage) {
+                    setContent(currentPage.content || '');
+                    setDrawingPaths(currentPage.drawingPaths || []);
+                  }
+                  
+                  Alert.alert('✅ 復元デバッグ', `マルチページ復元完了\nページ数: ${multiPageData.pages.length}\n現在ページ: ${(multiPageData.currentPageIndex || 0) + 1}\n総ページ: ${multiPageData.pages.length}`);
+                  console.log('✅ 録音ノート - マルチページデータ復元完了:', multiPageData.pages.length);
+                } else {
+                  // 従来の単一ページ復元処理
+                  setContent(transcriptionData.content || '');
+                  if (transcriptionData.drawingPaths && Array.isArray(transcriptionData.drawingPaths)) {
+                    setDrawingPaths(transcriptionData.drawingPaths);
+                    console.log('✅ 録音データのキャンバス復元完了:', { pathsCount: transcriptionData.drawingPaths.length });
+                  }
                 }
                 
                 // ✨ 録音ノートでもキャンバス設定を復元
@@ -777,6 +910,50 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                 if (canvasData.drawingPaths && Array.isArray(canvasData.drawingPaths)) {
                   setDrawingPaths(canvasData.drawingPaths);
                   console.log('✅ 手書きデータ復元完了:', { pathsCount: canvasData.drawingPaths.length });
+                }
+                
+                // 🆕 複数ページデータの復元
+                if (canvasData.multiPageData) {
+                  const multiPageData = canvasData.multiPageData;
+                  console.log('🔍 複数ページデータ復元開始:', {
+                    pagesCount: multiPageData.pages?.length || 0,
+                    currentPageIndex: multiPageData.currentPageIndex,
+                    totalPages: multiPageData.totalPages,
+                    allPagesData: multiPageData.pages?.map((page, index) => ({
+                      index,
+                      id: page.id,
+                      title: page.title,
+                      contentLength: page.content?.length || 0,
+                      pathsCount: page.drawingPaths?.length || 0
+                    })) || []
+                  });
+                  
+                  if (multiPageData.pages && Array.isArray(multiPageData.pages) && multiPageData.pages.length > 0) {
+                    // 複数ページデータを復元
+                    setPages(multiPageData.pages);
+                    setCurrentPageIndex(multiPageData.currentPageIndex || 0);
+                    setTotalPages(multiPageData.totalPages || multiPageData.pages.length);
+                    
+                    // 現在のページのデータを復元
+                    const currentPageIndex = multiPageData.currentPageIndex || 0;
+                    const currentPage = multiPageData.pages[currentPageIndex];
+                    if (currentPage) {
+                      setContent(currentPage.content || '');
+                      setDrawingPaths(currentPage.drawingPaths || []);
+                      console.log('✅ 複数ページデータ復元完了:', {
+                        currentPageIndex,
+                        currentPageContent: currentPage.content?.substring(0, 50) + '...',
+                        currentPageDrawingPaths: currentPage.drawingPaths?.length || 0
+                      });
+                      
+                      // 🚨 デバッグ用アラート（EAS環境用）
+                      Alert.alert('✅ 復元デバッグ', `復元時データ:\nページ数: ${multiPageData.pages.length}\n現在ページ: ${currentPageIndex + 1}\n復元コンテンツ: "${currentPage.content?.substring(0, 30) || ''}..."`);
+                    }
+                  }
+                } else {
+                  console.log('⚠️ multiPageDataが存在しません - 単一ページとして処理');
+                  // 🚨 デバッグ用アラート（EAS環境用）
+                  Alert.alert('⚠️ 復元デバッグ', 'multiPageDataが存在しません - 単一ページとして処理');
                 }
                 
                 // ✨ キャンバス設定の復元
@@ -1042,8 +1219,9 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     try {
       if (!noteId) return;
       
-      // SQLiteからしおり状態を取得
-      const bookmark = await getBookmark(noteId, bookmarkData.currentPage);
+      // 🆕 マルチページ対応: 現在のページのしおり状態を取得
+      const currentPageNumber = currentPageIndex + 1;
+      const bookmark = await getBookmark(noteId, currentPageNumber);
       const lastPage = await getLastBookmarkPage(noteId);
       
       setBookmarkData(prev => ({
@@ -1051,10 +1229,10 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
         hasBookmarks: !!bookmark,
         lastBookmarkPage: lastPage || 1,
         bookmarkPages: bookmark ? [bookmark.page_number] : [],
-        currentPage: 1 // 現在は1ページ固定（将来拡張用）
+        currentPage: currentPageNumber // 🆕 現在のページ番号を動的に設定
       }));
       
-      console.log('📌 しおり状態ロード:', noteId, bookmark ? 'あり' : 'なし');
+      console.log('📌 しおり状態ロード:', noteId, bookmark ? 'あり' : 'なし', 'ページ:', currentPageNumber);
       
     } catch (error) {
       console.log('⚠️ しおり状態ロードエラー:', error);
@@ -2709,6 +2887,337 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     setCurrentSearchIndex(-1);
   };
 
+  // 🆕 ページ管理ハンドラー
+  const handleAddPage = async () => {
+    try {
+      // 🆕 現在のページデータを保存してから新しいページを追加
+      saveCurrentPageData();
+      
+      const newPageId = `page_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const newPage = {
+        id: newPageId,
+        title: `ページ ${totalPages + 1}`,
+        content: '',
+        drawingPaths: [],
+        canvasData: {
+          type: 'canvas',
+          version: '1.0',
+          content: '',
+          drawingPaths: [],
+          textElements: [],
+          canvasSettings: {
+            selectedTool: null,
+            selectedPenTool: null,
+            selectedColor: '#000000',
+            strokeWidth: 2
+          }
+        }
+      };
+
+      setPages(prev => [...prev, newPage]);
+      setTotalPages(prev => prev + 1);
+      
+      // 🆕 新しいページに移動して即座にUIをクリア
+      const newPageIndex = totalPages;
+      setCurrentPageIndex(newPageIndex);
+      
+      // 🚨 重要: UIを即座にクリアして新しいページの空の状態を反映
+      setContent('');
+      setDrawingPaths([]);
+      
+      console.log('📄 新しいページを追加してUIをクリア:', newPageId, 'インデックス:', newPageIndex);
+      
+      // 🚨 デバッグアラート: ページ追加時
+      Alert.alert('📄 ページ追加デバッグ', `新しいページを追加しました:\n総ページ数: ${totalPages + 1}\n新しいページ番号: ${newPageIndex + 1}\nページID: ${newPageId}`);
+      
+      // 自動保存をトリガー
+      markAsChanged();
+      
+    } catch (error) {
+      console.error('❌ ページ追加エラー:', error);
+      Alert.alert('エラー', 'ページの追加に失敗しました');
+    }
+  };
+
+  const handleDeletePage = async () => {
+    if (totalPages <= 1) {
+      Alert.alert('エラー', '最後のページは削除できません');
+      return;
+    }
+
+    Alert.alert(
+      'ページの削除',
+      `ページ ${currentPageIndex + 1} を削除しますか？この操作は元に戻せません。`,
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        { 
+          text: '削除', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log('📄 ページ削除開始:', {
+                deletingPageIndex: currentPageIndex,
+                totalPagesBefore: totalPages,
+                pagesDataBefore: pages.map((p, i) => ({ 
+                  index: i, 
+                  content: p.content?.slice(0, 10) || '', 
+                  pathsCount: p.drawingPaths?.length || 0 
+                }))
+              });
+              
+              // 🆕 削除対象ページ以外のデータを保存（削除前に現在のデータを保存）
+              if (currentPageIndex > 0) {
+                saveCurrentPageData();
+              }
+              
+              // ページを削除
+              const newPages = pages.filter((_, index) => index !== currentPageIndex);
+              setPages(newPages);
+              setTotalPages(newPages.length);
+              
+              // 🆕 削除後のページインデックス調整
+              let newIndex;
+              if (currentPageIndex >= newPages.length) {
+                // 最後のページを削除した場合は前のページに移動
+                newIndex = Math.max(0, newPages.length - 1);
+              } else {
+                // 中間のページを削除した場合は同じインデックス（次のページが繰り上がる）
+                newIndex = currentPageIndex;
+              }
+              
+              setCurrentPageIndex(newIndex);
+              
+              // 🆕 移動先のページデータを即座に復元
+              if (newPages[newIndex]) {
+                setContent(newPages[newIndex].content || '');
+                setDrawingPaths(newPages[newIndex].drawingPaths || []);
+                console.log('📄 ページ削除後のデータ復元完了:', {
+                  newIndex,
+                  totalPagesAfter: newPages.length,
+                  restoredContent: newPages[newIndex].content?.slice(0, 10) || '',
+                  restoredPathsCount: newPages[newIndex].drawingPaths?.length || 0
+                });
+              }
+              
+              // 自動保存をトリガー
+              markAsChanged();
+              
+            } catch (error) {
+              console.error('❌ ページ削除エラー:', error);
+              Alert.alert('エラー', 'ページの削除に失敗しました');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPageIndex > 0) {
+      // 🆕 現在のページデータを保存してから移動
+      saveCurrentPageData();
+      const newIndex = currentPageIndex - 1;
+      setCurrentPageIndex(newIndex);
+      
+      // 🆕 即座に移動先のページデータを復元
+      if (pages[newIndex]) {
+        setContent(pages[newIndex].content || '');
+        setDrawingPaths(pages[newIndex].drawingPaths || []);
+        console.log('📄 前のページに移動・データ復元完了:', newIndex, {
+          contentLength: pages[newIndex].content?.length || 0,
+          pathsCount: pages[newIndex].drawingPaths?.length || 0
+        });
+      }
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPageIndex < totalPages - 1) {
+      // 🆕 現在のページデータを保存してから移動
+      saveCurrentPageData();
+      const newIndex = currentPageIndex + 1;
+      setCurrentPageIndex(newIndex);
+      
+      // 🆕 即座に移動先のページデータを復元
+      if (pages[newIndex]) {
+        setContent(pages[newIndex].content || '');
+        setDrawingPaths(pages[newIndex].drawingPaths || []);
+        console.log('📄 次のページに移動・データ復元完了:', newIndex, {
+          contentLength: pages[newIndex].content?.length || 0,
+          pathsCount: pages[newIndex].drawingPaths?.length || 0
+        });
+      }
+    }
+  };
+
+  // 🆕 現在のページデータを取得
+  const getCurrentPageData = () => {
+    return pages[currentPageIndex] || pages[0];
+  };
+
+  // 🆕 現在のページデータを更新
+  const updateCurrentPageData = (updates: Partial<typeof pages[0]>) => {
+    setPages(prev => {
+      const newPages = [...prev];
+      if (newPages[currentPageIndex]) {
+        newPages[currentPageIndex] = { ...newPages[currentPageIndex], ...updates };
+      }
+      return newPages;
+    });
+  };
+
+  // 🆕 現在のページデータを保存
+  const saveCurrentPageData = () => {
+    if (pages.length > 0 && pages[currentPageIndex]) {
+      const updatedPage = {
+        ...pages[currentPageIndex],
+        content: content,
+        drawingPaths: drawingPaths,
+        canvasData: {
+          type: 'canvas' as const,
+          version: '1.0' as const,
+          content: content,
+          drawingPaths: drawingPaths,
+          textElements: [],
+          canvasSettings: {
+            selectedTool,
+            selectedPenTool,
+            selectedColor,
+            strokeWidth,
+            textSettings: {
+              fontSize,
+              textColor,
+              selectedFont,
+              selectedTextType,
+              isBold,
+              lineSpacing,
+              letterSpacing
+            }
+          }
+        }
+      };
+      
+      setPages(prev => {
+        const newPages = [...prev];
+        newPages[currentPageIndex] = updatedPage;
+        return newPages;
+      });
+      
+      console.log('💾 現在のページデータを保存:', currentPageIndex);
+    }
+  };
+
+  // 🆕 指定ページのデータを復元
+  const loadPageData = (pageIndex: number) => {
+    if (pages.length > 0 && pages[pageIndex]) {
+      const pageData = pages[pageIndex];
+      
+      console.log('📄 ページデータ復元開始:', pageIndex, {
+        pageId: pageData.id,
+        contentLength: pageData.content?.length || 0,
+        pathsCount: pageData.drawingPaths?.length || 0,
+        hasCanvasData: !!pageData.canvasData
+      });
+      
+      // 🆕 状態を非同期で順次更新（React batching対応）
+      setTimeout(() => {
+        // UIの状態を復元
+        setContent(pageData.content || '');
+        console.log('📄 テキストコンテンツ復元完了:', pageData.content?.substring(0, 50));
+      }, 0);
+      
+      setTimeout(() => {
+        // 描画データを復元
+        setDrawingPaths(pageData.drawingPaths || []);
+        console.log('📄 描画パス復元完了:', pageData.drawingPaths?.length || 0);
+      }, 10);
+      
+      // キャンバス設定を復元
+      if (pageData.canvasData?.canvasSettings) {
+        const settings = pageData.canvasData.canvasSettings;
+        setTimeout(() => {
+          if (settings.selectedColor) setSelectedColor(settings.selectedColor);
+          if (settings.strokeWidth) setStrokeWidth(settings.strokeWidth);
+          console.log('📄 基本設定復元完了:', { color: settings.selectedColor, strokeWidth: settings.strokeWidth });
+        }, 20);
+        
+        if (settings.textSettings) {
+          const textSettings = settings.textSettings;
+          setTimeout(() => {
+            if (textSettings.fontSize) setFontSize(textSettings.fontSize);
+            if (textSettings.textColor) setTextColor(textSettings.textColor);
+            if (textSettings.selectedFont) setSelectedFont(textSettings.selectedFont);
+            if (textSettings.selectedTextType) setSelectedTextType(textSettings.selectedTextType);
+            if (textSettings.isBold !== undefined) setIsBold(textSettings.isBold);
+            if (textSettings.lineSpacing) setLineSpacing(textSettings.lineSpacing);
+            if (textSettings.letterSpacing) setLetterSpacing(textSettings.letterSpacing);
+            console.log('📄 テキスト設定復元完了:', textSettings);
+          }, 30);
+        }
+      }
+      
+      console.log('📄 ページデータ復元処理完了:', pageIndex);
+    } else {
+      console.warn('📄 ページデータが見つかりません:', { pageIndex, pagesLength: pages.length });
+    }
+  };
+
+  // 🆕 2000文字自動分割チェック
+  const checkAutoSplit = (text: string) => {
+    if (text.length > 2000) {
+      // 現在のページのテキストを2000文字で切り取り
+      const currentPageText = text.substring(0, 2000);
+      const overflowText = text.substring(2000);
+      
+      // 現在のページのテキストを更新
+      setContent(currentPageText);
+      
+      // 自動的に新しいページを作成
+      const newPageId = `page_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const newPage = {
+        id: newPageId,
+        title: `ページ ${totalPages + 1}`,
+        content: overflowText,
+        drawingPaths: [],
+        canvasData: {
+          type: 'canvas' as const,
+          version: '1.0' as const,
+          content: overflowText,
+          drawingPaths: [],
+          textElements: [],
+          canvasSettings: {
+            selectedTool: null,
+            selectedPenTool: null,
+            selectedColor: '#000000',
+            strokeWidth: 2
+          }
+        }
+      };
+
+      // 新しいページを追加
+      setPages(prev => [...prev, newPage]);
+      setTotalPages(prev => prev + 1);
+      
+      // 新しいページに移動
+      const newPageIndex = totalPages;
+      setCurrentPageIndex(newPageIndex);
+      setContent(overflowText);
+      
+      console.log('📄 2000文字自動分割実行:', {
+        currentPageLength: currentPageText.length,
+        newPageLength: overflowText.length,
+        totalPages: totalPages + 1
+      });
+      
+      // 分割通知
+      Alert.alert(
+        '📄 ページ自動分割',
+        `2000文字を超えたため、新しいページ（${totalPages + 1}ページ目）を作成しました。`,
+        [{ text: 'OK', style: 'default' }]
+      );
+    }
+  };
+
   // 🎵 画面遷移・アンマウント時に TTS を停止
   useEffect(() => {
     const stopAudio = async () => {
@@ -2741,6 +3250,23 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
 
   // 🚨 TTSエラーフラグ：同一操作中に複数回アラートを出さないため
   const [ttsErrorShown, setTTSErrorShown] = useState(false);
+
+  // 🆕 マルチページ管理用の状態
+  const [pages, setPages] = useState<Array<{
+    id: string;
+    title: string;
+    content: string;
+    drawingPaths: DrawingPath[];
+    canvasData: any;
+  }>>([{
+    id: 'page_0',
+    title: 'ページ 1',
+    content: '',
+    drawingPaths: [],
+    canvasData: {}
+  }]);
+  const [currentPageIndex, setCurrentPageIndex] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
 
   return (
     <TouchableWithoutFeedback onPress={() => setIsCanvasIconsVisible(false)}>
@@ -3386,6 +3912,8 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                     value={content}
                     onChangeText={(text) => {
                       setContent(text);
+                      // 🆕 2000文字自動分割チェック
+                      checkAutoSplit(text);
                       markAsChanged('text_input', { newContent: text }); // 🎯 統一自動保存
                     }}
                     placeholder="本文を入力"
@@ -3434,6 +3962,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                   selectedTool !== 'pen' && styles.drawingCanvasDisabled
                 ]}>
                   <DrawingCanvas
+                    key={`drawing-canvas-${currentPageIndex}-${pages[currentPageIndex]?.id || 'default'}`} // 🆕 ページごとに強制再レンダリング
                     ref={drawingCanvasRef}
                     selectedTool={selectedTool === 'pen' ? (selectedPenTool || 'pen') : null}
                     selectedColor={selectedColor}
@@ -3641,6 +4170,61 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
         )}
 
 
+
+        {/* 🆕 ページコントロールバー - 罫線アイコンが非表示の時のみ表示 */}
+        {!isCanvasIconsVisible && (
+        <View style={styles.pageControlBar}>
+          {totalPages > 1 && (
+            <TouchableOpacity 
+              style={[styles.pageControlButton, currentPageIndex === 0 && styles.pageControlButtonDisabled]}
+              onPress={handlePreviousPage}
+              disabled={currentPageIndex === 0}
+            >
+              <MaterialIcons 
+                name="keyboard-arrow-up" 
+                size={20} 
+                color={currentPageIndex === 0 ? '#ccc' : '#4F8CFF'} 
+              />
+            </TouchableOpacity>
+          )}
+          
+          <TouchableOpacity 
+            style={styles.pageControlButton}
+            onPress={handleAddPage}
+          >
+            <MaterialIcons name="add" size={20} color="#4F8CFF" />
+          </TouchableOpacity>
+          
+          {totalPages > 1 && (
+            <TouchableOpacity 
+              style={styles.pageControlButton}
+              onPress={handleDeletePage}
+            >
+              <MaterialIcons name="remove" size={20} color="#FF4444" />
+            </TouchableOpacity>
+          )}
+          
+          {totalPages > 1 && (
+            <TouchableOpacity 
+              style={[styles.pageControlButton, currentPageIndex === totalPages - 1 && styles.pageControlButtonDisabled]}
+              onPress={handleNextPage}
+              disabled={currentPageIndex === totalPages - 1}
+            >
+              <MaterialIcons 
+                name="keyboard-arrow-down" 
+                size={20} 
+                color={currentPageIndex === totalPages - 1 ? '#ccc' : '#4F8CFF'} 
+              />
+            </TouchableOpacity>
+          )}
+          
+          {totalPages > 1 && (
+            <Text style={styles.pageIndicator}>
+              {currentPageIndex + 1}/{totalPages}
+            </Text>
+          )}
+        </View>
+        )}
 
         {/* AIチャットウィジェット */}
         <AIChatWidget
@@ -4676,6 +5260,50 @@ const styles = StyleSheet.create({
   providerDescription: {
     fontSize: 12,
     color: '#666',
+  },
+
+  // 🆕 ページコントロールバーのスタイル
+  pageControlBar: {
+    position: 'absolute',
+    bottom: 20,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 25,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    minWidth: 60,
+  },
+  pageControlButton: {
+    padding: 8,
+    marginHorizontal: 4,
+    borderRadius: 15,
+    backgroundColor: '#F6F7FB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 30,
+    minHeight: 30,
+  },
+  pageControlButtonDisabled: {
+    backgroundColor: '#F0F0F0',
+    opacity: 0.5,
+  },
+  pageIndicator: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+    marginLeft: 8,
+    minWidth: 30,
+    textAlign: 'center',
   },
 
 

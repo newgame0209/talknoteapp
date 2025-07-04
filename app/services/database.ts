@@ -663,15 +663,31 @@ export const exportDatabase = async (): Promise<DatabaseExport> => {
 };
 
 // ノート詳細画面用：noteIdでノートを取得する関数
-export const getNoteById = async (noteId: string): Promise<Recording | ImportFile | null> => {
+export const getNoteById = async (noteId: string): Promise<Recording | ImportFile | ManualNote | null> => {
   try {
     const db = getDatabase();
+    
+    // 🚨 デバッグ: 全ManualNoteを確認
+    const allManualNotes = await db.getAllAsync<ManualNote>('SELECT id, title FROM manual_notes;');
+    console.log('🔍 全ManualNote一覧:', allManualNotes);
+    
+    // 🆕 CRITICAL: ManualNoteを最優先で検索
+    const manualNoteResult = await db.getFirstAsync<ManualNote>(
+      'SELECT * FROM manual_notes WHERE id = ?;',
+      [noteId]
+    );
+    if (manualNoteResult) {
+      console.log('✅ ManualNote見つかりました:', noteId);
+      return manualNoteResult;
+    }
+    
     // 録音データテーブルから検索
     const recordingResult = await db.getFirstAsync<Recording>(
       'SELECT * FROM recordings WHERE id = ?;',
       [noteId]
     );
     if (recordingResult) {
+      console.log('✅ Recording見つかりました:', noteId);
       return recordingResult;
     }
     // インポートファイルテーブルから検索
@@ -679,7 +695,13 @@ export const getNoteById = async (noteId: string): Promise<Recording | ImportFil
       'SELECT * FROM imports WHERE id = ?;',
       [noteId]
     );
-    return importResult || null;
+    if (importResult) {
+      console.log('✅ Import見つかりました:', noteId);
+      return importResult;
+    }
+    
+    console.log('❌ ノートが見つかりませんでした:', noteId);
+    return null;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Error getting note by id:', errorMessage);
@@ -691,6 +713,21 @@ export const getNoteById = async (noteId: string): Promise<Recording | ImportFil
 export const updateNoteTitle = async (noteId: string, title: string): Promise<void> => {
   try {
     const db = getDatabase();
+    
+    // 🆕 CRITICAL: ManualNoteを最優先でチェック
+    const manualNoteResult = await db.getFirstAsync<ManualNote>(
+      'SELECT * FROM manual_notes WHERE id = ?;',
+      [noteId]
+    );
+    if (manualNoteResult) {
+      await db.runAsync(
+        'UPDATE manual_notes SET title = ?, updated_at = ? WHERE id = ?;',
+        [title, Date.now(), noteId]
+      );
+      console.log('ManualNote title updated successfully');
+      return Promise.resolve();
+    }
+    
     // 録音データテーブルから検索
     const recordingResult = await db.getFirstAsync<Recording>(
       'SELECT * FROM recordings WHERE id = ?;',
@@ -746,6 +783,29 @@ export const updatePhotoScanTitle = async (photoScanId: string, title: string): 
 export const updateNote = async (noteId: string, title: string, content?: string): Promise<void> => {
   try {
     const db = getDatabase();
+    
+    // 🆕 CRITICAL: ManualNoteを最優先でチェック
+    const manualNoteResult = await db.getFirstAsync<ManualNote>(
+      'SELECT * FROM manual_notes WHERE id = ?;',
+      [noteId]
+    );
+    if (manualNoteResult) {
+      // contentが指定されていない場合は、contentを更新しない
+      if (content !== undefined) {
+        await db.runAsync(
+          'UPDATE manual_notes SET title = ?, content = ?, updated_at = ? WHERE id = ?;',
+          [title, content, Date.now(), noteId]
+        );
+      } else {
+        await db.runAsync(
+          'UPDATE manual_notes SET title = ?, updated_at = ? WHERE id = ?;',
+          [title, Date.now(), noteId]
+        );
+      }
+      console.log('ManualNote updated successfully');
+      return Promise.resolve();
+    }
+    
     // 録音データテーブルから検索
     const recordingResult = await db.getFirstAsync<Recording>(
       'SELECT * FROM recordings WHERE id = ?;',
@@ -812,7 +872,55 @@ export const updateCanvasData = async (noteId: string, canvasData: any): Promise
       }
     });
     
-    // 🔥 CRITICAL: 写真スキャンノートを最優先でチェック
+    // 🆕 CRITICAL: ManualNoteを最優先でチェック
+    const manualNoteResult = await db.getFirstAsync<ManualNote>(
+      'SELECT * FROM manual_notes WHERE id = ?;',
+      [noteId]
+    );
+    if (manualNoteResult) {
+      const now = Date.now();
+      
+      // 🔥 CRITICAL: multiPageData対応の保存処理
+      console.log('📄 ManualNote保存開始:', {
+        noteId,
+        hasMultiPageData: !!canvasData.multiPageData,
+        multiPageDataPagesCount: canvasData.multiPageData?.pages?.length || 0,
+        canvasDataKeys: Object.keys(canvasData)
+      });
+      
+      await db.runAsync(
+        'UPDATE manual_notes SET canvas_data = ?, updated_at = ? WHERE id = ?;',
+        [canvasJson, now, noteId]
+      );
+      
+      // 保存結果を検証
+      const verifyResult = await db.getFirstAsync<ManualNote>(
+        'SELECT * FROM manual_notes WHERE id = ?;',
+        [noteId]
+      );
+      if (verifyResult) {
+        const savedData = JSON.parse(verifyResult.canvas_data);
+        console.log('✅ ManualNote保存検証完了:', {
+          noteId,
+          保存成功: !!savedData,
+          multiPageData保存: !!savedData.multiPageData,
+          保存されたページ数: savedData.multiPageData?.pages?.length || 0,
+          保存されたテキスト長: savedData.content?.length || 0,
+          保存されたパス数: savedData.drawingPaths?.length || 0
+        });
+      }
+      
+      console.log('Canvas data updated successfully (manual)', {
+        noteId,
+        dataSize: canvasJson.length,
+        textContent: canvasData.content?.substring(0, 100) + '...',
+        pathsCount: canvasData.drawingPaths?.length || 0,
+        multiPageDataSaved: !!canvasData.multiPageData
+      });
+      return Promise.resolve();
+    }
+    
+    // 🔥 CRITICAL: 写真スキャンノートを2番目でチェック
     if (noteId.includes('photo_scan') || noteId.startsWith('photo_scan_')) {
       console.log('📸🔥 CRITICAL - 写真スキャンノート優先判定:', noteId);
       
@@ -908,25 +1016,7 @@ export const updateCanvasData = async (noteId: string, canvasData: any): Promise
       return Promise.resolve();
     }
     
-    // 🆕 通常ノート（ManualNote）テーブルから検索
-    const manualNoteResult = await db.getFirstAsync<ManualNote>(
-      'SELECT * FROM manual_notes WHERE id = ?;',
-      [noteId]
-    );
-    if (manualNoteResult) {
-      const now = Date.now();
-      await db.runAsync(
-        'UPDATE manual_notes SET canvas_data = ?, updated_at = ? WHERE id = ?;',
-        [canvasJson, now, noteId]
-      );
-      console.log('Canvas data updated successfully (manual)', {
-        noteId,
-        dataSize: canvasJson.length,
-        textContent: canvasData.content?.substring(0, 100) + '...',
-        pathsCount: canvasData.drawingPaths?.length || 0
-      });
-      return Promise.resolve();
-    }
+
     
     // インポートファイルテーブルには対応しない（将来拡張可能）
     console.error('❌ ノートが見つかりません:', { noteId, searchedTables: ['photo_scans', 'recordings', 'manual_notes'] });
@@ -989,48 +1079,64 @@ export const deletePhotoScan = async (photoScanId: string): Promise<void> => {
   }
 };
 
-// ノートを削除する統合関数（Recording、ImportFile、PhotoScan、ManualNote対応）
+// ノート削除関数（統合版）
 export const deleteNote = async (noteId: string): Promise<void> => {
   try {
     const db = getDatabase();
     
-    // 録音データテーブルから検索
-    const recordingResult = await db.getFirstAsync<Recording>(
-      'SELECT * FROM recordings WHERE id = ?;',
-      [noteId]
-    );
-    if (recordingResult) {
-      await deleteRecording(noteId);
-      return Promise.resolve();
-    }
-    
-    // インポートファイルテーブルから検索
-    const importResult = await db.getFirstAsync<ImportFile>(
-      'SELECT * FROM imports WHERE id = ?;',
-      [noteId]
-    );
-    if (importResult) {
-      await deleteImport(noteId);
-      return Promise.resolve();
-    }
-    
-    // 写真スキャンテーブルから検索
-    const photoScanResult = await db.getFirstAsync<PhotoScan>(
-      'SELECT * FROM photo_scans WHERE id = ?;',
-      [noteId]
-    );
-    if (photoScanResult) {
-      await deletePhotoScan(noteId);
-      return Promise.resolve();
-    }
-    
-    // 🆕 通常ノートテーブルから検索
+    // 🆕 CRITICAL: ManualNoteを最優先でチェック
     const manualNoteResult = await db.getFirstAsync<ManualNote>(
       'SELECT * FROM manual_notes WHERE id = ?;',
       [noteId]
     );
     if (manualNoteResult) {
-      await deleteManualNote(noteId);
+      await db.runAsync(
+        'DELETE FROM manual_notes WHERE id = ?;',
+        [noteId]
+      );
+      console.log('ManualNote deleted successfully');
+      return Promise.resolve();
+    }
+    
+    // 録音データテーブルから検索・削除
+    const recordingResult = await db.getFirstAsync<Recording>(
+      'SELECT * FROM recordings WHERE id = ?;',
+      [noteId]
+    );
+    if (recordingResult) {
+      await db.runAsync(
+        'DELETE FROM recordings WHERE id = ?;',
+        [noteId]
+      );
+      console.log('Recording deleted successfully');
+      return Promise.resolve();
+    }
+    
+    // インポートファイルテーブルから検索・削除
+    const importResult = await db.getFirstAsync<ImportFile>(
+      'SELECT * FROM imports WHERE id = ?;',
+      [noteId]
+    );
+    if (importResult) {
+      await db.runAsync(
+        'DELETE FROM imports WHERE id = ?;',
+        [noteId]
+      );
+      console.log('Import deleted successfully');
+      return Promise.resolve();
+    }
+    
+    // 写真スキャンテーブルから検索・削除
+    const photoScanResult = await db.getFirstAsync<PhotoScan>(
+      'SELECT * FROM photo_scans WHERE id = ?;',
+      [noteId]
+    );
+    if (photoScanResult) {
+      await db.runAsync(
+        'DELETE FROM photo_scans WHERE id = ?;',
+        [noteId]
+      );
+      console.log('PhotoScan deleted successfully');
       return Promise.resolve();
     }
     

@@ -18,7 +18,9 @@ export type ToolbarFunction =
   | 'ai_summarize' | 'ai_convert' | 'ai_dictionary' | 'ai_proofread'
   | 'ai_furigana' | 'ai_research' | 'ai_chat'
   // 共通機能
-  | 'undo_redo' | 'canvas_draw' | 'manual_save' | 'voice_record';
+  | 'undo_redo' | 'canvas_draw' | 'manual_save' | 'voice_record'
+  // ズーム機能
+  | 'zoom';
 
 export interface UseAutoSaveProps {
   noteId: string;
@@ -111,69 +113,117 @@ export const useAutoSave = ({
       });
 
              // UniversalNote形式でデータ構築
-       const universalNote: UniversalNote = {
-         id: noteId,
-         type: noteType,
-         title: title,
-         pages: [{
-           pageId: `${noteId}_page_1`,
-           pageNumber: 1,
-           canvasData: canvasData,
+       let universalNote: UniversalNote;
+       
+       // 🆕 複数ページデータがある場合は複数ページとして保存
+       if (canvasData.multiPageData && canvasData.multiPageData.pages && canvasData.multiPageData.pages.length > 0) {
+         log('複数ページデータ保存', { 
+           pagesCount: canvasData.multiPageData.pages.length,
+           currentPageIndex: canvasData.multiPageData.currentPageIndex,
+           totalPages: canvasData.multiPageData.totalPages
+         });
+         
+         // 複数ページデータを使用してUniversalNoteを構築
+         const multiPageData = canvasData.multiPageData;
+         universalNote = {
+           id: noteId,
+           type: noteType,
+           title: title,
+           pages: multiPageData.pages.map((page, index) => ({
+             pageId: page.id || `${noteId}_page_${index + 1}`,
+             pageNumber: index + 1,
+             canvasData: page.canvasData || {
+               type: 'canvas',
+               version: '1.0',
+               content: page.content || '',
+               drawingPaths: page.drawingPaths || [],
+               textElements: [],
+               canvasSettings: canvasData.canvasSettings || {}
+             },
+             lastModified: new Date().toISOString(),
+             pageMetadata: {} // 必要に応じて拡張
+           })),
+           currentPageIndex: multiPageData.currentPageIndex || 0,
+           metadata: {
+             createdAt: new Date().toISOString(),
+             updatedAt: new Date().toISOString(),
+             tags: [],
+             totalPages: multiPageData.totalPages || multiPageData.pages.length
+           },
            lastModified: new Date().toISOString(),
-           pageMetadata: {} // 必要に応じて拡張
-         }],
-         currentPageIndex: 0,
-         metadata: {
-           createdAt: new Date().toISOString(),
-           updatedAt: new Date().toISOString(),
-           tags: []
-         },
-         lastModified: new Date().toISOString(),
-         lastSaved: new Date().toISOString(),
-         autoSaveEnabled: true
-       };
+           lastSaved: new Date().toISOString(),
+           autoSaveEnabled: true
+         };
+       } else {
+         // 単一ページデータの場合は従来通り
+         universalNote = {
+           id: noteId,
+           type: noteType,
+           title: title,
+           pages: [{
+             pageId: `${noteId}_page_1`,
+             pageNumber: 1,
+             canvasData: canvasData,
+             lastModified: new Date().toISOString(),
+             pageMetadata: {} // 必要に応じて拡張
+           }],
+           currentPageIndex: 0,
+           metadata: {
+             createdAt: new Date().toISOString(),
+             updatedAt: new Date().toISOString(),
+             tags: []
+           },
+           lastModified: new Date().toISOString(),
+           lastSaved: new Date().toISOString(),
+           autoSaveEnabled: true
+         };
+       }
 
-      // 🎯 UniversalNoteService経由で保存
+      // 🔧 直接updateCanvasDataで保存（multiPageData対応）
       try {
-        log('🚀🚀🚀 UniversalNoteService保存開始');
-        const universalNoteService = new UniversalNoteService({
-          debugMode: debugMode,
-          enableValidation: true,
-          enableRetry: true
+        log('🚀 直接updateCanvasData保存開始', {
+          hasMultiPageData: !!canvasData.multiPageData,
+          multiPageDataPagesCount: canvasData.multiPageData?.pages?.length || 0
         });
 
-        log('🚀🚀🚀 saveUniversalNote実行直前', { 
-          canvasSettings: canvasData.canvasSettings,
-          fontSize: canvasData.canvasSettings?.textSettings?.fontSize,
-          isBold: canvasData.canvasSettings?.textSettings?.isBold
-        });
-
-        const saveResult = await universalNoteService.saveUniversalNote(universalNote);
-        
-        log('🚀🚀🚀 saveUniversalNote実行完了', { saveResult });
-        
-        if (saveResult.success) {
-          setHasUnsavedChanges(false);
-          setLastSaved(new Date());
-          log('✅✅✅ 統一自動保存完了', { 
-            noteType,
-            pathsCount: canvasData.drawingPaths?.length || 0,
-            contentLength: canvasData.content?.length || 0,
-            saveTime: saveResult.metrics?.saveTime
-          });
-          return true;
-        } else {
-          throw new Error(saveResult.error || 'UniversalNoteService保存失敗');
-        }
-      } catch (universalError) {
-        log('UniversalNoteService保存失敗、フォールバック実行', universalError);
-        
-        // フォールバック: 従来の保存方法
+        // multiPageDataを含む完全なcanvasDataを保存
         await updateCanvasData(noteId, canvasData);
+        
         setHasUnsavedChanges(false);
         setLastSaved(new Date());
-        log('フォールバック保存完了');
+        log('✅ 直接保存完了（multiPageData含む）', { 
+          noteType,
+          pathsCount: canvasData.drawingPaths?.length || 0,
+          contentLength: canvasData.content?.length || 0,
+          multiPageDataSaved: !!canvasData.multiPageData
+        });
         return true;
+        
+      } catch (directSaveError) {
+        log('直接保存失敗、UniversalNoteService試行', directSaveError);
+        
+        // フォールバック: UniversalNoteService
+        try {
+          const universalNoteService = new UniversalNoteService({
+            debugMode: debugMode,
+            enableValidation: true,
+            enableRetry: true
+          });
+
+          const saveResult = await universalNoteService.saveUniversalNote(universalNote);
+          
+          if (saveResult.success) {
+            setHasUnsavedChanges(false);
+            setLastSaved(new Date());
+            log('✅ UniversalNoteService保存完了');
+            return true;
+          } else {
+            throw new Error(saveResult.error || 'UniversalNoteService保存失敗');
+          }
+        } catch (universalError) {
+          log('全ての保存方法が失敗', universalError);
+          return false;
+        }
       }
       
     } catch (error) {
