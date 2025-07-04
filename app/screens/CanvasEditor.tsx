@@ -3212,6 +3212,12 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
           const currPageText = workingText.slice(0, splitPos);
           const overflowText = workingText.slice(splitPos);
 
+          // 🔧 バグ修正: 空のcurrPageTextで分割を防ぐ安全ガード
+          if (currPageText.length === 0) {
+            console.warn('📄 空のcurrPageTextを検知、分割をスキップ');
+            break;
+          }
+
           console.log(`📄 ループ分割 ${splitCount + 1}回目`, {
             workingTextLength: workingText.length,
             splitPos,
@@ -3906,6 +3912,17 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                         console.log('📄 入力ハンドラで2000文字超過検知:', text.length);
                         performPageSplit(text);
                       } else {
+                        // 🔧 バグ修正: pages配列を即時同期（ペースト時の重複防止）
+                        setPages(prev => {
+                          const updatedPages = [...prev];
+                          if (updatedPages[currentPageIndex]) {
+                            updatedPages[currentPageIndex] = {
+                              ...updatedPages[currentPageIndex],
+                              content: text
+                            };
+                          }
+                          return updatedPages;
+                        });
                         setContent(text);
                         // 分割状態をリセット
                         setNeedsSplit(false);
