@@ -40,6 +40,10 @@ import { preprocessTextForTTS } from '../utils/ttsPreprocessor';
   // 📱 デバイス判定ユーティリティ
   import { isTablet, isIPad, getDeviceInfo } from '../utils/deviceUtils';
 
+  // 🎤 リアルタイム文字起こし機能のimport追加
+  import { AudioRecorder } from '../utils/audioHelpers';
+  import { STTSocket, STTResult } from '../services/sttSocket';
+
   // 🎤 TTS関連の型定義追加
   interface TTSSentence {
     text: string;
@@ -152,6 +156,69 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
   const [recordingState, setRecordingState] = useState<'idle' | 'recording' | 'paused'>('idle');
   const [recordingTime, setRecordingTime] = useState<number>(0); // 秒単位
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 🎤 リアルタイム文字起こし機能のインスタンス
+  const audioRecorderRef = useRef<AudioRecorder | null>(null);
+  const sttSocketRef = useRef<STTSocket | null>(null);
+  const [transcribedText, setTranscribedText] = useState<string>(''); // 確定した文字起こし結果
+  const [interimText, setInterimText] = useState<string>(''); // 中間結果（リアルタイム表示用）
+  const transcribedTextRef = useRef<string>(''); // 🔧 最新のtranscribedTextを参照するためのRef
+
+  // 🎤 リアルタイム文字起こし機能の初期化
+  useEffect(() => {
+    // AudioRecorderの初期化
+    audioRecorderRef.current = new AudioRecorder();
+    // 250ms間隔でデータ送信するように設定（stt.mdcの仕様）
+    audioRecorderRef.current.setDataUpdateInterval(250);
+
+    // STTSocketの初期化
+    const sttBaseUrl = process.env.EXPO_PUBLIC_STT_BASE_URL || 'http://192.168.0.92:8002';
+    const wsUrl = sttBaseUrl.replace('http://', 'ws://').replace('https://', 'wss://') + '/api/v1/stt/stream';
+    
+    const sttConfig = {
+      sample_rate_hertz: 16000,
+      language_code: 'ja-JP',
+      enable_automatic_punctuation: true,
+      interim_results: true
+    };
+
+    sttSocketRef.current = new STTSocket(
+      wsUrl,
+      null, // 開発環境ではtokenなし
+      sttConfig,
+      () => console.log('🎤 STT WebSocket接続成功'),
+      (result: STTResult) => {
+        // リアルタイム文字起こし結果を受信
+        console.log('🎤 文字起こし結果:', result);
+        if (result.isFinal) {
+          // 確定結果の場合は蓄積
+          setTranscribedText(prev => {
+            const newText = prev + result.text;
+            transcribedTextRef.current = newText; // 🔧 Refも同期更新
+            return newText;
+          });
+          // 中間結果をクリア
+          setInterimText('');
+        } else {
+          // 中間結果はリアルタイム表示
+          setInterimText(result.text);
+          console.log('🎤 中間結果:', result.text);
+        }
+      },
+      (error) => console.error('🎤 STT WebSocketエラー:', error),
+      () => console.log('🎤 STT WebSocket接続終了')
+    );
+
+    // クリーンアップ
+    return () => {
+      if (audioRecorderRef.current) {
+        audioRecorderRef.current.cancelRecording().catch(console.error);
+      }
+      if (sttSocketRef.current) {
+        sttSocketRef.current.closeConnection();
+      }
+    };
+  }, []);
 
   // 描画関連の状態管理
   const [drawingPaths, setDrawingPaths] = useState<DrawingPath[]>([]);
@@ -1516,60 +1583,195 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
   };
 
   // 録音開始ハンドラー
-  const handleStartRecording = () => {
-    setRecordingState('recording');
-    setRecordingTime(0);
-    markAsChanged(); // 🔥 追加: 録音開始時に変更フラグを立てる
+  const handleStartRecording = async () => {
+    console.log('🎤 録音開始');
     
-    // 1秒ごとに時間を更新
-    recordingTimerRef.current = setInterval(() => {
-      setRecordingTime(prev => {
-        const newTime = prev + 1;
-        // 60秒で自動停止
-        if (newTime >= 60) {
-          handleStopRecording();
-          return 60;
-        }
-        return newTime;
-      });
-    }, 1000);
-  };
-
-  // 録音停止ハンドラー
-  const handleStopRecording = () => {
-    setRecordingState('idle');
-    setRecordingTime(0);
-    markAsChanged(); // 🔥 追加: 録音停止時に変更フラグを立てる
-    
-    if (recordingTimerRef.current) {
-      clearInterval(recordingTimerRef.current);
-      recordingTimerRef.current = null;
-    }
-  };
-
-  // 録音一時停止ハンドラー
-  const handlePauseRecording = () => {
-    if (recordingState === 'recording') {
-      setRecordingState('paused');
-      markAsChanged(); // 🔥 追加: 録音一時停止時に変更フラグを立てる
-      if (recordingTimerRef.current) {
-        clearInterval(recordingTimerRef.current);
-        recordingTimerRef.current = null;
-      }
-    } else if (recordingState === 'paused') {
+    try {
+      // 録音状態をリセット
+      setTranscribedText('');
+      setInterimText('');
+      transcribedTextRef.current = ''; // 🔧 Refもリセット
       setRecordingState('recording');
-      markAsChanged(); // 🔥 追加: 録音再開時に変更フラグを立てる
-      // 一時停止から再開
+      setRecordingTime(0);
+      markAsChanged(); // 🔥 録音開始時に変更フラグを立てる
+      
+      // STT WebSocket接続開始
+      if (sttSocketRef.current) {
+        await sttSocketRef.current.connect();
+      }
+      
+      // AudioRecorder設定とデータ送信コールバック
+      if (audioRecorderRef.current) {
+        // 録音開始（コールバックで音声データをSTTに送信）
+        await audioRecorderRef.current.startRecording((audioData: ArrayBuffer) => {
+          if (sttSocketRef.current && sttSocketRef.current.getReadyState() === 'OPEN') {
+            sttSocketRef.current.sendAudioData(audioData);
+          }
+        });
+      }
+      
+      // 1秒ごとに時間を更新
       recordingTimerRef.current = setInterval(() => {
         setRecordingTime(prev => {
           const newTime = prev + 1;
+          // 60秒で自動停止
           if (newTime >= 60) {
-            handleStopRecording();
+            // 🔧 自動停止時は最新のtranscribedTextを使って停止処理
+            handleAutoStopRecording();
             return 60;
           }
           return newTime;
         });
       }, 1000);
+      
+    } catch (error) {
+      console.error('🎤 録音開始エラー:', error);
+      Alert.alert('録音エラー', '録音を開始できませんでした。');
+      setRecordingState('idle');
+    }
+  };
+
+  // 🔧 自動停止専用ハンドラー（最新のtranscribedTextを使用）
+  const handleAutoStopRecording = async () => {
+    console.log('🎤 60秒自動停止');
+    
+    try {
+      setRecordingState('idle');
+      setRecordingTime(0);
+      markAsChanged(); // 🔥 録音停止時に変更フラグを立てる
+      
+      // タイマー停止
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
+      
+      // 録音停止
+      if (audioRecorderRef.current) {
+        await audioRecorderRef.current.stopRecording();
+      }
+      
+      // STTストリーム終了
+      if (sttSocketRef.current && sttSocketRef.current.getReadyState() === 'OPEN') {
+        sttSocketRef.current.sendEndOfStream();
+        sttSocketRef.current.closeConnection();
+      }
+      
+      // 🔧 最新の文字起こし結果をキャンバスに挿入（Refから取得）
+      const latestTranscribedText = transcribedTextRef.current;
+      if (latestTranscribedText.trim()) {
+        const currentText = content;
+        const updatedText = currentText + (currentText ? '\n' : '') + latestTranscribedText;
+        setContent(updatedText);
+        markAsChanged();
+        console.log('🎤 自動停止：文字起こし結果をキャンバスに挿入:', latestTranscribedText);
+      }
+      
+      // リセット
+      setTranscribedText('');
+      setInterimText('');
+      transcribedTextRef.current = '';
+      
+    } catch (error) {
+      console.error('🎤 自動停止エラー:', error);
+      setRecordingState('idle');
+    }
+  };
+
+  // 録音停止ハンドラー（手動停止用）
+  const handleStopRecording = async () => {
+    console.log('🎤 手動録音停止');
+    
+    try {
+      setRecordingState('idle');
+      setRecordingTime(0);
+      markAsChanged(); // 🔥 録音停止時に変更フラグを立てる
+      
+      // タイマー停止
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
+      
+      // 録音停止
+      if (audioRecorderRef.current) {
+        await audioRecorderRef.current.stopRecording();
+      }
+      
+      // STTストリーム終了
+      if (sttSocketRef.current && sttSocketRef.current.getReadyState() === 'OPEN') {
+        sttSocketRef.current.sendEndOfStream();
+        sttSocketRef.current.closeConnection();
+      }
+      
+      // 文字起こし結果をキャンバスに挿入（stt.mdcの仕様）
+      if (transcribedText.trim()) {
+        const currentText = content;
+        const updatedText = currentText + (currentText ? '\n' : '') + transcribedText;
+        setContent(updatedText);
+        markAsChanged();
+        console.log('🎤 手動停止：文字起こし結果をキャンバスに挿入:', transcribedText);
+      }
+      
+      // リセット
+      setTranscribedText('');
+      setInterimText('');
+      transcribedTextRef.current = '';
+      
+    } catch (error) {
+      console.error('🎤 録音停止エラー:', error);
+      setRecordingState('idle');
+    }
+  };
+
+  // 録音一時停止ハンドラー
+  const handlePauseRecording = async () => {
+    console.log('🎤 録音一時停止/再開');
+    
+    try {
+      if (recordingState === 'recording') {
+        // 録音中→一時停止
+        setRecordingState('paused');
+        markAsChanged(); // 🔥 録音一時停止時に変更フラグを立てる
+        
+        // タイマー停止
+        if (recordingTimerRef.current) {
+          clearInterval(recordingTimerRef.current);
+          recordingTimerRef.current = null;
+        }
+        
+        // 録音一時停止
+        if (audioRecorderRef.current) {
+          await audioRecorderRef.current.pauseRecording();
+        }
+        
+      } else if (recordingState === 'paused') {
+        // 一時停止→録音再開
+        setRecordingState('recording');
+        markAsChanged(); // 🔥 録音再開時に変更フラグを立てる
+        
+        // 録音再開
+        if (audioRecorderRef.current) {
+          await audioRecorderRef.current.resumeRecording();
+        }
+        
+        // タイマー再開
+        recordingTimerRef.current = setInterval(() => {
+          setRecordingTime(prev => {
+            const newTime = prev + 1;
+            if (newTime >= 60) {
+              // 🔧 自動停止時は最新のtranscribedTextを使って停止処理
+              handleAutoStopRecording();
+              return 60;
+            }
+            return newTime;
+          });
+        }, 1000);
+      }
+      
+    } catch (error) {
+      console.error('🎤 録音一時停止/再開エラー:', error);
+      setRecordingState('idle');
     }
   };
 
@@ -3898,6 +4100,42 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                   // 🎯 Phase 2: 音声再生中はキャンバス全体を無効化
                   pointerEvents={isTTSPlaying ? 'none' : 'auto'}
                 >
+                  {/* 🎤 リアルタイム文字起こし表示 */}
+                  {recordingState !== 'idle' && (
+                    <View style={styles.sttDisplayContainer}>
+                      <View style={styles.sttHeader}>
+                        <Ionicons name="mic" size={16} color="#4F8CFF" />
+                        <Text style={styles.sttHeaderText}>
+                          {recordingState === 'recording' ? '録音中...' : '一時停止中'}
+                        </Text>
+                        <Text style={styles.sttTimer}>
+                          {formatRecordingTime(recordingTime)}
+                        </Text>
+                      </View>
+                      
+                      {/* 確定した文字起こし結果 */}
+                      {transcribedText.length > 0 && (
+                        <Text style={styles.sttFinalText}>
+                          {transcribedText}
+                        </Text>
+                      )}
+                      
+                      {/* 中間結果（リアルタイム表示） */}
+                      {interimText.length > 0 && (
+                        <Text style={styles.sttInterimText}>
+                          {interimText}
+                        </Text>
+                      )}
+                      
+                      {/* 文字起こし結果がない場合の表示 */}
+                      {transcribedText.length === 0 && interimText.length === 0 && (
+                        <Text style={styles.sttPlaceholder}>
+                          話してください...
+                        </Text>
+                      )}
+                    </View>
+                  )}
+                  
                   <TextInput
                     ref={contentInputRef}
                     style={[
@@ -5364,6 +5602,62 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '500',
     marginTop: 2,
+  },
+  
+  // 🎤 リアルタイム文字起こし表示スタイル
+  sttDisplayContainer: {
+    backgroundColor: '#F8FAFF',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E3F2FD',
+    shadowColor: '#4F8CFF',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  sttHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E3F2FD',
+  },
+  sttHeaderText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4F8CFF',
+    marginLeft: 6,
+    flex: 1,
+  },
+  sttTimer: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+  },
+  sttFinalText: {
+    fontSize: 16,
+    color: '#333',
+    lineHeight: 22,
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  sttInterimText: {
+    fontSize: 16,
+    color: '#888',
+    lineHeight: 22,
+    fontStyle: 'italic',
+    opacity: 0.8,
+  },
+  sttPlaceholder: {
+    fontSize: 14,
+    color: '#B0B0B0',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 8,
   },
 
 
