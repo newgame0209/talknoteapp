@@ -33,6 +33,7 @@ export interface UseAutoSaveProps {
 export interface UseAutoSaveReturn {
   markChanged: (toolbarFunction: ToolbarFunction, data?: any) => void;
   performSave: () => Promise<boolean>;
+  flushSave: () => Promise<void>;
   hasUnsavedChanges: boolean;
   isSaving: boolean;
   lastSaved: Date | null;
@@ -57,56 +58,51 @@ export const useAutoSave = ({
   // タイマー管理
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // 🔄 isSaving 中に "もう一度保存して" という要求が来たかを保持
+  const pendingSaveRef = useRef(false);
   
-  // デバッグログ
-  const log = useCallback((message: string, data?: any) => {
-    if (debugMode) {
-      console.log(`🎯 useAutoSave: ${message}`, data || '');
-    }
-  }, [debugMode]);
-
-  /**
-   * 🏷️ 変更マーク関数
-   * 任意のツールバー機能実行時に呼び出し
-   */
+  // 🔧 markChanged関数（デバウンス150msに短縮）
   const markChanged = useCallback((toolbarFunction: ToolbarFunction, data?: any) => {
-    log('変更フラグ設定', { toolbarFunction, data });
+    console.log('🏷️ markChanged: 変更フラグ設定');
     setHasUnsavedChanges(true);
     
-    // 即座保存（100ms後）
+    // 既存のタイマーをクリア
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
     
+    // 🔧 デバウンス時間を150msに短縮（連続操作をまとめつつ応答性向上）
     saveTimeoutRef.current = setTimeout(() => {
-      log('即座保存実行', { toolbarFunction });
+      console.log('⚡ デバウンス完了: 150ms後に保存実行');
       performSave();
-    }, 100);
+    }, 150); // 300ms → 150ms に短縮
   }, []);
 
   /**
-   * 💾 統一保存実行関数
+   * 🚀 統一自動保存実行
    */
   const performSave = useCallback(async (): Promise<boolean> => {
     if (isSaving) {
-      log('保存スキップ: 保存処理中');
+      // "保存が終わったらもう一度実行して" と印を付ける
+      pendingSaveRef.current = true;
+      console.log('保存中 → pendingSave フラグをセット');
       return false;
     }
     
     if (!hasUnsavedChanges) {
-      log('保存スキップ: 未変更');
+      console.log('保存スキップ: 未変更');
       return true;
     }
 
     try {
       setIsSaving(true);
-      log('統一自動保存開始', { noteId, noteType });
+      console.log('統一自動保存開始', { noteId, noteType });
       
       // 現在のキャンバスデータを取得
       const canvasData = getCurrentCanvasData();
       const title = getTitle();
       
-      log('保存データ構築', { 
+      console.log('保存データ構築', { 
         contentLength: canvasData.content?.length || 0,
         pathsCount: canvasData.drawingPaths?.length || 0,
         title 
@@ -117,7 +113,7 @@ export const useAutoSave = ({
        
        // 🆕 複数ページデータがある場合は複数ページとして保存
        if (canvasData.multiPageData && canvasData.multiPageData.pages && canvasData.multiPageData.pages.length > 0) {
-         log('複数ページデータ保存', { 
+         console.log('複数ページデータ保存', { 
            pagesCount: canvasData.multiPageData.pages.length,
            currentPageIndex: canvasData.multiPageData.currentPageIndex,
            totalPages: canvasData.multiPageData.totalPages
@@ -181,7 +177,7 @@ export const useAutoSave = ({
 
       // 🔧 直接updateCanvasDataで保存（multiPageData対応）
       try {
-        log('🚀 直接updateCanvasData保存開始', {
+        console.log('🚀 直接updateCanvasData保存開始', {
           hasMultiPageData: !!canvasData.multiPageData,
           multiPageDataPagesCount: canvasData.multiPageData?.pages?.length || 0
         });
@@ -191,7 +187,7 @@ export const useAutoSave = ({
         
         setHasUnsavedChanges(false);
         setLastSaved(new Date());
-        log('✅ 直接保存完了（multiPageData含む）', { 
+        console.log('✅ 直接保存完了（multiPageData含む）', { 
           noteType,
           pathsCount: canvasData.drawingPaths?.length || 0,
           contentLength: canvasData.content?.length || 0,
@@ -200,7 +196,7 @@ export const useAutoSave = ({
         return true;
         
       } catch (directSaveError) {
-        log('直接保存失敗、UniversalNoteService試行', directSaveError);
+        console.log('直接保存失敗、UniversalNoteService試行', directSaveError);
         
         // フォールバック: UniversalNoteService
         try {
@@ -215,24 +211,49 @@ export const useAutoSave = ({
           if (saveResult.success) {
             setHasUnsavedChanges(false);
             setLastSaved(new Date());
-            log('✅ UniversalNoteService保存完了');
+            console.log('✅ UniversalNoteService保存完了');
             return true;
           } else {
             throw new Error(saveResult.error || 'UniversalNoteService保存失敗');
           }
         } catch (universalError) {
-          log('全ての保存方法が失敗', universalError);
+          console.log('全ての保存方法が失敗', universalError);
           return false;
         }
       }
       
     } catch (error) {
-      log('統一自動保存エラー', error);
+      console.log('統一自動保存エラー', error);
       return false;
     } finally {
       setIsSaving(false);
+      // 🆕 pendingSave が立っていればもう一度保存
+      if (pendingSaveRef.current) {
+        console.log('pendingSave を処理 – 直ちに再保存');
+        pendingSaveRef.current = false;
+        // 再帰的だが isSaving=false なので即実行される
+        setTimeout(() => performSave(), 50);
+      }
     }
   }, [noteId, noteType, getCurrentCanvasData, getTitle, hasUnsavedChanges, isSaving, debugMode]);
+
+  // 🆕 確実な保存実行関数（React state反映待ち）
+  const flushSave = useCallback(async (): Promise<void> => {
+    console.log('🚀 flushSave: 確実な保存を実行開始');
+    
+    // React stateの反映を待つ（50ms）
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
+    // 保存中でも強制的に保存実行
+    if (isSaving) {
+      console.log('⏳ flushSave: 保存中のため100ms待機後に再実行');
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    // 最新状態で確実に保存
+    await performSave();
+    console.log('✅ flushSave: 確実な保存完了');
+  }, [performSave, isSaving]);
 
   /**
    * ⏰ 定期自動保存タイマー（5秒間隔）
@@ -242,16 +263,18 @@ export const useAutoSave = ({
       clearInterval(autoSaveTimerRef.current);
     }
     
-    log('自動保存タイマー開始: 5秒間隔');
+    console.log('自動保存タイマー開始: 5秒間隔');
     autoSaveTimerRef.current = setInterval(() => {
-      log('定期自動保存実行');
-      performSave();
+      if (hasUnsavedChanges) {
+        console.log('定期自動保存実行');
+        performSave();
+      }
     }, 5000);
 
     return () => {
       if (autoSaveTimerRef.current) {
         clearInterval(autoSaveTimerRef.current);
-        log('自動保存タイマー停止');
+        console.log('自動保存タイマー停止');
       }
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
@@ -262,6 +285,7 @@ export const useAutoSave = ({
   return {
     markChanged,
     performSave,
+    flushSave,
     hasUnsavedChanges,
     isSaving,
     lastSaved

@@ -14,10 +14,6 @@ import database, {
   Recording, 
   ManualNote,
   PhotoScan,
-  BookmarkData, // 🆕 BookmarkData型を追加
-  saveBookmark,  // 🆕 しおり保存関数を追加
-  getBookmark,   // 🆕 しおり取得関数を追加
-  getLastBookmarkPage, // 🆕 最後のしおりページ取得関数を追加
   saveRecording, 
   saveManualNote,
   updateNote, 
@@ -171,39 +167,27 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
 
   // 🆕 ノートタイプ判定関数（早期定義）
   const determineNoteType = (): NoteType => {
-    console.log('🔍🔍🔍 CRITICAL noteType判定:', {
-      noteId,
-      actualNoteId,
-      newNoteId,
-      recordingState,
-      routeParamsNoteId: route.params?.noteId,
-      includesPhotoScan: noteId?.includes('photo_scan'),
-      startsWithPhotoScan: noteId?.startsWith('photo_scan_'),
-      includesImport: noteId?.includes('import'),
-      判定結果: recordingState !== 'idle' ? 'recording' :
-                noteId?.includes('photo_scan') || noteId?.startsWith('photo_scan_') ? 'photo_scan' :
-                noteId?.includes('import') ? 'import' : 'manual'
-    });
-    
     // 🚨 写真スキャンノートの判定を最優先に
     if (noteId?.includes('photo_scan') || noteId?.startsWith('photo_scan_')) {
-      console.log('✅ 写真スキャンノートとして判定');
       return 'photo_scan';
     }
     if (recordingState !== 'idle') {
-      console.log('✅ 録音ノートとして判定');
       return 'recording';
     }
     if (noteId?.includes('import')) {
-      console.log('✅ インポートノートとして判定');
       return 'import';
     }
-    console.log('✅ 手動ノートとして判定');
     return 'manual';
   };
 
   // 🎯 新しい統一自動保存Hook
-  const autoSave = useAutoSave({
+  const { 
+    markChanged, 
+    performSave,
+    flushSave, // 🆕 確実な保存関数を追加
+    hasUnsavedChanges: autoSaveHasUnsavedChanges, 
+    isSaving: autoSaveIsSaving 
+  } = useAutoSave({
     noteId: actualNoteId || newNoteId || noteId || '',
     noteType: determineNoteType(),
     getCurrentCanvasData: () => {
@@ -246,34 +230,21 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
           };
         }
         
-        // 🔍 デバッグログ: 保存時のマルチページデータ
-        console.log('🔍 getCurrentCanvasData - マルチページデータ保存:', {
-          pagesCount: updatedPages.length,
-          currentPageIndex: currentPageIndex,
-          totalPages: totalPages,
-          currentPageContent: content.substring(0, 50) + '...',
-          currentPageDrawingPaths: drawingPaths.length,
-          allPagesData: updatedPages.map((page, index) => ({
-            index,
-            id: page.id,
-            title: page.title,
-            contentLength: page.content?.length || 0,
-            pathsCount: page.drawingPaths?.length || 0
-          }))
+        // 🔥 CRITICAL: ページ削除反映のため、最新のページ配列を確実に保存
+        console.log('📄 getCurrentCanvasData - マルチページ保存:', {
+          pagesLength: updatedPages.length,
+          currentPageIndex,
+          totalPages
         });
-        
-        // 🚨 デバッグ用アラート（EAS環境用）
-        Alert.alert('🔍 保存デバッグ', `保存時データ:\nページ数: ${updatedPages.length}\n現在ページ: ${currentPageIndex + 1}\n総ページ: ${totalPages}\n現在コンテンツ: "${content.substring(0, 30)}..."`);
-        
         
         // マルチページデータを含むキャンバスデータを返す
         return {
           ...currentPageData,
-          // 🆕 マルチページ情報を追加
+          // 🆕 マルチページ情報を追加（削除後の最新状態を反映）
           multiPageData: {
             pages: updatedPages,
             currentPageIndex: currentPageIndex,
-            totalPages: totalPages
+            totalPages: updatedPages.length // totalPagesも実際のページ数に同期
           }
         };
       }
@@ -347,8 +318,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
       
       // 新規作成の場合、ローカル用のダミーノートを作成
       if (isNewNote) {
-      try {
-          console.log('🚀 新規ノート作成開始');
+              try {
         
           // デフォルトタイトル生成（ノート2025-06-04形式）
           const today = new Date();
@@ -370,7 +340,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
               counter++;
             }
             
-            console.log('📝 タイトル重複チェック完了:', { baseTitle, finalTitle, existingCount: counter - 1 });
+            // タイトル重複チェック完了
           } catch (titleCheckError) {
             console.log('⚠️ タイトル重複チェックでエラー（デフォルトタイトル使用）:', titleCheckError);
             finalTitle = baseTitle;
@@ -382,9 +352,8 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
           // ここでキャンバス用のローカルノートを確実に保存
           const newNoteId = `manual_${Date.now()}`;
           
-          // 🔥 CRITICAL: 先にステートへ保存して以降の処理で確実に参照できるようにする
-          setNewNoteId(newNoteId);
-          console.log('✅ 新規手書きノート作成開始 - noteId:', newNoteId);
+                  // 🔥 CRITICAL: 先にステートへ保存して以降の処理で確実に参照できるようにする
+        setNewNoteId(newNoteId);
           
           // DB へ初期レコードを登録
           await saveManualNote(
@@ -414,8 +383,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
             }
           );
           
-          console.log('✅ 新規手書きノート作成完了 - noteId:', newNoteId);
-          console.log('🔄 ダッシュボードで表示されるノートID:', newNoteId);
+                  // 新規手書きノート作成完了
         
       } catch (error) {
           console.log('⚠️ ローカル新規ノート作成中にエラー:', error);
@@ -438,12 +406,14 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
 
   // 📝 既存ノート読み込み（新規作成でない場合）
   useEffect(() => {
-    setIsCanvasIconsVisible(true);
-    
-    // 新規作成の場合はノート読み込みをスキップ
+    // 🔧 修正: 新規ノートの場合のみ罫線アイコンを表示
     if (isNewNote) {
+      setIsCanvasIconsVisible(true);
       return;
     }
+    
+    // 既存ノートの場合は罫線アイコンを非表示
+    setIsCanvasIconsVisible(false);
     
     const loadNote = async () => {
       try {
@@ -576,11 +546,10 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
         }
 
         // 📝 Step2: 通常のノート読み込み処理
-        Alert.alert('🔍 検索ID確認', `検索しようとしているnoteId: ${noteId}`);
+        // ノート検索開始
         const note = await getNoteById(noteId);
         
-        // 🚨 デバッグ: ノート検出状況を確認
-        Alert.alert('🔍 ノート検出デバッグ', `ノート検出結果:\nnoteId: ${noteId}\nnote存在: ${!!note}\nnoteタイプ: ${note ? typeof note : 'null'}\ncanvas_data存在: ${note && 'canvas_data' in note}\ntranscription存在: ${note && 'transcription' in note}\nfile_path: ${note && 'file_path' in note ? note.file_path : 'なし'}`);
+        // ノート検出状況を確認
         
         // 🆕 Step2.1: 手動作成ノートの処理 - ManualNoteテーブルのノートを判定
         const isManualNote = note && 'canvas_data' in note && !('transcription' in note);
@@ -633,8 +602,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                         totalPages: canvasData.multiPageData.totalPages
                       });
                       
-                      // 🚨 デバッグ用アラート
-                      Alert.alert('🔍 復元デバッグ', `復元時データ:\nページ数: ${canvasData.multiPageData.pages.length}\n現在ページ: ${(canvasData.multiPageData.currentPageIndex || 0) + 1}\n総ページ: ${canvasData.multiPageData.totalPages || canvasData.multiPageData.pages.length}`);
+                      // マルチページデータ復元処理
                       
                       // 複数ページデータを復元
                       setPages(canvasData.multiPageData.pages);
@@ -727,8 +695,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
             filePath: note.file_path  // ノートタイプ判定用
           });
           
-          // 🚨 デバッグアラート: ノート読み込み開始
-          Alert.alert('📖 ノート読み込みデバッグ', `ノート読み込み開始:\nタイトル: ${note.title}\nファイルパス: ${note.file_path}\nコンテンツタイプ: ${typeof note.content}`);
+          // ノート読み込み開始
           
           setTitle(note.title);
           
@@ -837,7 +804,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                     setDrawingPaths(currentPage.drawingPaths || []);
                   }
                   
-                  Alert.alert('✅ 復元デバッグ', `マルチページ復元完了\nページ数: ${multiPageData.pages.length}\n現在ページ: ${(multiPageData.currentPageIndex || 0) + 1}\n総ページ: ${multiPageData.pages.length}`);
+                  // マルチページ復元完了
                   console.log('✅ 録音ノート - マルチページデータ復元完了:', multiPageData.pages.length);
                 } else {
                   // 従来の単一ページ復元処理
@@ -946,14 +913,12 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                         currentPageDrawingPaths: currentPage.drawingPaths?.length || 0
                       });
                       
-                      // 🚨 デバッグ用アラート（EAS環境用）
-                      Alert.alert('✅ 復元デバッグ', `復元時データ:\nページ数: ${multiPageData.pages.length}\n現在ページ: ${currentPageIndex + 1}\n復元コンテンツ: "${currentPage.content?.substring(0, 30) || ''}..."`);
+                      // 復元完了
                     }
                   }
                 } else {
                   console.log('⚠️ multiPageDataが存在しません - 単一ページとして処理');
-                  // 🚨 デバッグ用アラート（EAS環境用）
-                  Alert.alert('⚠️ 復元デバッグ', 'multiPageDataが存在しません - 単一ページとして処理');
+                  // 単一ページとして処理
                 }
                 
                 // ✨ キャンバス設定の復元
@@ -1028,36 +993,30 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     // 既存ノートの場合のみ読み込み実行
     const initializeNote = async () => {
       await loadNote();
-      // 📌 ノート読み込み完了後にしおり状態をロード
-      if (noteId && noteId !== 'new') {
-        await loadBookmarkState(noteId);
-      }
     };
     
     initializeNote();
   }, [noteId, isNewNote, getNoteById, navigation]);
 
   // 💾 ダッシュボード戻り時の最終保存
-  const handleGoBack = async () => {
-    console.log('🔙 戻る動作検出: スワイプジェスチャーまたは戻るボタン');
-    console.log('🔄 戻る前の状態:', { 
-      contentLength: content.length, 
-      pathsCount: drawingPaths.length,
-      hasUnsavedChanges,
-      title
-    });
+  const handleGoBack = useCallback(async () => {
+    console.log('🔙 戻るボタン押下 - 確実な保存実行');
     
     try {
-      // 最終保存を実行
-      await performAutoSave();
-      console.log('✅ 戻る動作時の自動保存完了');
+      // 🆕 確実な保存を実行してから戻る
+      await flushSave();
+      console.log('✅ 確実な保存完了 - ダッシュボードに戻る');
+      navigation.goBack();
     } catch (error) {
-      console.log('⚠️ 最終保存でエラーが発生しましたが、ダッシュボードに戻ります:', error);
+      console.error('❌ 保存エラー:', error);
+      // エラーでも戻る（データ損失を防ぐため警告表示）
+      Alert.alert(
+        '保存エラー',
+        '保存に失敗しましたが、ダッシュボードに戻ります。',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
     }
-    
-    // ダッシュボードに戻る
-    navigation.goBack();
-  };
+  }, [flushSave, navigation]);
 
   // 🔥 修正: 自動保存のuseEffect - 最新状態を参照
   useEffect(() => {
@@ -1180,64 +1139,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     handleSearchToggle();
   };
 
-  // 📌 しおり機能ハンドラ
-  const handleBookmarkAction = async () => {
-    try {
-      const newBookmarkState = !bookmarkData.hasBookmarks;
-      const noteIdToSave = actualNoteId || newNoteId || noteId;
-      const currentNoteType = determineNoteType();
-      
-      // SQLiteにしおりを保存
-      await saveBookmark(noteIdToSave, currentNoteType, bookmarkData.currentPage);
-      
-      // しおり状態を更新
-      setBookmarkData(prev => ({
-        ...prev,
-        hasBookmarks: newBookmarkState,
-        lastBookmarkPage: prev.currentPage,
-        bookmarkPages: newBookmarkState 
-          ? [...prev.bookmarkPages.filter(p => p !== prev.currentPage), prev.currentPage]
-          : prev.bookmarkPages.filter(p => p !== prev.currentPage)
-      }));
-      
-      console.log(`📌 しおり${newBookmarkState ? '追加' : '削除'}: ${noteIdToSave} ページ${bookmarkData.currentPage}`);
-      
-      markAsChanged('bookmark_add', { 
-        action: 'bookmark_toggled', 
-        hasBookmarks: newBookmarkState,
-        currentPage: bookmarkData.currentPage,
-        noteId: noteIdToSave 
-      }); // 🎯 統一自動保存
-      
-    } catch (error) {
-      console.log('⚠️ しおり保存エラー:', error);
-    }
-  };
 
-  // 📌 しおり状態をロード（SQLiteから）
-  const loadBookmarkState = async (noteId: string) => {
-    try {
-      if (!noteId) return;
-      
-      // 🆕 マルチページ対応: 現在のページのしおり状態を取得
-      const currentPageNumber = currentPageIndex + 1;
-      const bookmark = await getBookmark(noteId, currentPageNumber);
-      const lastPage = await getLastBookmarkPage(noteId);
-      
-      setBookmarkData(prev => ({
-        ...prev,
-        hasBookmarks: !!bookmark,
-        lastBookmarkPage: lastPage || 1,
-        bookmarkPages: bookmark ? [bookmark.page_number] : [],
-        currentPage: currentPageNumber // 🆕 現在のページ番号を動的に設定
-      }));
-      
-      console.log('📌 しおり状態ロード:', noteId, bookmark ? 'あり' : 'なし', 'ページ:', currentPageNumber);
-      
-    } catch (error) {
-      console.log('⚠️ しおり状態ロードエラー:', error);
-    }
-  };
 
   // ページ設定ハンドラ  
   const handlePageSettings = () => {
@@ -1868,11 +1770,11 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     // 🎯 新しい統一自動保存Hook経由
     if (toolbarFunction) {
       console.log('🚀 統一自動保存Hook実行:', toolbarFunction);
-      autoSave.markChanged(toolbarFunction, data);
+      markChanged(toolbarFunction, data);
     } else {
       // デフォルト機能として手動保存を指定
       console.log('🚀 デフォルト保存実行: manual_save');
-      autoSave.markChanged('manual_save', data);
+      markChanged('manual_save', data);
     }
   };
 
@@ -2088,32 +1990,25 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     return baseMetadata;
   };
 
-  // 🔥 スワイプジェスチャーでの戻る動作を検出
-  // 🚀 画面遷移時の自動保存（警告回避版）
-  React.useEffect(() => {
-    const unsubscribe = navigation.addListener('beforeRemove', async () => {
-      console.log('🔙 画面遷移検出（戻るボタン or スワイプ）');
-      
-      // 変更がある場合のみ保存処理を実行（阻止はしない）
-      if (hasUnsavedChanges) {
-        console.log('🔄 画面遷移時の自動保存開始...');
-        try {
-          // 非同期だが、可能な限り保存を試行
-          performAutoSave().then(() => {
-            console.log('✅ 画面遷移時の自動保存完了');
-          }).catch((error) => {
-            console.log('⚠️ 画面遷移時の自動保存エラー:', error);
-          });
-        } catch (error) {
-          console.log('⚠️ 画面遷移時の自動保存エラー:', error);
-        }
-      } else {
-        console.log('📝 未保存の変更なし - 保存スキップ');
+  // 🔧 画面離脱時の確実な保存（beforeRemoveリスナー）
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
+      console.log(' beforeRemove: 画面離脱検知');
+
+      if (!hasUnsavedChanges && !autoSaveHasUnsavedChanges) {
+        console.log('📝 未保存の変更なし – そのまま離脱');
+        return; // 何もせずにネイティブの戻るを許可
       }
+
+      // ⚡️ ネイティブ側の画面遷移はブロックせず、非同期で保存のみ実行
+      flushSave()
+        .then(() => console.log('✅ beforeRemove: バックグラウンド保存完了'))
+        .catch((err) => console.error('❌ beforeRemove: バックグラウンド保存失敗', err));
+      // 戻り値を返さずそのまま離脱を続行
     });
 
     return unsubscribe;
-  }, [navigation, performAutoSave, hasUnsavedChanges]);
+  }, [navigation, hasUnsavedChanges, autoSaveHasUnsavedChanges, flushSave]);
 
   // 🛡️ 追加の安全策：コンポーネントアンマウント時の最終保存
   React.useEffect(() => {
@@ -2733,13 +2628,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
   const [currentSearchIndex, setCurrentSearchIndex] = useState<number>(-1);
   const searchInputRef = useRef<TextInput>(null);
   
-  // 📌 しおり機能の状態管理（object構造に変更）
-  const [bookmarkData, setBookmarkData] = useState({
-    hasBookmarks: false,           // 現在：しおりの有無
-    lastBookmarkPage: 1,           // 将来：最後のしおりページ
-    bookmarkPages: [1],            // 将来：しおり設定済みページ一覧
-    currentPage: 1                 // 将来：現在表示中のページ
-  });
+
 
   // 📏 定規機能の状態管理（新規追加 - 既存機能への影響なし）
   const [rulerState, setRulerState] = useState({
@@ -2928,7 +2817,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
       console.log('📄 新しいページを追加してUIをクリア:', newPageId, 'インデックス:', newPageIndex);
       
       // 🚨 デバッグアラート: ページ追加時
-      Alert.alert('📄 ページ追加デバッグ', `新しいページを追加しました:\n総ページ数: ${totalPages + 1}\n新しいページ番号: ${newPageIndex + 1}\nページID: ${newPageId}`);
+      // ページ追加完了
       
       // 自動保存をトリガー
       markAsChanged();
@@ -2975,6 +2864,12 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
               setPages(newPages);
               setTotalPages(newPages.length);
               
+              console.log('📄 ページ削除後の状態更新:', {
+                deletedPageIndex: currentPageIndex,
+                newPagesLength: newPages.length,
+                oldTotalPages: totalPages
+              });
+              
               // 🆕 削除後のページインデックス調整
               let newIndex;
               if (currentPageIndex >= newPages.length) {
@@ -2999,8 +2894,14 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                 });
               }
               
-              // 自動保存をトリガー
+              // 🔔 変更フラグを立てる
               markAsChanged();
+              
+              // 🔄 300ms 後に最新 pages で保存（状態更新の反映を待つ）
+              setTimeout(() => {
+                console.log('💾 ページ削除後の遅延自動保存');
+                performAutoSave();
+              }, 300);
               
             } catch (error) {
               console.error('❌ ページ削除エラー:', error);
@@ -3284,225 +3185,161 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
             </View>
           </TouchableOpacity>
           
-          {/* 中央のアイコン群 */}
+          {/* 中央のアイコン群 - 全てを1つのグループに統合して中央揃え */}
           <View style={[
             styles.centerIcons,
             isTablet() && styles.centerIconsTablet // iPad専用スタイル追加
           ]}>
-            {/* グループ1: 戻る・検索 */}
-            <View style={[
-              styles.iconGroup,
-              isTablet() && styles.iconGroupTablet // iPad専用スタイル追加
-            ]}>
-              <TouchableOpacity 
-                style={[
-                  styles.topBarIcon, 
-                  isTablet() && styles.topBarIconTablet, // iPad専用スタイル追加
-                  isSearchVisible && styles.selectedToolIcon,
-                  isTTSPlaying && styles.disabledSubToolIcon // 🆕 TTS再生中はグレーアウト
-                ]} 
-                onPress={() => {
-                  if (!checkEditingAllowed('検索機能の使用は')) return;
-                  handleToolbarIconPress();
-                }}
-                disabled={isTTSPlaying} // 🆕 TTS再生中は無効化
-              >
-                <Ionicons 
-                  name="search" 
-                  size={22} 
-                  color={isTTSPlaying ? '#999' : (isSearchVisible ? '#4F8CFF' : '#fff')} 
-                />
-              </TouchableOpacity>
-            </View>
+            {/* 検索アイコン */}
+            <TouchableOpacity 
+              style={[
+                styles.topBarIcon, 
+                isTablet() && styles.topBarIconTablet, // iPad専用スタイル追加
+                isSearchVisible && styles.selectedToolIcon,
+                isTTSPlaying && styles.disabledSubToolIcon // 🆕 TTS再生中はグレーアウト
+              ]} 
+              onPress={() => {
+                if (!checkEditingAllowed('検索機能の使用は')) return;
+                handleToolbarIconPress();
+              }}
+              disabled={isTTSPlaying} // 🆕 TTS再生中は無効化
+            >
+              <Ionicons 
+                name="search" 
+                size={22} 
+                color={isTTSPlaying ? '#999' : (isSearchVisible ? '#4F8CFF' : '#fff')} 
+              />
+            </TouchableOpacity>
             
-            {/* グループ2: ペンツール・キーボード・マイク */}
-            <View style={[
-              styles.iconGroup,
-              isTablet() && styles.iconGroupTablet // iPad専用スタイル追加
-            ]}>
-              <TouchableOpacity 
-                style={[
-                  styles.topBarIcon, 
-                  isTablet() && styles.topBarIconTablet, // iPad専用スタイル追加
-                  selectedTool === 'pen' && styles.selectedToolIcon,
-                  isTTSPlaying && styles.disabledSubToolIcon // 🆕 TTS再生中はグレーアウト
-                ]} 
-                onPress={handlePenToolPress}
-                disabled={isTTSPlaying} // 🆕 TTS再生中は無効化
-              >
-                <MaterialIcons 
-                  name="edit" 
-                  size={22} 
-                  color={isTTSPlaying ? '#999' : (selectedTool === 'pen' ? '#4F8CFF' : '#fff')} 
-                />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[
-                  styles.topBarIcon, 
-                  isTablet() && styles.topBarIconTablet, // iPad専用スタイル追加
-                  selectedTool === 'keyboard' && styles.selectedToolIcon,
-                  isTTSPlaying && styles.disabledSubToolIcon // 🆕 TTS再生中はグレーアウト
-                ]} 
-                onPress={handleKeyboardToolPress}
-                disabled={isTTSPlaying} // 🆕 TTS再生中は無効化
-              >
-                <MaterialCommunityIcons 
-                  name="keyboard-outline" 
-                  size={22} 
-                  color={isTTSPlaying ? '#999' : (selectedTool === 'keyboard' ? '#4F8CFF' : '#fff')} 
-                />
-              </TouchableOpacity>
-              
-              {/* 音声録音エリア */}
-              <View style={styles.voiceRecordingArea}>
-                {recordingState === 'idle' ? (
-                  // 録音前：マイクアイコンのみ
-                  <TouchableOpacity 
-                    style={[
-                      styles.topBarIcon, 
-                      selectedTool === 'voice' && styles.selectedToolIcon,
-                      isTTSPlaying && styles.disabledSubToolIcon // 🆕 TTS再生中はグレーアウト
-                    ]} 
-                    onPress={() => {
-                      handleVoiceToolPress();
-                      handleStartRecording();
-                    }}
-                    disabled={isTTSPlaying} // 🆕 TTS再生中は無効化
-                  >
-                    <Ionicons 
-                      name="mic-outline" 
-                      size={22} 
-                      color={isTTSPlaying ? '#999' : (selectedTool === 'voice' ? '#4F8CFF' : '#fff')} 
-                    />
-              </TouchableOpacity>
-                ) : (
-                  // 録音中または一時停止中
-                  <>
-                    {/* 一時停止アイコン */}
-                    <TouchableOpacity 
-                      style={styles.topBarIcon} 
-                      onPress={handlePauseRecording}
-                    >
-                      <Ionicons 
-                        name={recordingState === 'recording' ? 'pause' : 'play'} 
-                        size={22} 
-                        color="#fff" 
-                      />
-                    </TouchableOpacity>
-                    
-                    {/* 録音時間表示 */}
-                    <View style={styles.recordingTimeDisplay}>
-                      <Text style={styles.recordingTimeTopBarText}>
-                        {formatRecordingTime(recordingTime)}
-                      </Text>
-                    </View>
-                    
-                    {/* 停止ボタン（赤色） */}
-                    <TouchableOpacity 
-                      style={styles.topBarIcon} 
-                      onPress={handleStopRecording}
-                    >
-                      <Ionicons name="stop" size={22} color="#FF4444" />
-                    </TouchableOpacity>
-                  </>
-                )}
-              </View>
-              
-              {/* 音声読み上げボタン */}
-              <TouchableOpacity 
-                style={[
-                  styles.topBarIcon,
-                  isTTSPlaying && styles.disabledSubToolIcon // TTS再生中はグレーアウト
-                ]} 
-                onPress={handleTTSButtonPress}
-                disabled={isTTSPlaying} // TTS再生中は無効化
-              >
-                <Ionicons 
-                  name="volume-high-outline" 
-                  size={22} 
-                  color={isTTSPlaying ? '#999' : '#fff'} 
-                />
-              </TouchableOpacity>
-            </View>
+            {/* ペンツールアイコン */}
+            <TouchableOpacity 
+              style={[
+                styles.topBarIcon, 
+                isTablet() && styles.topBarIconTablet, // iPad専用スタイル追加
+                selectedTool === 'pen' && styles.selectedToolIcon,
+                isTTSPlaying && styles.disabledSubToolIcon // 🆕 TTS再生中はグレーアウト
+              ]} 
+              onPress={handlePenToolPress}
+              disabled={isTTSPlaying} // 🆕 TTS再生中は無効化
+            >
+              <MaterialIcons 
+                name="edit" 
+                size={22} 
+                color={isTTSPlaying ? '#999' : (selectedTool === 'pen' ? '#4F8CFF' : '#fff')} 
+              />
+            </TouchableOpacity>
             
-            {/* グループ3: しおり・ページ設定 */}
+            {/* キーボードアイコン */}
+            <TouchableOpacity 
+              style={[
+                styles.topBarIcon, 
+                isTablet() && styles.topBarIconTablet, // iPad専用スタイル追加
+                selectedTool === 'keyboard' && styles.selectedToolIcon,
+                isTTSPlaying && styles.disabledSubToolIcon // 🆕 TTS再生中はグレーアウト
+              ]} 
+              onPress={handleKeyboardToolPress}
+              disabled={isTTSPlaying} // 🆕 TTS再生中は無効化
+            >
+              <MaterialCommunityIcons 
+                name="keyboard-outline" 
+                size={22} 
+                color={isTTSPlaying ? '#999' : (selectedTool === 'keyboard' ? '#4F8CFF' : '#fff')} 
+              />
+            </TouchableOpacity>
+            
+            {/* 音声録音エリア */}
             {recordingState === 'idle' ? (
-            <View style={[
-              styles.rightIconGroup,
-              isTablet() && styles.rightIconGroupTablet // iPad専用スタイル追加
-            ]}>
-                              <TouchableOpacity 
-                  style={[
-                    styles.topBarIcon,
-                    bookmarkData.hasBookmarks && styles.selectedToolIcon,
-                    isTTSPlaying && styles.disabledSubToolIcon // 🆕 TTS再生中はグレーアウト
-                  ]} 
-                  onPress={() => {
-                    if (!checkEditingAllowed('しおり機能の使用は')) return;
-                    handleBookmarkAction();
-                  }}
-                  disabled={isTTSPlaying} // 🆕 TTS再生中は無効化
-                >
-                  <MaterialIcons 
-                    name={bookmarkData.hasBookmarks ? "bookmark" : "bookmark-border"} 
-                    size={22} 
-                    color={isTTSPlaying ? '#999' : (bookmarkData.hasBookmarks ? "#4F8CFF" : "#fff")} 
-                  />
-              </TouchableOpacity>
+              // 録音前：マイクアイコンのみ
               <TouchableOpacity 
                 style={[
-                  styles.topBarIcon,
+                  styles.topBarIcon, 
+                  selectedTool === 'voice' && styles.selectedToolIcon,
                   isTTSPlaying && styles.disabledSubToolIcon // 🆕 TTS再生中はグレーアウト
                 ]} 
                 onPress={() => {
-                  if (!checkEditingAllowed('ページ設定の使用は')) return;
-                  handlePageSettings();
+                  handleVoiceToolPress();
+                  handleStartRecording();
                 }}
                 disabled={isTTSPlaying} // 🆕 TTS再生中は無効化
               >
-                <MaterialCommunityIcons 
-                  name="content-copy" 
+                <Ionicons 
+                  name="mic-outline" 
                   size={22} 
-                  color={isTTSPlaying ? '#999' : '#fff'} 
+                  color={isTTSPlaying ? '#999' : (selectedTool === 'voice' ? '#4F8CFF' : '#fff')} 
                 />
               </TouchableOpacity>
-            </View>
             ) : (
-              // 録音中：右側の幅を保持する透明ダミー
-              <View style={[
-                styles.rightIconGroup,
-                isTablet() && styles.rightIconGroupTablet,
-                {opacity: 0} // 透明にして幅だけ保持
-              ]}>
-                <View style={styles.topBarIcon} />
-                <View style={styles.topBarIcon} />
-              </View>
+              // 録音中または一時停止中
+              <>
+                {/* 一時停止アイコン */}
+                <TouchableOpacity 
+                  style={styles.topBarIcon} 
+                  onPress={handlePauseRecording}
+                >
+                  <Ionicons 
+                    name={recordingState === 'recording' ? 'pause' : 'play'} 
+                    size={22} 
+                    color="#fff" 
+                  />
+                </TouchableOpacity>
+                
+                {/* 録音時間表示 */}
+                <View style={styles.recordingTimeDisplay}>
+                  <Text style={styles.recordingTimeTopBarText}>
+                    {formatRecordingTime(recordingTime)}
+                  </Text>
+                </View>
+                
+                {/* 停止ボタン（赤色） */}
+                <TouchableOpacity 
+                  style={styles.topBarIcon} 
+                  onPress={handleStopRecording}
+                >
+                  <Ionicons name="stop" size={22} color="#FF4444" />
+                </TouchableOpacity>
+              </>
             )}
+            
+            {/* 音声読み上げボタン */}
+            <TouchableOpacity 
+              style={[
+                styles.topBarIcon,
+                isTTSPlaying && styles.disabledSubToolIcon // TTS再生中はグレーアウト
+              ]} 
+              onPress={handleTTSButtonPress}
+              disabled={isTTSPlaying} // TTS再生中は無効化
+            >
+              <Ionicons 
+                name="volume-high-outline" 
+                size={22} 
+                color={isTTSPlaying ? '#999' : '#fff'} 
+              />
+            </TouchableOpacity>
+            
           </View>
           
-          {/* 三点リーダー（右端） */}
-          {recordingState === 'idle' ? (
-          <TouchableOpacity 
-            style={[
-              styles.moreButtonContainer,
-              isTTSPlaying && styles.disabledSubToolIcon // 🆕 TTS再生中はグレーアウト
-            ]} 
-            onPress={() => {
-              if (!checkEditingAllowed('設定メニューの使用は')) return;
-              handleMoreSettings();
-            }}
-            disabled={isTTSPlaying} // 🆕 TTS再生中は無効化
-          >
-            <MaterialIcons 
-              name="more-horiz" 
-              size={24} 
-              color={isTTSPlaying ? '#999' : '#fff'} 
-            />
-          </TouchableOpacity>
-          ) : (
-            // 録音中：三点リーダーの幅を保持する透明ダミー
-            <View style={[styles.moreButtonContainer, {opacity: 0}]} />
+          {/* 右端のページ設定アイコン */}
+          {recordingState === 'idle' && (
+            <TouchableOpacity 
+              style={[
+                styles.topBarIcon,
+                { marginRight: 16 }, // 右端に適切な余白
+                isTTSPlaying && styles.disabledSubToolIcon // TTS再生中はグレーアウト
+              ]}
+              onPress={() => {
+                if (!checkEditingAllowed('ページ設定の使用は')) return;
+                handlePageSettings();
+              }}
+              disabled={isTTSPlaying} // TTS再生中は無効化
+            >
+              <MaterialCommunityIcons 
+                name="content-copy" 
+                size={22} 
+                color={isTTSPlaying ? '#999' : '#fff'} 
+              />
+            </TouchableOpacity>
           )}
+
         </View>
 
         {/* 🔍 検索バー */}
@@ -4171,8 +4008,8 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
 
 
 
-        {/* 🆕 ページコントロールバー - 罫線アイコンが非表示の時のみ表示 */}
-        {!isCanvasIconsVisible && (
+        {/* 🆕 ページコントロールバー - 罫線アイコンが非表示かつ音声再生メニューが非表示の時のみ表示 */}
+        {!isCanvasIconsVisible && !showAudioPlayer && (
         <View style={styles.pageControlBar}>
           {totalPages > 1 && (
             <TouchableOpacity 
@@ -4234,7 +4071,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
             setContent(newText);
             handleContentSave();
           }}
-          autoSave={autoSave}
+          autoSave={{ markChanged, performSave, flushSave, hasUnsavedChanges: autoSaveHasUnsavedChanges, isSaving: autoSaveIsSaving }}
         />
 
         {/* 📏 定規コンポーネント（既存機能への影響なし） */}
@@ -4286,8 +4123,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    justifyContent: 'space-between', // 左右に適切に配置
-    marginHorizontal: 8,
+    justifyContent: 'center', // 中央揃え
+    marginHorizontal: 0, // 外側マージンを削除して均一配置
+    paddingHorizontal: 8, // 内側パディングで微調整
   },
   // 🌟 iPad専用：中央寄せで余白調整
   centerIconsTablet: {
@@ -4302,6 +4140,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center', // 録音中のボタン群を中央寄せ
+    marginHorizontal: 8, // グループ間の余白を適度に調整
+    paddingHorizontal: 4, // 内側パディングで微調整
   },
   // 🌟 iPad専用：アイコングループの余白調整
   iconGroupTablet: {
@@ -4320,7 +4160,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   topBarIcon: {
-    marginHorizontal: 6,
+    marginHorizontal: 4, // アイコン間の余白を少し縮小して均一配置
     padding: 4,
   },
   // 🌟 iPad専用：アイコンの余白調整
