@@ -165,6 +165,71 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
+  // 📊 Step 1: 文字数カウント機能（デバッグ用）
+  const [characterCount, setCharacterCount] = useState<number>(0);
+  const [showCharacterCount, setShowCharacterCount] = useState<boolean>(false); // 🔧 本番用に非表示
+
+  // 📊 文字数カウント関数（テキストのみ、手書きパス除外）
+  const getTextCharacterCount = useCallback((text: string): number => {
+    // 純粋なテキスト文字数をカウント（改行・空白も含む）
+    return text.length;
+  }, []);
+
+  // 📊 文字数リアルタイム監視
+  useEffect(() => {
+    const charCount = getTextCharacterCount(content);
+    setCharacterCount(charCount);
+    
+    if (__DEV__) {
+      console.log(`📝 現在の文字数: ${charCount}/2000`);
+    }
+  }, [content, getTextCharacterCount]);
+
+  // 📊 Step 2: 分割検知機能
+  const [needsSplit, setNeedsSplit] = useState<boolean>(false);
+  const [splitPosition, setSplitPosition] = useState<number>(0);
+
+  // 📊 分割位置を決定する関数
+  const findSplitPosition = useCallback((text: string, maxLength: number = 2000): number => {
+    if (text.length <= maxLength) {
+      return -1; // 分割不要
+    }
+
+    // 「1文字残して」強制分割するためのハードリミット
+    const hardLimit = maxLength - 1; // 1999文字目
+    const searchStart = Math.max(0, hardLimit - 100);
+    
+    // 改行優先で探索（1999〜1899文字目まで）
+    for (let i = hardLimit; i >= searchStart; i--) {
+      if (text[i] === '\n') {
+        console.log(`📄 改行での分割位置発見 - ${i}文字目`);
+        return i + 1; // 改行直後で分割
+      }
+    }
+    
+    // 改行が無ければ1999文字目で強制分割
+    console.log(`📄 強制分割位置 - ${hardLimit}文字目`);
+    return hardLimit;
+  }, []);
+
+  // 📊 分割検知ロジック
+  const checkSplitNeeded = useCallback((text: string) => {
+    const splitPos = findSplitPosition(text);
+    
+    if (splitPos > 0) {
+      setNeedsSplit(true);
+      setSplitPosition(splitPos);
+      console.log(`📄 Step 2: 分割が必要です - 位置: ${splitPos}, 文字数: ${text.length}`);
+      return true;
+    } else {
+      setNeedsSplit(false);
+      setSplitPosition(0);
+      return false;
+    }
+  }, [findSplitPosition]);
+
+  // 🚨 削除：重複useEffectを除去（分割実行useEffectに統一）
+
   // 🆕 ノートタイプ判定関数（早期定義）
   const determineNoteType = (): NoteType => {
     // 🚨 写真スキャンノートの判定を最優先に
@@ -3063,61 +3128,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     }
   };
 
-  // 🆕 2000文字自動分割チェック
-  const checkAutoSplit = (text: string) => {
-    if (text.length > 2000) {
-      // 現在のページのテキストを2000文字で切り取り
-      const currentPageText = text.substring(0, 2000);
-      const overflowText = text.substring(2000);
-      
-      // 現在のページのテキストを更新
-      setContent(currentPageText);
-      
-      // 自動的に新しいページを作成
-      const newPageId = `page_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const newPage = {
-        id: newPageId,
-        title: `ページ ${totalPages + 1}`,
-        content: overflowText,
-        drawingPaths: [],
-        canvasData: {
-          type: 'canvas' as const,
-          version: '1.0' as const,
-          content: overflowText,
-          drawingPaths: [],
-          textElements: [],
-          canvasSettings: {
-            selectedTool: null,
-            selectedPenTool: null,
-            selectedColor: '#000000',
-            strokeWidth: 2
-          }
-        }
-      };
-
-      // 新しいページを追加
-      setPages(prev => [...prev, newPage]);
-      setTotalPages(prev => prev + 1);
-      
-      // 新しいページに移動
-      const newPageIndex = totalPages;
-      setCurrentPageIndex(newPageIndex);
-      setContent(overflowText);
-      
-      console.log('📄 2000文字自動分割実行:', {
-        currentPageLength: currentPageText.length,
-        newPageLength: overflowText.length,
-        totalPages: totalPages + 1
-      });
-      
-      // 分割通知
-      Alert.alert(
-        '📄 ページ自動分割',
-        `2000文字を超えたため、新しいページ（${totalPages + 1}ページ目）を作成しました。`,
-        [{ text: 'OK', style: 'default' }]
-      );
-    }
-  };
+  // 🚨 削除：旧checkAutoSplit関数を完全削除（performPageSplitに統一）
 
   // 🎵 画面遷移・アンマウント時に TTS を停止
   useEffect(() => {
@@ -3168,6 +3179,148 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
   }]);
   const [currentPageIndex, setCurrentPageIndex] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(1);
+
+  // 📊 Step 3: ページ分割実行機能（完全修正版）
+  const isSplittingRef = useRef(false); // 🚨 二重分割防止フラグ
+  const performPageSplit = useCallback((rawText: string) => {
+    // 🚨 二重分割防止ガード
+    if (isSplittingRef.current) {
+      console.log('📄 Step 3: 分割処理中のため、再実行をスキップ');
+      return;
+    }
+
+    isSplittingRef.current = true; // 🚨 分割処理開始フラグ
+
+    console.log(`📄 Step 3: ループ分割開始`, {
+      originalLength: rawText.length,
+      currentPageIndex
+    });
+
+    try {
+      // 1. 現在のpagesをコピーして編集
+      setPages(prevPages => {
+        let pagesDraft = [...prevPages];
+        let workingText = rawText;
+        let pageIdx = currentPageIndex; // まずは「今開いているページ」
+        let splitCount = 0;
+
+        // while で "残り2000字未満" になるまで分割し続ける
+        while (workingText.length > 2000) {
+          const splitPos = findSplitPosition(workingText);
+          if (splitPos <= 0) break; // 分割位置が見つからない場合は終了
+
+          const currPageText = workingText.slice(0, splitPos);
+          const overflowText = workingText.slice(splitPos);
+
+          console.log(`📄 ループ分割 ${splitCount + 1}回目`, {
+            workingTextLength: workingText.length,
+            splitPos,
+            currPageLength: currPageText.length,
+            overflowLength: overflowText.length
+          });
+
+          // a) 今のページ内容を確定保存
+          if (pagesDraft[pageIdx]) {
+            pagesDraft[pageIdx] = {
+              ...pagesDraft[pageIdx],
+              content: currPageText,
+              canvasData: {
+                ...pagesDraft[pageIdx].canvasData,
+                content: currPageText
+              }
+            };
+          }
+
+          // b) 新ページを生成（overflowTextが2000文字未満になるまで）
+          if (overflowText.length > 0) {
+            const newPage = {
+              id: `page_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+              title: `ページ ${pagesDraft.length + 1}`,
+              content: overflowText,
+              drawingPaths: [],
+              canvasData: {
+                type: 'canvas' as const,
+                version: '1.0' as const,
+                content: overflowText,
+                drawingPaths: [],
+                textElements: [],
+                canvasSettings: {
+                  selectedTool: null,
+                  selectedPenTool: null,
+                  selectedColor: '#000000',
+                  strokeWidth: 2
+                }
+              }
+            };
+            pagesDraft.push(newPage);
+          }
+
+          // 次に分割対象となる文字列を更新
+          workingText = overflowText;
+          pageIdx = pagesDraft.length - 1; // 追加したページが次のターゲット
+          splitCount++;
+
+          // 無限ループ防止（最大10回分割）
+          if (splitCount >= 10) {
+            console.warn('📄 分割回数が上限に達しました');
+            break;
+          }
+        }
+
+        console.log(`📄 ループ分割完了`, {
+          splitCount,
+          finalPagesLength: pagesDraft.length,
+          lastPageContent: pagesDraft[pagesDraft.length - 1]?.content?.length || 0
+        });
+
+        // c) ステート確定（setPages後に実行）
+        setTimeout(() => {
+          setTotalPages(pagesDraft.length);
+          setCurrentPageIndex(pagesDraft.length - 1);
+          // 🚨 修正：setContentを削除（pages配列から自動反映）
+          
+          // 分割状態をリセット
+          setNeedsSplit(false);
+          setSplitPosition(0);
+          
+          // Toast通知（最後に1回だけ）
+          Alert.alert(
+            '📄 ページ自動分割',
+            `2000文字を超えたため、自動で${pagesDraft.length}ページに分割しました。`,
+            [{ text: 'OK', style: 'default' }]
+          );
+          
+          // 自動保存
+          markAsChanged();
+        }, 10);
+
+        return pagesDraft; // ← setPages に返す
+      });
+
+    } catch (error) {
+      console.error('📄 Step 3: ページ分割エラー:', error);
+      Alert.alert('エラー', 'ページ分割中にエラーが発生しました。');
+    } finally {
+      // フラグ解除
+      setTimeout(() => {
+        isSplittingRef.current = false;
+      }, 50);
+    }
+  }, [currentPageIndex, findSplitPosition, markAsChanged]);
+
+  // 🚨 削除：分割用useEffectを完全削除（入力ハンドラ直接分割方式に変更）
+  
+  // 📄 pages配列からcontentを自動反映（setContentループを回避）
+  useEffect(() => {
+    const currentPageContent = pages[currentPageIndex]?.content || '';
+    if (currentPageContent !== content) {
+      setContent(currentPageContent);
+      console.log('📄 pages配列からcontent自動反映:', {
+        currentPageIndex,
+        contentLength: currentPageContent.length
+      });
+    }
+  }, [currentPageIndex, pages]);
 
   return (
     <TouchableWithoutFeedback onPress={() => setIsCanvasIconsVisible(false)}>
@@ -3748,9 +3901,16 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                     ]}
                     value={content}
                     onChangeText={(text) => {
-                      setContent(text);
-                      // 🆕 2000文字自動分割チェック
-                      checkAutoSplit(text);
+                      // 🚨 Step 3完全版: 入力ハンドラで直接分割（useEffectループを回避）
+                      if (text.length > 2000) {
+                        console.log('📄 入力ハンドラで2000文字超過検知:', text.length);
+                        performPageSplit(text);
+                      } else {
+                        setContent(text);
+                        // 分割状態をリセット
+                        setNeedsSplit(false);
+                        setSplitPosition(0);
+                      }
                       markAsChanged('text_input', { newContent: text }); // 🎯 統一自動保存
                     }}
                     placeholder="本文を入力"
@@ -4061,6 +4221,23 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
             </Text>
           )}
         </View>
+        )}
+
+        {/* 📊 Step 1 & 2: 文字数表示と分割検知状態 */}
+        {showCharacterCount && (
+          <View style={styles.characterCountDisplay}>
+            <Text style={[
+              styles.characterCountText,
+              characterCount > 2000 && styles.characterCountOverLimit
+            ]}>
+              {characterCount}/2000 文字
+            </Text>
+            {needsSplit && (
+              <Text style={styles.splitDetectionText}>
+                📄 分割検知: {splitPosition}文字目
+              </Text>
+            )}
+          </View>
         )}
 
         {/* AIチャットウィジェット */}
@@ -5144,6 +5321,32 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     minWidth: 30,
     textAlign: 'center',
+  },
+
+  // 📊 Step 1: 文字数表示用スタイル（開発環境のみ）
+  characterCountDisplay: {
+    position: 'absolute',
+    top: 60,
+    right: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    zIndex: 999,
+  },
+  characterCountText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  characterCountOverLimit: {
+    color: '#FF4444',
+  },
+  splitDetectionText: {
+    color: '#FFA500',
+    fontSize: 10,
+    fontWeight: '500',
+    marginTop: 2,
   },
 
 
