@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, Alert, SafeAreaView, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, ScrollView, Keyboard, Modal } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, Alert, SafeAreaView, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, ScrollView, Keyboard, Modal, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
 import { useDatabaseStore } from '../store/databaseStore';
-import { notebooksApi, pagesApi } from '../services/api';
+import api, { notebooksApi, pagesApi, aiApi } from '../services/api';
 import DrawingCanvas, { DrawingPath, DrawingCanvasHandle } from '../components/DrawingCanvas';
 import AIChatWidget from '../components/AIChatWidget';
 import Ruler from '../components/Ruler'; // 📏 定規コンポーネントをインポート
@@ -163,6 +163,8 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
   const [transcribedText, setTranscribedText] = useState<string>(''); // 確定した文字起こし結果
   const [interimText, setInterimText] = useState<string>(''); // 中間結果（リアルタイム表示用）
   const transcribedTextRef = useRef<string>(''); // 🔧 最新のtranscribedTextを参照するためのRef
+  const [isAiEnhancing, setIsAiEnhancing] = useState<boolean>(false); // 🎨 AI整形中フラグ
+  const shimmerAnimValue = useRef(new Animated.Value(0)).current; // 🎨 シマーアニメーション
 
   // 🎤 リアルタイム文字起こし機能の初期化
   useEffect(() => {
@@ -219,6 +221,37 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
       }
     };
   }, []);
+
+  // 🎨 シマーアニメーション制御useEffect
+  useEffect(() => {
+    if (isAiEnhancing) {
+      // AI整形開始時：シマーアニメーション開始
+      console.log('🎨 シマーアニメーション開始');
+      const shimmerAnimation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(shimmerAnimValue, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: false,
+          }),
+          Animated.timing(shimmerAnimValue, {
+            toValue: 0,
+            duration: 1000,
+            useNativeDriver: false,
+          }),
+        ])
+      );
+      shimmerAnimation.start();
+
+      return () => {
+        shimmerAnimation.stop();
+      };
+    } else {
+      // AI整形完了時：アニメーション停止
+      console.log('🎨 シマーアニメーション停止');
+      shimmerAnimValue.setValue(0);
+    }
+  }, [isAiEnhancing, shimmerAnimValue]);
 
   // 描画関連の状態管理
   const [drawingPaths, setDrawingPaths] = useState<DrawingPath[]>([]);
@@ -1632,6 +1665,52 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
   };
 
   // 🔧 自動停止専用ハンドラー（最新のtranscribedTextを使用）
+
+  
+  // 🎯 AI高品質整形機能（背景実行・オプション）
+  const enhanceTranscriptionWithAI = async (rawText: string): Promise<string> => {
+    try {
+      console.log('🔍 AI高品質整形開始（背景実行）:', { textLength: rawText.length });
+      const startTime = Date.now();
+      
+      const response = await api.post('/api/v1/ai/enhance-scanned-text', {
+        text: rawText,
+        analyze_structure: true,
+        correct_grammar: true,
+        improve_readability: true,
+        format_style: 'speech_to_text',
+        language: 'ja',
+        add_natural_breaks: true,
+        improve_flow: true,
+        remove_filler_words: true,
+        add_punctuation: true,
+        organize_content: true,
+        enhance_clarity: true,
+        preserve_speaker_intent: true
+      }, {
+        timeout: 10000, // 🔧 10秒に短縮（高速化）
+      });
+      
+      const enhancedText = response.data?.enhanced_text;
+      const duration = Date.now() - startTime;
+      
+      if (enhancedText) {
+        console.log('✅ AI高品質整形完了:', {
+          duration: `${duration}ms`,
+          originalLength: rawText.length,
+          enhancedLength: enhancedText.length
+        });
+        return enhancedText;
+      } else {
+        console.warn('⚠️ AI整形APIレスポンスが空です');
+        return rawText;
+      }
+    } catch (error) {
+      console.error('❌ AI高品質整形エラー:', error);
+      return rawText;
+    }
+  };
+
   const handleAutoStopRecording = async () => {
     console.log('🎤 60秒自動停止');
     
@@ -1657,14 +1736,51 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
         sttSocketRef.current.closeConnection();
       }
       
-      // 🔧 最新の文字起こし結果をキャンバスに挿入（Refから取得）
+      // 🎯 二段階表示：即座挿入 → 背景AI整形 → 置き換え
       const latestTranscribedText = transcribedTextRef.current;
       if (latestTranscribedText.trim()) {
+        console.log('🎤 自動停止：二段階表示開始');
+        
+        // Step 1: 元のテキストを即座挿入（0ms）
         const currentText = content;
         const updatedText = currentText + (currentText ? '\n' : '') + latestTranscribedText;
         setContent(updatedText);
         markAsChanged();
-        console.log('🎤 自動停止：文字起こし結果をキャンバスに挿入:', latestTranscribedText);
+        
+        console.log('⚡ Step 1: 元のテキストを即座挿入完了:', {
+          originalText: latestTranscribedText
+        });
+        
+        // Step 2: 背景でAI整形 → 完了後に置き換え（非ブロッキング）
+        setIsAiEnhancing(true); // 🎨 AI整形開始フラグ
+        enhanceTranscriptionWithAI(latestTranscribedText).then(enhancedText => {
+          if (enhancedText && enhancedText !== latestTranscribedText) {
+            console.log('🎯 Step 2: AI整形完了 - テキスト置き換え開始');
+            
+            // 現在のコンテンツから元のテキストを検索して置き換え
+            setContent(prevContent => {
+              const replacedContent = prevContent.replace(latestTranscribedText, enhancedText);
+              
+              if (replacedContent !== prevContent) {
+                console.log('✅ AI整形置き換え完了:', {
+                  originalText: latestTranscribedText,
+                  enhancedText: enhancedText
+                });
+                markAsChanged();
+                return replacedContent;
+              } else {
+                console.log('⚠️ AI整形テキストが見つからず置き換えスキップ');
+                return prevContent;
+              }
+            });
+          } else {
+            console.log('ℹ️ AI整形結果が元のテキストと同じ - 置き換えスキップ');
+          }
+        }).catch(error => {
+          console.log('❌ 背景AI整形失敗（元のテキストのまま）:', error);
+        }).finally(() => {
+          setIsAiEnhancing(false); // 🎨 AI整形完了フラグ
+        });
       }
       
       // リセット
@@ -1704,13 +1820,50 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
         sttSocketRef.current.closeConnection();
       }
       
-      // 文字起こし結果をキャンバスに挿入（stt.mdcの仕様）
+      // 🎯 二段階表示：即座挿入 → 背景AI整形 → 置き換え
       if (transcribedText.trim()) {
+        console.log('🎤 手動停止：二段階表示開始');
+        
+        // Step 1: 元のテキストを即座挿入（0ms）
         const currentText = content;
         const updatedText = currentText + (currentText ? '\n' : '') + transcribedText;
         setContent(updatedText);
         markAsChanged();
-        console.log('🎤 手動停止：文字起こし結果をキャンバスに挿入:', transcribedText);
+        
+        console.log('⚡ Step 1: 元のテキストを即座挿入完了:', {
+          originalText: transcribedText
+        });
+        
+        // Step 2: 背景でAI整形 → 完了後に置き換え（非ブロッキング）
+        setIsAiEnhancing(true); // 🎨 AI整形開始フラグ
+        enhanceTranscriptionWithAI(transcribedText).then(enhancedText => {
+          if (enhancedText && enhancedText !== transcribedText) {
+            console.log('🎯 Step 2: AI整形完了 - テキスト置き換え開始');
+            
+            // 現在のコンテンツから元のテキストを検索して置き換え
+            setContent(prevContent => {
+              const replacedContent = prevContent.replace(transcribedText, enhancedText);
+              
+              if (replacedContent !== prevContent) {
+                console.log('✅ AI整形置き換え完了:', {
+                  originalText: transcribedText,
+                  enhancedText: enhancedText
+                });
+                markAsChanged();
+                return replacedContent;
+              } else {
+                console.log('⚠️ AI整形テキストが見つからず置き換えスキップ');
+                return prevContent;
+              }
+            });
+          } else {
+            console.log('ℹ️ AI整形結果が元のテキストと同じ - 置き換えスキップ');
+          }
+        }).catch(error => {
+          console.log('❌ 背景AI整形失敗（元のテキストのまま）:', error);
+        }).finally(() => {
+          setIsAiEnhancing(false); // 🎨 AI整形完了フラグ
+        });
       }
       
       // リセット
@@ -4085,7 +4238,10 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
 
               {/* 本文エリア */}
               <TouchableWithoutFeedback onPress={handleContentAreaPress}>
-                <View style={styles.contentArea}>
+                <View style={[
+                  styles.contentArea,
+                  isAiEnhancing && styles.aiEnhancingContainer
+                ]}>
                 {/* ✅ 修正: ScrollView内にTextInputを配置してスクロール対応 */}
                 <ScrollView 
                   ref={scrollViewRef}
@@ -4227,6 +4383,32 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
                     canRedo={redoStack.length > 0}
                   />
                 </View>
+
+                {/* 🎨 AI整形中のシマーエフェクトとインジケータ */}
+                {isAiEnhancing && (
+                  <>
+                    {/* シマーオーバーレイ */}
+                    <Animated.View
+                      style={[
+                        styles.shimmerOverlay,
+                        {
+                          opacity: shimmerAnimValue.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0.3, 0.7],
+                          }),
+                        },
+                      ]}
+                    />
+                    
+                    {/* AI整形中インジケータ */}
+                    <View style={styles.aiEnhancingIndicator}>
+                      <Ionicons name="sparkles" size={12} color="#fff" />
+                      <Text style={styles.aiEnhancingIndicatorText}>
+                        AI整形中...
+                      </Text>
+                    </View>
+                  </>
+                )}
               </View>
               </TouchableWithoutFeedback>
             </View>
@@ -5658,6 +5840,46 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     textAlign: 'center',
     paddingVertical: 8,
+  },
+
+  // 🎨 AI整形エフェクトスタイル
+  aiEnhancingContainer: {
+    backgroundColor: 'rgba(79, 140, 255, 0.1)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(79, 140, 255, 0.3)',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  aiEnhancingText: {
+    opacity: 0.8,
+    position: 'relative',
+  },
+  shimmerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    borderRadius: 8,
+  },
+  aiEnhancingIndicator: {
+    position: 'absolute',
+    top: 4,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(79, 140, 255, 0.9)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  aiEnhancingIndicatorText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '600',
+    marginLeft: 4,
   },
 
 
