@@ -134,7 +134,10 @@ export const useAutoSave = ({
                content: page.content || '',
                drawingPaths: page.drawingPaths || [],
                textElements: [],
-               canvasSettings: canvasData.canvasSettings || {}
+               canvasSettings: canvasData.canvasSettings || {},
+               contentLength: (page.content || '').length,
+               pathsCount: (page.drawingPaths || []).length,
+               elementsCount: 0
              },
              lastModified: new Date().toISOString(),
              pageMetadata: {} // 必要に応じて拡張
@@ -159,7 +162,12 @@ export const useAutoSave = ({
            pages: [{
              pageId: `${noteId}_page_1`,
              pageNumber: 1,
-             canvasData: canvasData,
+             canvasData: {
+               ...canvasData,
+               contentLength: canvasData.content?.length || 0,
+               pathsCount: canvasData.drawingPaths?.length || 0,
+               elementsCount: canvasData.textElements?.length || 0
+             },
              lastModified: new Date().toISOString(),
              pageMetadata: {} // 必要に応じて拡張
            }],

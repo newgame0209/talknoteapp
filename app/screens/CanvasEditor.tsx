@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, Alert, SafeAreaView, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, ScrollView, Keyboard, Modal, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
@@ -69,7 +69,14 @@ type RootStackParamList = {
   };
 };
 
-type CanvasEditorRouteProp = RouteProp<RootStackParamList, 'CanvasEditor'>;
+type CanvasEditorRouteProp = {
+  key: string;
+  name: 'CanvasEditor';
+  params: { 
+    noteId: string; 
+    isNewNote?: boolean;
+  };
+};
 type CanvasEditorNavigationProp = StackNavigationProp<RootStackParamList, 'CanvasEditor'>;
 
 // ツールの種類定義
@@ -595,7 +602,91 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
               setIsPhotoScanNote(true);
               setTitle(targetPhotoScan.title);
               
-              // 🔥 CRITICAL: Step1でもキャンバス設定復元を追加
+              // 🆕 複数ページ対応: photos配列を複数ページに展開
+              if (targetPhotoScan.photos && targetPhotoScan.photos.length > 1) {
+                console.log('📸 複数ページ写真スキャンノート検出:', {
+                  noteId: targetPhotoScan.id,
+                  totalPhotos: targetPhotoScan.photos.length
+                });
+                
+                // photos配列を複数ページに展開
+                const pagesArray = targetPhotoScan.photos.map((photo: any, index: number) => {
+                  let canvasData;
+                  
+                  // canvasDataがある場合は解析
+                  if (photo.canvasData) {
+                    try {
+                      canvasData = typeof photo.canvasData === 'string' 
+                        ? JSON.parse(photo.canvasData) 
+                        : photo.canvasData;
+                    } catch (error) {
+                      console.log(`⚠️ Page ${index + 1} canvasData解析エラー:`, error);
+                      canvasData = null;
+                    }
+                  }
+                  
+                  // canvasDataがない場合はテキストから作成
+                  if (!canvasData) {
+                    const pageText = photo.enhancedText || photo.ocrResult?.text || '';
+                    canvasData = {
+                      type: 'canvas',
+                      version: '1.0',
+                      content: pageText,
+                      drawingPaths: [],
+                      textElements: [],
+                      canvasSettings: {}
+                    };
+                  }
+                  
+                  return {
+                    id: `${targetPhotoScan.id}-page-${index + 1}`,
+                    title: `${targetPhotoScan.title} - Page ${index + 1}`,
+                    content: canvasData.content || '',
+                    drawingPaths: canvasData.drawingPaths || [],
+                    canvasData: canvasData,
+                    pageNumber: index + 1
+                  };
+                });
+                
+                // 複数ページ状態を設定
+                setPages(pagesArray);
+                setTotalPages(pagesArray.length);
+                setCurrentPageIndex(0);
+                
+                // 1ページ目の内容をエディタに設定
+                if (pagesArray.length > 0) {
+                  const firstPage = pagesArray[0];
+                  setContent(firstPage.content);
+                  setDrawingPaths(firstPage.drawingPaths);
+                  
+                  // キャンバス設定復元
+                  if (firstPage.canvasData?.canvasSettings) {
+                    const settings = firstPage.canvasData.canvasSettings;
+                    if (settings.selectedColor) setSelectedColor(settings.selectedColor);
+                    if (settings.strokeWidth) setStrokeWidth(settings.strokeWidth);
+                    
+                    if (settings.textSettings) {
+                      const textSettings = settings.textSettings;
+                      if (textSettings.fontSize) setFontSize(textSettings.fontSize);
+                      if (textSettings.textColor) setTextColor(textSettings.textColor);
+                      if (textSettings.selectedFont) setSelectedFont(textSettings.selectedFont);
+                      if (textSettings.selectedTextType) setSelectedTextType(textSettings.selectedTextType);
+                      if (typeof textSettings.isBold === 'boolean') setIsBold(textSettings.isBold);
+                      if (textSettings.lineSpacing) setLineSpacing(textSettings.lineSpacing);
+                      if (textSettings.letterSpacing) setLetterSpacing(textSettings.letterSpacing);
+                    }
+                  }
+                  
+                  console.log('✅ 複数ページ写真スキャンノート初期化完了:', {
+                    totalPages: pagesArray.length,
+                    firstPageContentLength: firstPage.content.length
+                  });
+                }
+                
+                return; // 複数ページ処理完了、既存の単一ページ処理はスキップ
+              }
+              
+              // 🔥 CRITICAL: Step1でもキャンバス設定復元を追加（単一ページの場合）
               const firstPhoto = targetPhotoScan.photos?.[0];
               
               // まずcanvasDataがあるかチェック（設定復元）
@@ -4840,7 +4931,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
             setContent(newText);
             handleContentSave();
           }}
-          autoSave={{ markChanged, performSave, flushSave, hasUnsavedChanges: autoSaveHasUnsavedChanges, isSaving: autoSaveIsSaving }}
+          autoSave={{ markChanged, flushSave, hasUnsavedChanges: autoSaveHasUnsavedChanges, isSaving: autoSaveIsSaving }}
         />
 
         {/* 📏 定規コンポーネント（既存機能への影響なし） */}

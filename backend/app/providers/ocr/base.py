@@ -38,7 +38,8 @@ class OCRProvider(ABC):
     async def extract_text(
         self, 
         image_data: bytes, 
-        language_hints: Optional[List[str]] = None
+        language_hints: Optional[List[str]] = None,
+        desired_rotation: Optional[int] = None
     ) -> OCRResult:
         """
         画像からテキストを抽出
@@ -46,6 +47,7 @@ class OCRProvider(ABC):
         Args:
             image_data: 画像のバイナリデータ
             language_hints: 言語ヒント（例: ['ja', 'en']）
+            desired_rotation: 画像の回転角度（90, 180, 270度）- 横向き画像のOCR精度向上用
             
         Returns:
             OCRResult: 抽出結果

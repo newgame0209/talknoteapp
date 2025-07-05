@@ -6,33 +6,89 @@
 
 import { 
   UniversalNote, 
+  UniversalPage,
+  CanvasData,
   NoteType, 
   SaveResult, 
-  ValidationResult
+  ValidationResult,
+  SyncQueue,
+  QueuedSaveOperation,
+  QueuedDeleteOperation,
+  PageOperation,
+  PageOperationData,
+  AIProcessingState,
+  MediaProcessingState,
+  AutoSaveConfig,
+  AutoSaveState,
+  AutoSaveMetrics,
+  PerformanceMetrics,
+  CropRegion
 } from '../types/UniversalNote';
 import { 
-  saveRecording, 
-  getNoteById, 
+  getNotesFromSQLite, 
+  updateNote, 
   deleteNote,
   getAllNotes,
   updateCanvasData,
   savePhotoScan,
   deletePhotoScan,
   saveImport,
-  updateNote
+  saveRecording,
+  saveManualNote,
+  generateAITitle,
+  generateManualNoteAITitle,
+  generatePhotoScanAITitle,
+  type Recording,
+  type ImportFile,
+  type ManualNote,
+  type PhotoScan
 } from './database';
 import { DEFAULT_AUTO_SAVE_CONFIG } from '../constants/AutoSaveConfig';
 import { aiApi } from './api';
 import { MultiPageService } from './MultiPageService';
+import { getCurrentIdToken } from './auth';
 
-// 🆕 Phase 4: Feature Flag確認用（バックエンドから取得）
+// 🆕 API設定をConstants.expoConfigから取得（EAS環境対応）
+import Constants from 'expo-constants';
+
+const API_BASE_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_BASE_URL || 'http://192.168.0.92:8000';
+
+// 🆕 認証トークン取得関数
+const getAuthToken = async (): Promise<string> => {
+  try {
+    const token = await getCurrentIdToken();
+    return token || 'demo_token_for_development';
+  } catch (error) {
+    console.error('認証トークン取得エラー:', error);
+    return 'demo_token_for_development';
+  }
+};
+
+// 🆕 画像アップロード結果の型定義
+interface ImageUploadResult {
+  pageId: string;
+  pageNumber: number;
+  uploadResult?: {
+    status: string;
+    note_id: string;
+    page_id: string;
+    file_path?: string;
+    local_url?: string;
+    gcs_url?: string;
+    message: string;
+  };
+  originalPhotoUri: string;
+  error?: string;
+}
+
+// 🆕 機能フラグ確認関数
 const checkImportSplitEnabled = async (): Promise<boolean> => {
   try {
-    // バックエンドのsettingsから IMPORT_SPLIT_ENABLED を確認
-    // 実際の実装では環境変数やAPIから取得
-    return true; // 🎯 複数ページ機能を有効化
-  } catch {
-    return false; // エラー時はOFF
+    // 環境変数やAPIから機能フラグを取得
+    return process.env.EXPO_PUBLIC_IMPORT_SPLIT_ENABLED === 'true';
+  } catch (error) {
+    console.error('機能フラグ確認エラー:', error);
+    return false; // デフォルトは無効
   }
 };
 
@@ -61,6 +117,21 @@ export interface ServiceMetrics {
   failedOperations: number;
   averageResponseTime: number;
   lastOperationTime: string;
+}
+
+// 🆕 写真スキャン用のページデータ型
+export interface PhotoPageData {
+  photoUri: string;
+  ocrText: string;
+  enhancedText?: string;
+  orientation?: 'portrait' | 'landscape';
+  ocrConfidence?: number;
+  cropRegion?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 }
 
 // ===============================
@@ -376,7 +447,7 @@ export class UniversalNoteService {
       }
 
       // データベースから読み込み
-      const note = await getNoteById(noteId);
+      const note = await getNotesFromSQLite(noteId);
       if (!note) {
         this.log('loadNote失敗', { noteId, reason: 'ノートが見つからない' });
         return null;
@@ -553,7 +624,7 @@ export class UniversalNoteService {
             pageNumber: page.page_number || (index + 1),
             canvasData: {
               type: 'canvas' as const,
-              version: '1.0',
+              version: '1.0' as const,
               content: enhancedText, // 🆕 AI整形済みテキスト
               drawingPaths: [],
               textElements: [],
@@ -633,32 +704,271 @@ export class UniversalNoteService {
     }
   }
 
-  // ===============================
-  // 🆕 Phase 4: 複数ページ保存メソッド
-  // ===============================
-
   /**
-   * インポートIDを含むページを保存
+   * 写真スキャン結果から複数ページUniversalNoteを作成
    */
-  private async savePageWithImportId(noteId: string, page: any, pageIndex: number): Promise<void> {
+  async createPhotoScanNote(photoPages: PhotoPageData[]): Promise<UniversalNote | null> {
     try {
-      // 🆕 Phase 2で追加したimport_idカラムを使用
-      // 実際の実装では、pagesテーブルに直接保存する処理を追加
-      console.log('📄 ページ保存開始:', {
+      // ノートIDを生成
+      const noteId = `photo_scan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      this.log('createPhotoScanNote開始', { 
         noteId,
-        pageId: page.pageId,
-        pageNumber: page.pageNumber,
-        pageIndex,
-        contentLength: page.canvasData?.content?.length || 0
+        totalPhotos: photoPages.length 
       });
+
+      if (!photoPages || photoPages.length === 0) {
+        throw new Error('Invalid photo pages: no photos provided');
+      }
+
+      // 🆕 Step 1: 画像をバックエンドに保存
+      console.log('🖼️ 画像保存処理開始:', photoPages.length, '枚');
       
-      // 現在はupdateCanvasDataを使用（将来的にはpagesテーブルに直接保存）
-      await updateCanvasData(noteId, page.canvasData || {});
+      const imageUploadResults = [];
+      for (let i = 0; i < photoPages.length; i++) {
+        const photoPage = photoPages[i];
+        const pageId = `${noteId}-page-${i}`;
+        
+        try {
+          // 画像をBase64形式で取得
+          let imageBase64 = '';
+          if (photoPage.photoUri.startsWith('data:')) {
+            // 既にBase64形式の場合
+            imageBase64 = photoPage.photoUri;
+          } else if (photoPage.photoUri.startsWith('file://')) {
+            // ローカルファイルの場合、Base64に変換
+            const response = await fetch(photoPage.photoUri);
+            const blob = await response.blob();
+            imageBase64 = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(blob);
+            });
+          } else {
+            console.warn('⚠️ 未対応の画像URI形式:', photoPage.photoUri);
+            continue;
+          }
+          
+          // Base64データからプレフィックスを除去
+          const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+          
+          console.log('📤 画像アップロード開始:', {
+            noteId,
+            pageId,
+            imageBase64Length: imageBase64.length,
+            base64DataLength: base64Data.length,
+            apiUrl: `${API_BASE_URL}/api/v1/photo-scan/upload-image-base64`
+          });
+          
+          // バックエンドAPI呼び出し（JSON Body 方式）
+          const uploadResponse = await fetch(`${API_BASE_URL}/api/v1/photo-scan/upload-image-base64`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${await getAuthToken()}`
+            },
+            body: JSON.stringify({
+              note_id: noteId,
+              page_id: pageId,
+              image_base64: base64Data
+            })
+          });
+          
+          console.log('📤 API応答:', {
+            status: uploadResponse.status,
+            statusText: uploadResponse.statusText,
+            ok: uploadResponse.ok
+          });
+          
+          if (!uploadResponse.ok) {
+            throw new Error(`画像アップロード失敗: ${uploadResponse.status}`);
+          }
+          
+          const uploadResult = await uploadResponse.json();
+          imageUploadResults.push({
+            pageId,
+            pageNumber: i + 1,
+            uploadResult,
+            originalPhotoUri: photoPage.photoUri
+          });
+          
+          console.log(`✅ 画像${i + 1}/${photoPages.length}保存完了:`, pageId);
+          
+        } catch (uploadError) {
+          console.error(`❌ 画像${i + 1}保存エラー:`, uploadError);
+          // エラーが発生しても他の画像の処理は続行
+          imageUploadResults.push({
+            pageId,
+            pageNumber: i + 1,
+            uploadResult: null,
+            originalPhotoUri: photoPage.photoUri,
+            error: uploadError instanceof Error ? uploadError.message : 'Unknown error'
+          });
+        }
+      }
       
-      console.log('📄 ページ保存完了:', page.pageId);
+      console.log('🖼️ 画像保存処理完了:', {
+        totalImages: photoPages.length,
+        successfulUploads: imageUploadResults.filter(r => r.uploadResult).length,
+        failedUploads: imageUploadResults.filter(r => r.error).length
+      });
+
+      // 🆕 Step 2: 各写真をページに変換（画像保存結果を含む）
+      const pages = photoPages.map((photoPage, index) => {
+        const pageId = `${noteId}-page-${index}`;
+        const uploadResult = imageUploadResults[index];
+        
+        return {
+          pageId,
+          pageNumber: index + 1,
+          canvasData: {
+            type: 'canvas' as const,
+            version: '1.0' as const,
+            content: photoPage.enhancedText || photoPage.ocrText || '',
+            drawingPaths: [],
+            textElements: [],
+            canvasSettings: {
+              selectedTool: null,
+              selectedPenTool: null,
+              selectedColor: '#000000',
+              strokeWidth: 2,
+              textSettings: {
+                fontSize: 16,
+                textColor: '#000000',
+                selectedFont: 'standard',
+                selectedTextType: 'body',
+                isBold: false,
+                lineSpacing: 1.2,
+                letterSpacing: 0
+              }
+            },
+            contentLength: (photoPage.enhancedText || photoPage.ocrText || '').length,
+            pathsCount: 0,
+            elementsCount: 0
+          },
+          lastModified: new Date().toISOString(),
+          pageMetadata: {
+            photoUri: photoPage.photoUri,
+            enhancedText: photoPage.enhancedText,
+            originalOcrText: photoPage.ocrText,
+            orientation: photoPage.orientation || 'portrait',
+            ocrConfidence: photoPage.ocrConfidence,
+            aiProcessed: !!photoPage.enhancedText,
+            aiProcessedAt: photoPage.enhancedText ? new Date().toISOString() : undefined,
+            // 🆕 画像保存結果を追加
+            imageStorage: uploadResult?.uploadResult ? {
+              backendStored: true,
+              filePath: uploadResult.uploadResult.file_path,
+              localUrl: uploadResult.uploadResult.local_url,
+              gcsUrl: uploadResult.uploadResult.gcs_url,
+              storedAt: new Date().toISOString()
+            } : {
+              backendStored: false,
+              error: uploadResult?.error || 'Upload failed',
+              originalUri: photoPage.photoUri
+            }
+          }
+        };
+      });
+
+      // AIでタイトル生成（最初のページのテキストから）
+      let title = 'スキャンしたノート';
+      try {
+        const firstPageText = pages[0]?.canvasData?.content || '';
+        if (firstPageText.trim().length > 0) {
+          const titleResponse = await aiApi.generateTitle(firstPageText);
+          if (titleResponse.title) {
+            title = titleResponse.title;
+          }
+        }
+      } catch (titleError) {
+        console.warn('⚠️ AI タイトル生成失敗 - デフォルトタイトルを使用:', titleError);
+      }
+
+      const universalNote: UniversalNote = {
+        id: noteId,
+        type: 'photo_scan',
+        title,
+        pages,
+        currentPageIndex: 0,
+        metadata: {
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          tags: [],
+          folder: undefined,
+          totalPages: pages.length,
+          photoScanMetadata: {
+            originalPhotoUris: photoPages.map(p => p.photoUri),
+            ocrProvider: 'google_vision',
+            ocrConfidence: photoPages.reduce((sum, p) => sum + (p.ocrConfidence || 0), 0) / photoPages.length,
+            language: 'ja',
+            croppedRegions: photoPages.map(p => p.cropRegion).filter((region): region is CropRegion => region !== undefined),
+            // 🆕 画像保存統計を追加
+            imageStorageStats: {
+              totalImages: photoPages.length,
+              successfullyStored: imageUploadResults.filter(r => r.uploadResult).length,
+              failedUploads: imageUploadResults.filter(r => r.error).length,
+              storageProvider: 'backend_api'
+            }
+          }
+        },
+        lastModified: new Date().toISOString(),
+        lastSaved: new Date().toISOString(),
+        autoSaveEnabled: true
+      };
+
+      console.log('📝 UniversalNote作成完了:', {
+        noteId,
+        totalPages: pages.length,
+        firstPageContent: pages[0]?.canvasData.content.substring(0, 100)
+      });
+
+      // ---------------------------------------------
+      // 📸 重要: photo_scansテーブルに初期行を作成
+      // saveUniversalNote()のupdateCanvasData()が成功するため
+      // ---------------------------------------------
+      try {
+        const photoScanPhotos = pages.map((page, index) => ({
+          uri: `temp_${page.pageId}.jpg`, // 一時的なURI
+          canvasData: page.canvasData,
+          ocrResult: page.pageMetadata?.originalOcrText ? {
+            text: page.pageMetadata.originalOcrText,
+            confidence: page.pageMetadata.ocrConfidence || 0,
+            enhancedText: page.canvasData.content
+          } : undefined
+        }));
+
+        console.log('📸 photo_scansテーブルに初期行を作成中...');
+        await savePhotoScan(noteId, universalNote.title, photoScanPhotos);
+        console.log('✅ photo_scansテーブル初期行作成完了');
+      } catch (error) {
+        console.error('❌ photo_scansテーブル初期行作成失敗:', error);
+        throw new Error(`PhotoScan初期行作成に失敗しました: ${error}`);
+      }
+
+      // ---------------------------------------------
+      // 📄 UniversalNoteをデータベースに保存
+      // 既にphoto_scans行が存在するため、updateCanvasData()が成功する
+      // ---------------------------------------------
+      const saveResult = await this.saveUniversalNote(universalNote, { includePages: true });
+      
+      if (saveResult.success) {
+        this.log('createPhotoScanNote成功', { 
+          noteId: universalNote.id,
+          totalPages: pages.length,
+          title,
+          imageStorageStats: universalNote.metadata.photoScanMetadata?.imageStorageStats
+        });
+        return universalNote;
+      } else {
+        throw new Error(`Save failed: ${saveResult.error}`);
+      }
+
     } catch (error) {
-      console.error('❌ ページ保存エラー:', error);
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.log('createPhotoScanNote失敗', { error: errorMessage });
+      console.error('❌ createPhotoScanNote エラー:', error);
+      return null;
     }
   }
 
@@ -760,9 +1070,99 @@ export class UniversalNoteService {
     const noteType = this.detectNoteType(dbNote);
     let content = '';
     let canvasData = {};
+    let pages: any[] = [];
     
+    // 🆕 photo_scan用の複数ページ処理
+    if (noteType === 'photo_scan') {
+      try {
+        const photos = dbNote.photos ? JSON.parse(dbNote.photos) : [];
+        console.log('📸 PhotoScan複数ページ変換開始:', {
+          noteId: dbNote.id,
+          totalPhotos: photos.length
+        });
+        
+        pages = photos.map((photo: any, index: number) => ({
+          pageId: `${dbNote.id}-page-${index}`,
+          pageNumber: index,
+          canvasData: {
+            type: 'canvas',
+            version: '1.0',
+            content: photo.enhancedText || photo.ocrResult?.text || '',
+            drawingPaths: [],
+            textElements: [],
+            canvasSettings: {
+              selectedTool: null,
+              selectedPenTool: null,
+              selectedColor: '#000000',
+              strokeWidth: 2,
+              textSettings: {
+                fontSize: 16,
+                textColor: '#000000',
+                selectedFont: 'standard',
+                selectedTextType: 'body',
+                isBold: false,
+                lineSpacing: 1.2,
+                letterSpacing: 0
+              }
+            },
+            contentLength: (photo.enhancedText || photo.ocrResult?.text || '').length,
+            pathsCount: 0,
+            elementsCount: 0
+          },
+          lastModified: dbNote.updated_at || new Date().toISOString(),
+          pageMetadata: {
+            photoUri: photo.uri,
+            originalOcrText: photo.ocrResult?.text || '',
+            enhancedText: photo.enhancedText || '',
+            orientation: photo.orientation || 'portrait',
+            ocrConfidence: photo.ocrResult?.confidence || 0,
+            aiProcessed: photo.aiProcessed || false,
+            aiProcessedAt: photo.aiProcessedAt || undefined
+          }
+        }));
+        
+        console.log('✅ PhotoScan複数ページ変換完了:', {
+          noteId: dbNote.id,
+          totalPages: pages.length
+        });
+      } catch (error) {
+        console.error('❌ PhotoScan複数ページ変換エラー:', error);
+        // フォールバック: 単一ページとして処理
+        pages = [{
+          pageId: `${dbNote.id}-page-0`,
+          pageNumber: 0,
+          canvasData: {
+            type: 'canvas',
+            version: '1.0',
+            content: '',
+            drawingPaths: [],
+            textElements: [],
+            canvasSettings: {
+              selectedTool: null,
+              selectedPenTool: null,
+              selectedColor: '#000000',
+              strokeWidth: 2,
+              textSettings: {
+                fontSize: 16,
+                textColor: '#000000',
+                selectedFont: 'standard',
+                selectedTextType: 'body',
+                isBold: false,
+                lineSpacing: 1.2,
+                letterSpacing: 0
+              }
+            },
+            contentLength: 0,
+            pathsCount: 0,
+            elementsCount: 0
+          },
+          lastModified: dbNote.updated_at || new Date().toISOString(),
+          pageMetadata: {}
+        }];
+      }
+    }
     // インポートノートの場合は、canvas_data フィールドから完全なテキストを取得
-    if (noteType === 'import') {
+    else if (noteType === 'import') {
       // 🚨 CRITICAL: canvas_dataフィールドから完全なテキストを優先取得
       let contentFromCanvasData = '';
       if (dbNote.canvas_data) {
@@ -806,15 +1206,9 @@ export class UniversalNoteService {
         finalContentLength: content.length,
         source: contentFromCanvasData ? 'canvas_data' : 'content'
       });
-    } else {
-      content = dbNote.content || '';
-    }
-    
-    const universalNote: UniversalNote = {
-      id: dbNote.id,
-      type: noteType,
-      title: dbNote.title,
-      pages: [{
+      
+      // 単一ページとして処理
+      pages = [{
         pageId: `${dbNote.id}-page-0`,
         pageNumber: 0,
         canvasData: {
@@ -848,13 +1242,59 @@ export class UniversalNoteService {
           transcriptText: dbNote.transcription,
           enhancedText: ''
         }
-      }],
+      }];
+    } else {
+      // 他のノートタイプ（recording, manual）
+      content = dbNote.content || '';
+      pages = [{
+        pageId: `${dbNote.id}-page-0`,
+        pageNumber: 0,
+        canvasData: {
+          type: 'canvas',
+          version: '1.0',
+          content: content,
+          drawingPaths: [],
+          textElements: [],
+          canvasSettings: {
+            selectedTool: null,
+            selectedPenTool: null,
+            selectedColor: '#000000',
+            strokeWidth: 2,
+            textSettings: {
+              fontSize: 16,
+              textColor: '#000000',
+              selectedFont: 'standard',
+              selectedTextType: 'body',
+              isBold: false,
+              lineSpacing: 1.2,
+              letterSpacing: 0
+            }
+          },
+          contentLength: content.length,
+          pathsCount: 0,
+          elementsCount: 0
+        },
+        lastModified: dbNote.updated_at || new Date().toISOString(),
+        pageMetadata: {
+          audioUri: dbNote.file_path,
+          transcriptText: dbNote.transcription,
+          enhancedText: ''
+        }
+      }];
+    }
+    
+    const universalNote: UniversalNote = {
+      id: dbNote.id,
+      type: noteType,
+      title: dbNote.title,
+      pages,
       currentPageIndex: 0,
       metadata: {
         createdAt: new Date(dbNote.created_at || Date.now()).toISOString(),
         updatedAt: new Date().toISOString(),
         tags: [],
-        folder: undefined
+        folder: undefined,
+        totalPages: pages.length
       },
       lastModified: new Date().toISOString(),
       lastSaved: new Date().toISOString(),

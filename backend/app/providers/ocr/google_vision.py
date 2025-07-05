@@ -202,7 +202,8 @@ class GoogleVisionOCRProvider(OCRProvider):
     async def extract_text(
         self, 
         image_data: bytes, 
-        language_hints: Optional[List[str]] = None
+        language_hints: Optional[List[str]] = None,
+        desired_rotation: Optional[int] = None
     ) -> OCRResult:
         """
         Google Vision APIを使用して画像からテキストを抽出
@@ -210,6 +211,7 @@ class GoogleVisionOCRProvider(OCRProvider):
         Args:
             image_data: 画像のバイナリデータ
             language_hints: 言語ヒント（例: ['ja', 'en']）
+            desired_rotation: 画像の回転角度（90, 180, 270度）- 横向き画像のOCR精度向上用
             
         Returns:
             OCRResult: 抽出結果
@@ -223,13 +225,23 @@ class GoogleVisionOCRProvider(OCRProvider):
             # Vision API用の画像オブジェクトを作成
             image = vision.Image(content=processed_image_data)
             
-            # 画像コンテキストを設定（言語ヒントがある場合）
+            # 画像コンテキストを設定
             image_context = None
+            context_params = {}
+            
+            # 言語ヒントを設定
             if language_hints:
-                image_context = vision.ImageContext(
-                    language_hints=language_hints
-                )
+                context_params['language_hints'] = language_hints
                 logger.info(f"🔍 Using language hints: {language_hints}")
+            
+            # 🆕 desired_rotationを設定（横向き画像対応）
+            if desired_rotation is not None:
+                context_params['desired_rotation'] = desired_rotation
+                logger.info(f"🔄 Using desired rotation: {desired_rotation} degrees")
+            
+            # ImageContextを作成（パラメータがある場合のみ）
+            if context_params:
+                image_context = vision.ImageContext(**context_params)
             
             # MVPと同じdocument_text_detectionを使用（高精度）
             if image_context:

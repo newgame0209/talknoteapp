@@ -485,3 +485,126 @@ class GCSStorageProvider(StorageProvider):
         # 非同期で処理を開始（ここではシミュレーション）
         asyncio.create_task(self._process_media(user_id, media_id))
         return {"status": "success", "media_id": media_id, "blob_path": blob_path}
+
+    # 🆕 写真スキャン専用メソッド
+    def _get_photo_scan_blob_path(self, note_id: str, page_id: str) -> str:
+        """
+        写真スキャン用のBlobパスを取得
+        形式: {note_id}/{page_id}.jpg
+        """
+        return f"{note_id}/{page_id}.jpg"
+    
+    async def upload_photo_scan_image(
+        self, 
+        note_id: str, 
+        page_id: str, 
+        image_data: bytes, 
+        user_id: str
+    ) -> dict:
+        """
+        写真スキャン画像をGCSに保存
+        複数ページ対応のため note_id/page_id.jpg 形式で保存
+        
+        Args:
+            note_id: ノートID
+            page_id: ページID
+            image_data: 画像のバイナリデータ
+            user_id: ユーザーID
+            
+        Returns:
+            保存結果の辞書
+        """
+        try:
+            # 写真スキャン用Blobパスの生成
+            blob_path = self._get_photo_scan_blob_path(note_id, page_id)
+            blob = self.bucket.blob(blob_path)
+            
+            # GCSにアップロード
+            blob.upload_from_string(
+                image_data, 
+                content_type="image/jpeg"
+            )
+            
+            # メタデータの作成
+            metadata = {
+                "note_id": note_id,
+                "page_id": page_id,
+                "user_id": user_id,
+                "file_type": "image/jpeg",
+                "status": "completed",
+                "blob_path": blob_path,
+                "created_at": datetime.now().isoformat(),
+                "updated_at": datetime.now().isoformat(),
+                "storage_type": "photo_scan"
+            }
+            
+            # メタデータの保存（写真スキャン用）
+            await self._save_photo_scan_metadata(note_id, page_id, metadata)
+            
+            return {
+                "status": "success",
+                "note_id": note_id,
+                "page_id": page_id,
+                "blob_path": blob_path,
+                "public_url": f"gs://{self.bucket_name}/{blob_path}"
+            }
+            
+        except Exception as e:
+            return {
+                "status": "error",
+                "note_id": note_id,
+                "page_id": page_id,
+                "error": f"画像保存エラー: {str(e)}"
+            }
+    
+    async def _save_photo_scan_metadata(self, note_id: str, page_id: str, metadata: Dict) -> None:
+        """
+        写真スキャン用メタデータをGCSに保存
+        """
+        metadata_path = f"{note_id}/{page_id}_metadata.json"
+        blob = self.bucket.blob(metadata_path)
+        
+        # メタデータをJSON形式に変換
+        metadata_json = json.dumps(metadata, ensure_ascii=False)
+        
+        # GCSにアップロード
+        blob.upload_from_string(metadata_json, content_type="application/json")
+    
+    async def get_photo_scan_image_url(
+        self,
+        note_id: str,
+        page_id: str,
+        expires_in: int = 3600
+    ) -> str:
+        """
+        写真スキャン画像のダウンロードURLを取得
+        """
+        blob_path = self._get_photo_scan_blob_path(note_id, page_id)
+        blob = self.bucket.blob(blob_path)
+        
+        # 署名付きURLの生成
+        expiration = datetime.now() + timedelta(seconds=expires_in)
+        signed_url = blob.generate_signed_url(
+            version="v4",
+            expiration=expiration,
+            method="GET"
+        )
+        
+        return signed_url
+    
+    async def delete_photo_scan_images(self, note_id: str) -> bool:
+        """
+        写真スキャンノートの全画像を削除
+        """
+        try:
+            # note_id/ プレフィックスの全ファイルを削除
+            blobs = self.bucket.list_blobs(prefix=f"{note_id}/")
+            
+            for blob in blobs:
+                blob.delete()
+            
+            return True
+            
+        except Exception as e:
+            print(f"写真スキャン画像削除エラー: {e}")
+            return False

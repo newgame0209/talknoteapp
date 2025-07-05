@@ -49,7 +49,8 @@ class OCRService:
         self,
         image_data: bytes,
         provider_name: Optional[str] = None,
-        language_hints: Optional[List[str]] = None
+        language_hints: Optional[List[str]] = None,
+        desired_rotation: Optional[int] = None
     ) -> OCRResult:
         """
         画像からテキストを抽出
@@ -58,6 +59,7 @@ class OCRService:
             image_data: 画像のバイナリデータ
             provider_name: 使用するプロバイダー名（Noneの場合は自動選択）
             language_hints: 言語ヒント（例: ['ja', 'en']）
+            desired_rotation: 画像の回転角度（90, 180, 270度）- 横向き画像のOCR精度向上用
             
         Returns:
             OCRResult: 抽出結果
@@ -85,7 +87,8 @@ class OCRService:
             # OCR処理を実行
             result = await provider.extract_text(
                 validated_image_data, 
-                language_hints=language_hints
+                language_hints=language_hints,
+                desired_rotation=desired_rotation
             )
             
             logger.info(

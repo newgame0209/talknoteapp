@@ -173,3 +173,60 @@ class StorageProvider(ABC):
         FormDataで受け取ったファイルを保存
         """
         pass
+
+    # 🆕 写真スキャン専用抽象メソッド
+    @abstractmethod
+    async def upload_photo_scan_image(
+        self, 
+        note_id: str, 
+        page_id: str, 
+        image_data: bytes, 
+        user_id: str
+    ) -> dict:
+        """
+        写真スキャン画像を保存
+        複数ページ対応のため note_id/page_id.jpg 形式で保存
+        
+        Args:
+            note_id: ノートID
+            page_id: ページID
+            image_data: 画像のバイナリデータ
+            user_id: ユーザーID
+            
+        Returns:
+            保存結果の辞書
+        """
+        pass
+    
+    @abstractmethod
+    async def get_photo_scan_image_url(
+        self,
+        note_id: str,
+        page_id: str,
+        expires_in: int = 3600
+    ) -> str:
+        """
+        写真スキャン画像のダウンロードURLを取得
+        
+        Args:
+            note_id: ノートID
+            page_id: ページID
+            expires_in: URL有効期限（秒）
+            
+        Returns:
+            ダウンロードURL
+        """
+        pass
+    
+    @abstractmethod
+    async def delete_photo_scan_images(self, note_id: str) -> bool:
+        """
+        写真スキャンノートの全画像を削除
+        
+        Args:
+            note_id: ノートID
+            
+        Returns:
+            削除成功の場合True
+        """
+        pass

@@ -28,6 +28,7 @@ async def extract_text_from_image(
     file: UploadFile = File(..., description="画像ファイル（JPEG, PNG, WEBP, BMP対応）"),
     language_hints: Optional[str] = Form(None, description="言語ヒント（カンマ区切り、例: 'ja,en')"),
     provider: Optional[str] = Form(None, description="使用するOCRプロバイダー"),
+    desired_rotation: Optional[int] = Form(None, description="画像の回転角度（90, 180, 270度）- 横向き画像のOCR精度向上用"),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -40,6 +41,7 @@ async def extract_text_from_image(
         file: アップロードする画像ファイル（JPEG, PNG, WEBP, BMP形式をサポート）
         language_hints: OCR処理時の言語ヒント（カンマ区切り）
         provider: 使用するOCRプロバイダー（指定しない場合はデフォルトを使用）
+        desired_rotation: 画像の回転角度（90, 180, 270度）- 横向き画像のOCR精度向上用
         current_user: 認証済みユーザー情報
         
     Returns:
@@ -76,7 +78,8 @@ async def extract_text_from_image(
         result = await ocr_service.extract_text_from_image(
             image_data=content,
             provider_name=provider,
-            language_hints=languages
+            language_hints=languages,
+            desired_rotation=desired_rotation
         )
         
         # 結果をログ出力
@@ -200,7 +203,8 @@ async def extract_text_from_base64(
         result = await ocr_service.extract_text_from_image(
             image_data=image_bytes,
             provider_name=request.provider,
-            language_hints=request.language_hints
+            language_hints=request.language_hints,
+            desired_rotation=request.desired_rotation
         )
         
         # 結果をログ出力

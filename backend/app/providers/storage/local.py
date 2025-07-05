@@ -394,6 +394,125 @@ class LocalStorageProvider(StorageProvider):
         }
         
         return mimetype_map.get(mimetype.lower(), "bin")
+    
+    # 🆕 写真スキャン専用メソッド
+    def _get_photo_scan_path(self, note_id: str, page_id: str) -> Path:
+        """
+        写真スキャン用のファイルパスを取得
+        形式: {base_dir}/photo_scan/{note_id}/{page_id}.jpg
+        """
+        photo_scan_dir = self.base_dir / "photo_scan" / note_id
+        photo_scan_dir.mkdir(parents=True, exist_ok=True)
+        return photo_scan_dir / f"{page_id}.jpg"
+    
+    async def upload_photo_scan_image(
+        self, 
+        note_id: str, 
+        page_id: str, 
+        image_data: bytes, 
+        user_id: str
+    ) -> dict:
+        """
+        写真スキャン画像をローカルに保存
+        複数ページ対応のため note_id/page_id.jpg 形式で保存
+        
+        Args:
+            note_id: ノートID
+            page_id: ページID
+            image_data: 画像のバイナリデータ
+            user_id: ユーザーID
+            
+        Returns:
+            保存結果の辞書
+        """
+        try:
+            # 写真スキャン用ファイルパスの生成
+            file_path = self._get_photo_scan_path(note_id, page_id)
+            
+            # ローカルファイルに保存
+            with open(file_path, 'wb') as f:
+                f.write(image_data)
+            
+            # メタデータの作成
+            metadata = {
+                "note_id": note_id,
+                "page_id": page_id,
+                "user_id": user_id,
+                "file_type": "image/jpeg",
+                "status": "completed",
+                "file_path": str(file_path),
+                "created_at": datetime.now().isoformat(),
+                "updated_at": datetime.now().isoformat(),
+                "storage_type": "photo_scan"
+            }
+            
+            # メタデータの保存（写真スキャン用）
+            self._save_photo_scan_metadata(note_id, page_id, metadata)
+            
+            return {
+                "status": "success",
+                "note_id": note_id,
+                "page_id": page_id,
+                "file_path": str(file_path),
+                "local_url": f"file://{file_path}"
+            }
+            
+        except Exception as e:
+            return {
+                "status": "error",
+                "note_id": note_id,
+                "page_id": page_id,
+                "error": f"画像保存エラー: {str(e)}"
+            }
+    
+    def _save_photo_scan_metadata(self, note_id: str, page_id: str, metadata: dict) -> None:
+        """
+        写真スキャン用メタデータをローカルに保存
+        """
+        metadata_dir = self.metadata_dir / "photo_scan" / note_id
+        metadata_dir.mkdir(parents=True, exist_ok=True)
+        
+        metadata_path = metadata_dir / f"{page_id}_metadata.json"
+        
+        with open(metadata_path, 'w', encoding='utf-8') as f:
+            json.dump(metadata, f, ensure_ascii=False, indent=2)
+    
+    async def get_photo_scan_image_url(
+        self,
+        note_id: str,
+        page_id: str,
+        expires_in: int = 3600
+    ) -> str:
+        """
+        写真スキャン画像のローカルURLを取得
+        """
+        file_path = self._get_photo_scan_path(note_id, page_id)
+        
+        if file_path.exists():
+            return f"file://{file_path}"
+        else:
+            raise FileNotFoundError(f"写真スキャン画像が見つかりません: {note_id}/{page_id}")
+    
+    async def delete_photo_scan_images(self, note_id: str) -> bool:
+        """
+        写真スキャンノートの全画像を削除
+        """
+        try:
+            # note_id ディレクトリを削除
+            photo_scan_dir = self.base_dir / "photo_scan" / note_id
+            if photo_scan_dir.exists():
+                shutil.rmtree(photo_scan_dir)
+            
+            # メタデータディレクトリも削除
+            metadata_dir = self.metadata_dir / "photo_scan" / note_id
+            if metadata_dir.exists():
+                shutil.rmtree(metadata_dir)
+            
+            return True
+            
+        except Exception as e:
+            print(f"写真スキャン画像削除エラー: {e}")
+            return False
 
     async def upload_file(self, media_id: str, file: BinaryIO, filename: str, content_type: str, user_id: str) -> dict:
         """

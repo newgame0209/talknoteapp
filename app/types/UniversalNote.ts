@@ -39,6 +39,21 @@ export interface UniversalPage {
     audioUri?: string;        // 録音用
     transcriptText?: string;  // 文字起こしテキスト
     enhancedText?: string;    // AI整形済みテキスト
+    originalOcrText?: string; // 元のOCRテキスト
+    orientation?: 'portrait' | 'landscape'; // 画像の向き
+    ocrConfidence?: number;   // OCR信頼度
+    aiProcessed?: boolean;    // AI処理済みフラグ
+    aiProcessedAt?: string;   // AI処理日時
+    // 🆕 画像保存情報
+    imageStorage?: {
+      backendStored: boolean;
+      filePath?: string;
+      localUrl?: string;
+      gcsUrl?: string;
+      storedAt?: string;
+      error?: string;
+      originalUri?: string;
+    };
   };
 }
 
@@ -146,6 +161,13 @@ export interface PhotoScanMetadata {
   ocrConfidence: number;
   language: string;
   croppedRegions?: CropRegion[];
+  // 🆕 画像保存統計
+  imageStorageStats?: {
+    totalImages: number;
+    successfullyStored: number;
+    failedUploads: number;
+    storageProvider: string;
+  };
 }
 
 export interface ImportMetadata {

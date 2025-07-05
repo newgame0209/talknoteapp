@@ -13,16 +13,22 @@ import { UniversalNoteService } from '../services/UniversalNoteService';
 // ===============================
 
 export type ToolbarFunction = 
-  // ペンツール（7機能）
-  | 'pen_draw' | 'eraser' | 'marker' | 'media_upload' | 'ruler' | 'reading_ruler' | 'pen_settings'
-  // キーボードツール（7機能）
-  | 'text_input' | 'heading_change' | 'font_change' | 'font_size' | 'text_color' | 'bold_toggle' | 'spacing_adjust'
-  // 音声入力ツール（3機能）
-  | 'voice_record' | 'voice_pause' | 'voice_stop'
-  // しおり機能（2機能）
-  | 'bookmark_add' | 'bookmark_navigate'
-  // 共通ツール（6機能）
-  | 'undo' | 'redo' | 'title_edit' | 'background_change' | 'template_select' | 'ai_chat_widget';
+  // ペンツール (7項目)
+  | 'pen_drawing' | 'eraser_tool' | 'marker_tool' | 'media_upload'
+  | 'ruler_tool' | 'reading_ruler' | 'pen_settings' | 'ruler'
+  // キーボードツール (7項目)
+  | 'text_input' | 'heading_change' | 'font_change' | 'font_size_change' | 'font_size'
+  | 'bold_toggle' | 'line_spacing' | 'letter_spacing' | 'spacing_adjust'
+  // その他ツール (4項目)
+  | 'search_function' | 'voice_operations' | 'bookmark' | 'settings'
+  | 'title_edit' | 'bookmark_add' | 'template_select' | 'background_change' | 'text_color'
+  // AIチャット機能 (7項目)
+  | 'ai_summarize' | 'ai_convert' | 'ai_dictionary' | 'ai_proofread'
+  | 'ai_furigana' | 'ai_research' | 'ai_chat'
+  // 共通機能
+  | 'undo_redo' | 'canvas_draw' | 'manual_save' | 'voice_record'
+  // ズーム機能
+  | 'zoom';
 
 export interface ToolbarAction {
   function: ToolbarFunction;
@@ -59,16 +65,16 @@ export interface AutoSaveDecoratorConfig {
 
 const DEFAULT_DECORATOR_CONFIG: AutoSaveDecoratorConfig = {
   enabledFunctions: [
-    // ペンツール
-    'pen_draw', 'eraser', 'marker', 'media_upload', 'ruler', 'reading_ruler', 'pen_settings',
-    // キーボードツール  
-    'text_input', 'heading_change', 'font_change', 'font_size', 'text_color', 'bold_toggle', 'spacing_adjust',
-    // 音声入力ツール
-    'voice_record', 'voice_pause', 'voice_stop',
-    // しおり機能
-    'bookmark_add', 'bookmark_navigate',
-    // 共通ツール
-    'undo', 'redo', 'title_edit', 'background_change', 'template_select', 'ai_chat_widget'
+    // ペンツール (7項目)
+    'pen_drawing', 'eraser_tool', 'marker_tool', 'media_upload', 'ruler_tool', 'reading_ruler', 'pen_settings',
+    // キーボードツール (7項目)
+    'text_input', 'heading_change', 'font_change', 'font_size_change', 'bold_toggle', 'line_spacing', 'letter_spacing',
+    // その他ツール (4項目)
+    'search_function', 'voice_operations', 'bookmark', 'settings',
+    // AIチャット機能 (7項目)
+    'ai_summarize', 'ai_convert', 'ai_dictionary', 'ai_proofread', 'ai_furigana', 'ai_research', 'ai_chat',
+    // 共通機能
+    'undo_redo', 'canvas_draw', 'manual_save', 'voice_record', 'title_edit', 'background_change', 'template_select'
   ],
   debounceMs: 100,
   maxRetries: 3,
@@ -619,13 +625,4 @@ export function withAutoSave<P extends object>(
 export default withAutoSave;
 
 // デフォルト設定のエクスポート
-export { DEFAULT_DECORATOR_CONFIG };
-
-// 型のエクスポート
-export type { 
-  AutoSaveDecoratorConfig, 
-  ToolbarAction, 
-  ToolbarFunction, 
-  WithAutoSaveProps, 
-  DecoratorState 
-}; 
+export { DEFAULT_DECORATOR_CONFIG }; 

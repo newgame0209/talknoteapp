@@ -27,6 +27,11 @@ class OCRRequest(BaseModel):
         description="使用するOCRプロバイダー（省略時は自動選択）",
         example="google_vision"
     )
+    desired_rotation: Optional[int] = Field(
+        None,
+        description="画像の回転角度（90, 180, 270度）- 横向き画像のOCR精度向上用",
+        example=90
+    )
 
 
 class BoundingBox(BaseModel):

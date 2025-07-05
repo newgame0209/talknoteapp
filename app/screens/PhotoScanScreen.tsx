@@ -42,8 +42,13 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { getAuth } from 'firebase/auth';
 import { COLORS } from '../constants/colors';
 import { savePhotoScan, generatePhotoScanAITitle } from '../services/database';
+import { UniversalNoteService } from '../services/UniversalNoteService';
+import type { PhotoPageData } from '../services/UniversalNoteService';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+
+// 撮影枠の向き
+type FrameOrientation = 'portrait' | 'landscape';
 
 interface OCRResult {
   text: string;
@@ -62,6 +67,8 @@ interface CapturedPhoto {
   timestamp: number;
   processedUri?: string;
   ocrResult?: OCRResult;
+  enhancedText?: string; // 🆕 AI整形テキスト
+  orientation?: FrameOrientation; // 🆕 撮影時の向き
 }
 
 interface CropArea {
@@ -111,6 +118,7 @@ export default function PhotoScanScreen() {
   // 状態管理
   const [cameraType, setCameraType] = useState<CameraType>('back');
   const [flashMode, setFlashMode] = useState<FlashMode>('off');
+  const [frameOrientation, setFrameOrientation] = useState<FrameOrientation>('portrait'); // 🆕 撮影枠の向き
   const [capturedPhotos, setCapturedPhotos] = useState<CapturedPhoto[]>([]);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
@@ -130,6 +138,9 @@ export default function PhotoScanScreen() {
 
   
   const cameraRef = useRef<CameraView>(null);
+  
+  // 🆕 UniversalNoteService インスタンス
+  const universalNoteService = useRef(new UniversalNoteService()).current;
 
   useEffect(() => {
     if (ocrResult) {
@@ -260,7 +271,8 @@ export default function PhotoScanScreen() {
           uri: photo.uri, // 元の画像
           processedUri: croppedUri, // 自動切り取り済み画像
           id: Date.now().toString(),
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          orientation: frameOrientation // 🆕 撮影時の向きを記録
         };
         
         const newIndex = capturedPhotos.length;
@@ -356,7 +368,8 @@ export default function PhotoScanScreen() {
           uri: result.assets[0].uri,
           processedUri: croppedFromGallery,
           id: Date.now().toString(),
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          orientation: frameOrientation // 🆕 撮影時の向きを記録
         };
         
         const newIndex = capturedPhotos.length;
@@ -394,9 +407,21 @@ export default function PhotoScanScreen() {
       
       console.log('OCR処理開始');
       
+      // 🆕 横向き画像の場合はdesired_rotationパラメータを追加
+      const ocrPayload: any = { 
+        image_data: `data:image/jpeg;base64,${manipResult.base64}` 
+      };
+      
+      // 現在処理中の写真の向きを確認
+      const currentPhoto = capturedPhotos.find(p => p.uri === imageUri || p.processedUri === imageUri);
+      if (currentPhoto?.orientation === 'landscape') {
+        ocrPayload.desired_rotation = 90; // 横向き画像は90度回転を指定
+        console.log('🔄 横向き画像のため desired_rotation: 90 を設定');
+      }
+      
       const token = await getAuthToken();
       const response = await apiClient.post('/api/v1/ocr/extract-text-base64', 
-        { image_data: `data:image/jpeg;base64,${manipResult.base64}` },
+        ocrPayload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
@@ -516,61 +541,130 @@ export default function PhotoScanScreen() {
       
       setIsProcessing(true);
       
-      // OCRテキストを結合
-      const rawOcrText = capturedPhotos
-        .map(photo => photo.ocrResult?.text || '')
-        .filter(text => text.trim().length > 0)
-        .join('\n\n');
+      console.log('🔍 複数ページ写真スキャンノート作成開始...', {
+        totalPhotos: capturedPhotos.length
+      });
       
-      if (rawOcrText.trim().length === 0) {
+      // 🆕 各写真を個別にAI整形処理してPhotoPageDataに変換
+      const photoPages: PhotoPageData[] = [];
+      
+      for (let i = 0; i < capturedPhotos.length; i++) {
+        const photo = capturedPhotos[i];
+        const ocrText = photo.ocrResult?.text || '';
+        
+        if (ocrText.trim().length === 0) {
+          console.warn(`⚠️ 写真 ${i + 1} にOCRテキストがありません - スキップ`);
+          continue;
+        }
+        
+        console.log(`🔍 写真 ${i + 1}/${capturedPhotos.length} のAI整形処理開始...`);
+        
+        // 各写真のテキストを個別にAI整形
+        const enhancedText = await enhanceTextWithAI(ocrText);
+        
+        // PhotoPageData形式に変換
+        const photoPageData: PhotoPageData = {
+          photoUri: photo.processedUri || photo.uri,
+          ocrText: ocrText,
+          enhancedText: enhancedText,
+          orientation: photo.orientation || 'portrait',
+          ocrConfidence: photo.ocrResult?.confidence || 0,
+          cropRegion: undefined // 将来的にクロップ情報を追加可能
+        };
+        
+        photoPages.push(photoPageData);
+        
+        console.log(`✅ 写真 ${i + 1} のAI整形完了:`, {
+          originalLength: ocrText.length,
+          enhancedLength: enhancedText.length
+        });
+      }
+      
+      if (photoPages.length === 0) {
         Alert.alert('エラー', 'テキストが検出されていません');
         setIsProcessing(false);
         return;
       }
       
-      console.log('🔍 AI文章解析・整形処理開始...');
-      
-      // AI文章解析・整形処理
-      const enhancedText = await enhanceTextWithAI(rawOcrText);
-      
-      // 写真スキャンデータをSQLiteに保存（新仕様：整形済みテキスト付き）
-      const photoScanId = `photo_scan_${Date.now()}`;
-      const defaultTitle = "AIがタイトルを生成中…";
-      
-      // キャプチャした写真データを整理（整形済みテキストを追加）
-      const photoData = capturedPhotos.map((photo, index) => ({
-        uri: photo.uri,
-        processedUri: photo.processedUri,
-        ocrResult: photo.ocrResult ? {
-          text: photo.ocrResult.text,
-          confidence: photo.ocrResult.confidence,
-          enhancedText: index === 0 ? enhancedText : undefined // 最初の写真に整形済みテキストを保存
-        } : undefined
-      }));
-      
-      // SQLiteに保存
-      await savePhotoScan(photoScanId, defaultTitle, photoData);
-      console.log('写真スキャンデータを保存しました:', photoScanId);
-      
-      // AIタイトル生成（整形済みテキストを使用）
-      if (enhancedText.trim().length > 0) {
-        generatePhotoScanAITitle(photoScanId, enhancedText).catch((error) => {
-          console.error('[PhotoScan] AIタイトル生成エラー:', error);
-        });
-      }
-      
-      // ダッシュボードに戻る
-      navigation.goBack();
-      
-      console.log('✅ AI整形ノート作成完了:', {
-        photoScanId,
-        originalTextLength: rawOcrText.length,
-        enhancedTextLength: enhancedText.length
+      // 🆕 Step 7: 複数ページノート作成（画像保存統合）
+      console.log('📄 複数ページノート作成開始:', {
+        totalPages: photoPages.length
       });
       
+      // 🚫 モーダル非表示: バックグラウンドで処理（ノート作成は正常に完了している）
+      console.log('📄 バックグラウンドでノート作成中...', {
+        totalPages: photoPages.length,
+        steps: ['画像の保存', 'データベースへの登録', 'AI処理の統合']
+      });
+      
+      // UniversalNoteServiceで統合処理（画像保存 + データベース保存）
+      const universalNote = await universalNoteService.createPhotoScanNote(photoPages);
+      
+      if (universalNote) {
+        // 保存結果の詳細確認
+        const imageStats = universalNote.metadata.photoScanMetadata?.imageStorageStats;
+        const successfulImages = imageStats?.successfullyStored || 0;
+        const totalImages = imageStats?.totalImages || photoPages.length;
+        const failedImages = imageStats?.failedUploads || 0;
+        
+        console.log('✅ 複数ページ写真スキャンノート作成完了:', {
+          noteId: universalNote.id,
+          title: universalNote.title,
+          totalPages: universalNote.pages.length,
+          imageStats: imageStats
+        });
+        
+        // 保存結果に基づく通知
+        if (failedImages === 0) {
+          // 全て成功
+          Alert.alert(
+            '✅ 保存完了', 
+            `${totalImages}ページの写真スキャンノートを作成しました\n\nタイトル: ${universalNote.title}\nページ数: ${universalNote.pages.length}`,
+            [{ text: '了解', style: 'default' }]
+          );
+        } else if (successfulImages > 0) {
+          // 一部成功
+          Alert.alert(
+            '⚠️ 部分的に保存完了',
+            `ノートは作成されましたが、${failedImages}枚の画像保存に失敗しました。\n\n成功: ${successfulImages}/${totalImages}枚\nテキストデータは正常に保存されています。`,
+            [{ text: '了解', style: 'default' }]
+          );
+        } else {
+          // 画像保存は全て失敗したが、テキストは保存済み
+          Alert.alert(
+            '⚠️ 画像保存失敗',
+            `テキストデータは保存されましたが、画像の保存に失敗しました。\n\nノートのテキスト内容は正常に利用できます。`,
+            [{ text: '了解', style: 'default' }]
+          );
+        }
+        
+        // ダッシュボードに戻る
+        navigation.goBack();
+      } else {
+        throw new Error('ノートの作成に失敗しました');
+      }
+      
     } catch (error) {
-      console.error('ノート作成エラー:', error);
-      Alert.alert('エラー', 'ノートの作成に失敗しました');
+      console.error('❌ ノート作成エラー:', error);
+      
+      // エラーの詳細に基づく通知
+      let errorMessage = 'ノートの作成に失敗しました';
+      if (error instanceof Error) {
+        if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = 'ネットワークエラーが発生しました。インターネット接続を確認してください。';
+        } else if (error.message.includes('auth') || error.message.includes('token')) {
+          errorMessage = '認証エラーが発生しました。再ログインしてください。';
+        } else if (error.message.includes('validation')) {
+          errorMessage = 'データの検証に失敗しました。写真とテキストの内容を確認してください。';
+        } else {
+          errorMessage = `エラー: ${error.message}`;
+        }
+      }
+      
+      Alert.alert('❌ エラー', errorMessage, [
+        { text: 'リトライ', style: 'default', onPress: () => openInNote() },
+        { text: 'キャンセル', style: 'cancel' }
+      ]);
     } finally {
       setIsProcessing(false);
     }
@@ -742,12 +836,15 @@ export default function PhotoScanScreen() {
   // フラッシュ切り替え
   const toggleFlash = () => {
     setFlashMode(current => {
-      switch (current) {
-        case 'off': return 'on';
-        case 'on': return 'auto';
-        default: return 'off';
-      }
+      if (current === 'off') return 'on';
+      if (current === 'on') return 'auto';
+      return 'off';
     });
+  };
+
+  // 🆕 撮影枠の向きをトグル
+  const toggleFrameOrientation = () => {
+    setFrameOrientation(current => current === 'portrait' ? 'landscape' : 'portrait');
   };
 
   const getFlashIcon = () => {
@@ -1044,6 +1141,13 @@ export default function PhotoScanScreen() {
             📷 {capturedPhotos.length}/{MAX_PHOTOS}枚
           </Text>
         </View>
+        <Pressable onPress={toggleFrameOrientation} style={styles.headerButton}>
+          <Ionicons 
+            name={frameOrientation === 'portrait' ? 'phone-portrait' : 'phone-landscape'} 
+            size={28} 
+            color="#fff" 
+          />
+        </Pressable>
         <Pressable onPress={toggleFlash} style={styles.headerButton}>
           <Ionicons name={getFlashIcon()} size={28} color="#fff" />
         </Pressable>
@@ -1053,18 +1157,32 @@ export default function PhotoScanScreen() {
       <View style={styles.cameraGuideContainer}>
         {/* 暗いオーバーレイで撮影範囲以外を暗くする */}
         <View style={styles.cameraOverlay}>
-          <View style={styles.overlayTop} />
-          <View style={styles.overlayMiddle}>
+          <View style={[
+            styles.overlayTop,
+            frameOrientation === 'landscape' && styles.overlayTopLandscape
+          ]} />
+          <View style={[
+            styles.overlayMiddle,
+            frameOrientation === 'landscape' && styles.overlayMiddleLandscape
+          ]}>
             <View style={styles.overlaySide} />
-            <View style={styles.cameraGuideFrame} />
+            <View style={[
+              styles.cameraGuideFrame,
+              frameOrientation === 'landscape' && styles.cameraGuideFrameLandscape
+            ]} />
             <View style={styles.overlaySide} />
           </View>
-          <View style={styles.overlayBottom} />
+          <View style={[
+            styles.overlayBottom,
+            frameOrientation === 'landscape' && styles.overlayBottomLandscape
+          ]} />
         </View>
         
         <View style={styles.cameraGuideText}>
           <Ionicons name="document-text-outline" size={24} color="#00A1FF" />
-          <Text style={styles.guideText}>枠の中に綺麗に入れて撮影しよう！</Text>
+          <Text style={styles.guideText}>
+            {frameOrientation === 'portrait' ? '枠の中に綺麗に入れて撮影しよう！' : '横向きで撮影しよう！'}
+          </Text>
         </View>
       </View>
 
@@ -1942,5 +2060,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#fff',
     zIndex: 1002,
+  },
+  
+  // 🆕 横向き撮影枠用のスタイル
+  overlayTopLandscape: {
+    height: (screenHeight - (screenWidth - 80) * 0.75) / 2, // 横向き用の高さ調整
+  },
+  overlayMiddleLandscape: {
+    height: (screenWidth - 80) * 0.75, // 横向き用の高さ（3:4 → 4:3）
+  },
+  overlayBottomLandscape: {
+    height: (screenHeight - (screenWidth - 80) * 0.75) / 2, // 横向き用の高さ調整
+  },
+  cameraGuideFrameLandscape: {
+    width: screenWidth - 80,
+    height: (screenWidth - 80) * 0.75, // 横向き比率（4:3）
   },
 }); 
