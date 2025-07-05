@@ -11,12 +11,14 @@ import asyncio
 from typing import Any, Dict, Optional
 from uuid import uuid4
 from datetime import datetime
+from pathlib import Path as FilePath
 from fastapi import APIRouter, Depends, HTTPException, Query, Path, BackgroundTasks
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.core.settings import settings
 from app.schemas.import_schema import (
     URLImportRequest,
     FileImportRequest,
@@ -502,13 +504,52 @@ async def _process_file_import(
         # ストレージからファイルデータを取得
         storage_provider = get_storage_provider()
         
-        # TODO: 実際のファイルダウンロード処理
-        # 現在はダミー実装
+        # 実際のファイルダウンロード処理
         logger.info(f"Starting file processing for import {import_id}, media_id: {media_id}")
         
-        # ダミーファイルデータ（実際の実装では storage_provider.download_file() を使用）
-        file_data = b"Dummy file content for testing"
-        filename = f"imported_file_{media_id}.txt"
+        # ストレージからファイルデータを取得
+        try:
+            # メタデータからファイル情報を取得
+            media_status = await storage_provider.get_media_status(media_id, user_id)
+            if media_status["status"] == "error":
+                raise FileProcessorError(f"ファイルが見つかりません: {media_id}")
+            
+            # ファイルURLを取得してダウンロード
+            file_url = await storage_provider.get_file_url(media_id, user_id)
+            
+            # ローカルストレージの場合は直接ファイルパスからデータを読み込み
+            if settings.STORAGE_PROVIDER.lower() == "local":
+                # ローカルファイルパスから直接読み込み
+                import re
+                # file_urlから実際のファイルパスを抽出
+                # 例: "http://localhost:8000/api/v1/media/download/abc123" -> media_id
+                
+                # メタデータからfile_pathを取得
+                from app.providers.storage.local import LocalStorageProvider
+                local_provider = LocalStorageProvider()
+                metadata = local_provider._load_metadata(user_id, media_id)
+                
+                if "file_path" in metadata:
+                    with open(metadata["file_path"], "rb") as f:
+                        file_data = f.read()
+                    filename = FilePath(metadata["file_path"]).name
+                else:
+                    raise FileProcessorError(f"ファイルパスが見つかりません: {media_id}")
+            else:
+                # GCSの場合は署名付きURLからダウンロード
+                import aiohttp
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(file_url) as response:
+                        if response.status != 200:
+                            raise FileProcessorError(f"ファイルダウンロードに失敗しました: {response.status}")
+                        file_data = await response.read()
+                
+                # ファイル名をメタデータから取得
+                filename = f"imported_file_{media_id}"
+                
+        except Exception as e:
+            logger.error(f"File download error for {media_id}: {e}")
+            raise FileProcessorError(f"ファイルダウンロードエラー: {str(e)}")
         
         job_info.update({
             "progress": 0.3,
@@ -544,22 +585,29 @@ async def _process_file_import(
         note_id = f"import_{import_id}"
         extracted_text = extraction_result['text']
         
-        # 自動ページ分割処理
+        # 🆕 Phase 3: Feature Flag対応のページ分割処理
         pages = []
-        if auto_split and len(extracted_text) > 2000:
-            # 2000文字ごとに分割
-            text_chunks = [extracted_text[i:i+2000] for i in range(0, len(extracted_text), 2000)]
+        
+        if auto_split and len(extracted_text) > 2000 and settings.IMPORT_SPLIT_ENABLED:
+            # 🆕 Phase 1のチャンク分割機能を使用
+            from app.services.url_importer import _split_into_chunks
+            text_chunks = _split_into_chunks(extracted_text, max_chars=2000)
+            logger.info(f"File split into {len(text_chunks)} chunks for import {import_id}")
+            
             for i, chunk in enumerate(text_chunks):
                 pages.append({
                     "page_number": i + 1,
                     "text": chunk,
-                    "text_length": len(chunk)
+                    "text_length": len(chunk),
+                    "is_ai_enhanced": False  # AI整形は後で実装
                 })
         else:
+            # 従来の1ページ形式（Feature Flag OFF または 2000文字以下）
             pages.append({
                 "page_number": 1,
                 "text": extracted_text,
-                "text_length": len(extracted_text)
+                "text_length": len(extracted_text),
+                "is_ai_enhanced": False
             })
         
         # 処理完了

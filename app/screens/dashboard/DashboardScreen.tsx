@@ -730,11 +730,11 @@ const DashboardScreen: React.FC = () => {
           type: selectedFile.type,
         } as any);
         
-                 // 動的にimportAPIをインポート
-         const apiModule = await import('../../services/api');
-         const { importApi } = apiModule;
-         
-         // ファイルインポート開始
+        // 動的にimportAPIをインポート
+        const apiModule = await import('../../services/api');
+        const { importApi } = apiModule;
+        
+        // ファイルインポート開始（2段階処理）
         const result = await importApi.importFromFile(formData, {
           auto_split: true,
           max_characters_per_page: 2000,

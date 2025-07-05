@@ -315,7 +315,7 @@ export const importApi = {
     console.log('[importApi.importFromUrl] 開始 - URL:', url);
     
     try {
-      const response = await api.post('/api/v1/import/url', {
+      const response = await api.post('/api/v1/imports/url', {
         url,
         auto_split: options?.auto_split ?? true,
         max_characters_per_page: options?.max_characters_per_page ?? 2000,
@@ -330,7 +330,7 @@ export const importApi = {
     }
   },
 
-  // ファイルからインポート開始
+  // ファイルからインポート開始（2段階処理）
   importFromFile: async (fileData: FormData, options?: {
     auto_split?: boolean;
     max_characters_per_page?: number;
@@ -339,26 +339,37 @@ export const importApi = {
     console.log('[importApi.importFromFile] 開始');
     
     try {
-      // オプションをFormDataに追加
-      if (options?.auto_split !== undefined) {
-        fileData.append('auto_split', options.auto_split.toString());
-      }
-      if (options?.max_characters_per_page !== undefined) {
-        fileData.append('max_characters_per_page', options.max_characters_per_page.toString());
-      }
-      if (options?.generate_title !== undefined) {
-        fileData.append('generate_title', options.generate_title.toString());
-      }
-
-      const response = await api.post('/api/v1/import/file', fileData, {
+      // Step 1: ファイルアップロード
+      console.log('[importApi.importFromFile] Step 1: ファイルアップロード');
+      const uploadResponse = await api.post('/api/v1/media/upload-file', fileData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
-        timeout: 60000, // 60秒タイムアウト（ファイル処理時間を考慮）
+        timeout: 60000, // 60秒タイムアウト
       });
       
-      console.log('[importApi.importFromFile] 成功 - import_id:', response.data.import_id);
-      return response.data;
+      const mediaId = uploadResponse.data.media_id;
+      console.log('[importApi.importFromFile] アップロード完了 - media_id:', mediaId);
+      
+      // Step 2: インポート開始
+      console.log('[importApi.importFromFile] Step 2: インポート開始');
+      const importRequest = {
+        media_id: mediaId,
+        extract_options: {},
+        auto_title: options?.generate_title ?? true,
+        auto_split: options?.auto_split ?? true,
+      };
+      
+      const importResponse = await api.post('/api/v1/imports/file', importRequest, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        timeout: 30000, // 30秒タイムアウト
+      });
+      
+      console.log('[importApi.importFromFile] 成功 - import_id:', importResponse.data.import_id);
+      return importResponse.data;
+      
     } catch (error) {
       console.error('[importApi.importFromFile] エラー:', error);
       throw error;
@@ -368,7 +379,7 @@ export const importApi = {
   // インポート進捗状況取得
   getImportStatus: async (importId: string) => {
     try {
-      const response = await api.get(`/api/v1/import/status/${importId}`);
+      const response = await api.get(`/api/v1/imports/status/${importId}`);
       return response.data;
     } catch (error) {
       console.error('[importApi.getImportStatus] エラー:', error);
@@ -379,7 +390,7 @@ export const importApi = {
   // インポート結果取得（🔧 修正: 長文AI整形対応タイムアウト延長）
   getImportResult: async (importId: string) => {
     try {
-      const response = await api.get(`/api/v1/import/result/${importId}`, {
+      const response = await api.get(`/api/v1/imports/result/${importId}`, {
         timeout: 180000 // 🚨 CRITICAL: 3分タイムアウト（AI整形処理時間を考慮）
       });
       console.log('[importApi.getImportResult] 成功 - note_id:', response.data.note_id);
@@ -393,7 +404,7 @@ export const importApi = {
   // インポート結果取得（AIタイトル生成フォールバック付き）（🔧 修正: タイムアウト延長）
   getImportResultWithFallback: async (importId: string) => {
     try {
-      const response = await api.get(`/api/v1/import/result/${importId}`, {
+      const response = await api.get(`/api/v1/imports/result/${importId}`, {
         timeout: 180000 // 🚨 CRITICAL: 3分タイムアウト（AI整形処理時間を考慮）
       });
       console.log('[importApi.getImportResultWithFallback] 成功 - note_id:', response.data.note_id);
@@ -458,7 +469,7 @@ export const importApi = {
         limit: limit.toString(),
       });
       
-      const response = await api.get(`/api/v1/import/history?${params.toString()}`);
+      const response = await api.get(`/api/v1/imports/history?${params.toString()}`);
       return response.data;
     } catch (error) {
       console.error('[importApi.getImportHistory] エラー:', error);

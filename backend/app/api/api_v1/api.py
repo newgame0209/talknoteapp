@@ -33,7 +33,7 @@ api_router.include_router(ai_router, prefix="/ai", tags=["ai"])
 api_router.include_router(ocr.router, prefix="/ocr", tags=["ocr"])
 
 # インポートエンドポイントの登録
-api_router.include_router(imports.router, prefix="/import", tags=["import"])
+api_router.include_router(imports.router, prefix="/imports", tags=["imports"])
 
 # 手書きOCR→TTSエンドポイントの登録
 api_router.include_router(handwriting_tts.router, prefix="", tags=["handwriting"])
