@@ -32,6 +32,8 @@ export interface ImportFile {
   created_at: number;
   uploaded: number;
   media_id?: string;
+  content?: string;      // ✅ テキストコンテンツフィールド追加
+  canvas_data?: string;  // ✅ キャンバスデータフィールド追加
 }
 
 // 写真スキャン用の新しいインターフェース
@@ -144,9 +146,14 @@ export const initDatabase = async (): Promise<void> => {
         created_at INTEGER NOT NULL,
         uploaded INTEGER DEFAULT 0,
         media_id TEXT,
-        user_id TEXT NOT NULL DEFAULT ''
+        user_id TEXT NOT NULL DEFAULT '',
+        content TEXT DEFAULT '',
+        canvas_data TEXT DEFAULT '{}'
     );`);
     await db.execAsync(`ALTER TABLE imports ADD COLUMN user_id TEXT;`).catch(() => {});
+    // 🆕 既存のimportsテーブルにcontentとcanvas_dataフィールドを追加
+    await db.execAsync(`ALTER TABLE imports ADD COLUMN content TEXT DEFAULT '';`).catch(() => {});
+    await db.execAsync(`ALTER TABLE imports ADD COLUMN canvas_data TEXT DEFAULT '{}';`).catch(() => {});
     console.log('Imports table created successfully');
     
     // 🆕 通常ノート（ManualNote）テーブル
@@ -389,18 +396,22 @@ export const saveImport = async (
   title: string,
   filePath: string,
   fileType: string,
-  fileSize: number
+  fileSize: number,
+  content: string = '',     // ✅ テキストコンテンツ引数追加
+  canvasData: any = {}      // ✅ キャンバスデータ引数追加
 ): Promise<void> => {
   try {
     const db = getDatabase();
     const now = Date.now();
     const uid = getCurrentUid();
+    const canvasJson = JSON.stringify(canvasData);
+    
     await db.runAsync(
-      `INSERT INTO imports (id, title, file_path, file_type, file_size, created_at, user_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?);`,
-      [id, title, filePath, fileType, fileSize, now, uid]
+      `INSERT OR REPLACE INTO imports (id, title, file_path, file_type, file_size, created_at, user_id, content, canvas_data)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+      [id, title, filePath, fileType, fileSize, now, uid, content, canvasJson]
     );
-    console.log('Import saved successfully');
+    console.log('Import saved successfully with content');
     return Promise.resolve();
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -1016,11 +1027,31 @@ export const updateCanvasData = async (noteId: string, canvasData: any): Promise
       return Promise.resolve();
     }
     
+    // 🆕 インポートファイルテーブルから検索・更新
+    const importResult = await db.getFirstAsync<ImportFile>(
+      'SELECT * FROM imports WHERE id = ?;',
+      [noteId]
+    );
+    if (importResult) {
+      // canvasDataの内容をcontentとcanvas_dataフィールドに分けて保存
+      const textContent = canvasData.content || '';
+      
+      await db.runAsync(
+        'UPDATE imports SET content = ?, canvas_data = ? WHERE id = ?;',
+        [textContent, canvasJson, noteId]
+      );
+      console.log('Canvas data updated successfully (import)', {
+        noteId,
+        contentLength: textContent.length,
+        canvasDataSize: canvasJson.length,
+        textPreview: textContent.substring(0, 100) + '...'
+      });
+      return Promise.resolve();
+    }
 
     
-    // インポートファイルテーブルには対応しない（将来拡張可能）
-    console.error('❌ ノートが見つかりません:', { noteId, searchedTables: ['photo_scans', 'recordings', 'manual_notes'] });
-    throw new Error('Note not found or not a photo scan/recording/manual note');
+    console.error('❌ ノートが見つかりません:', { noteId, searchedTables: ['photo_scans', 'recordings', 'manual_notes', 'imports'] });
+    throw new Error('Note not found in any table');
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('❌ updateCanvasData失敗:', { noteId, error: errorMessage });

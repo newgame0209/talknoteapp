@@ -710,7 +710,139 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
           }
         }
 
-        // 📝 Step2: 通常のノート読み込み処理
+        // 📥 Step2: インポートノート処理（import_で始まる場合）
+        if (noteId.startsWith('import_')) {
+          console.log('📥 インポートノート検出:', noteId);
+          
+          try {
+            // 🎯 まずDBから直接インポートノートを読み込み（multiPageData構造確認）
+            const db = getDatabase();
+            const importRecord = await db.getFirstAsync<any>(
+              'SELECT * FROM imports WHERE id = ?;',
+              [noteId]
+            );
+            
+            if (importRecord) {
+              console.log('📥 インポートノート読み込み成功:', {
+                id: importRecord.id,
+                title: importRecord.title,
+                hasCanvasData: !!importRecord.canvas_data
+              });
+              
+              // タイトル設定
+              setTitle(importRecord.title);
+              
+              // 🎯 canvas_dataからmultiPageData構造を確認
+              if (importRecord.canvas_data) {
+                try {
+                  const canvasData = typeof importRecord.canvas_data === 'string' 
+                    ? JSON.parse(importRecord.canvas_data) 
+                    : importRecord.canvas_data;
+                  
+                  if (canvasData && canvasData.multiPageData && canvasData.multiPageData.pages) {
+                    console.log('🔍 インポートノート - multiPageData復元開始:', {
+                      pagesCount: canvasData.multiPageData.pages.length,
+                      currentPageIndex: canvasData.multiPageData.currentPageIndex,
+                      totalPages: canvasData.multiPageData.totalPages
+                    });
+                    
+                    // 🎯 マニュアルノートと同じ複数ページ復元処理
+                    setPages(canvasData.multiPageData.pages);
+                    setCurrentPageIndex(canvasData.multiPageData.currentPageIndex || 0);
+                    setTotalPages(canvasData.multiPageData.totalPages || canvasData.multiPageData.pages.length);
+                    
+                    // 現在のページのデータを復元
+                    const currentPage = canvasData.multiPageData.pages[canvasData.multiPageData.currentPageIndex || 0];
+                    if (currentPage) {
+                      setContent(currentPage.content || '');
+                      setDrawingPaths(currentPage.drawingPaths || []);
+                      console.log('✅ インポートノート - 複数ページ復元完了:', {
+                        currentPageContent: currentPage.content?.substring(0, 50) + '...',
+                        currentPagePaths: currentPage.drawingPaths?.length || 0
+                      });
+                    }
+                    
+                    return; // multiPageData復元完了
+                  } else {
+                    // 🔄 従来の単一ページ復元処理（後方互換性）
+                    console.log('🔄 インポートノート - 単一ページ復元処理');
+                    const importContent = canvasData.content || importRecord.content || '';
+                    
+                    // 🎯 長文の場合は、バックエンドから受信した複数ページデータを確認
+                    if (importContent.length > 2000) {
+                      console.log('🔄 インポートノート - 長文検知、バックエンドデータ確認:', importContent.length);
+                      
+                      // UniversalNoteServiceから複数ページデータを取得
+                      try {
+                        const universalNoteService = new UniversalNoteService();
+                        const importNote = await universalNoteService.loadUniversalNote(noteId);
+                        
+                        if (importNote && importNote.pages && importNote.pages.length > 1) {
+                          console.log('🔍 バックエンドから複数ページデータを取得:', {
+                            pagesCount: importNote.pages.length,
+                            firstPageLength: importNote.pages[0]?.canvasData?.content?.length || 0,
+                            secondPageLength: importNote.pages[1]?.canvasData?.content?.length || 0
+                          });
+                          
+                          // 🎯 multiPageData構造を手動作成
+                          const multiPageData = {
+                            pages: importNote.pages.map((page, index) => ({
+                              id: page.pageId,
+                              title: `ページ ${index + 1}`,
+                              content: page.canvasData?.content || '',
+                              drawingPaths: page.canvasData?.drawingPaths || [],
+                              canvasData: page.canvasData || {}
+                            })),
+                            currentPageIndex: 0,
+                            totalPages: importNote.pages.length
+                          };
+                          
+                          // 複数ページデータを復元
+                          setPages(multiPageData.pages);
+                          setCurrentPageIndex(0);
+                          setTotalPages(multiPageData.totalPages);
+                          
+                          // 最初のページのデータを復元
+                          const firstPage = multiPageData.pages[0];
+                          if (firstPage) {
+                            setContent(firstPage.content || '');
+                            setDrawingPaths(firstPage.drawingPaths || []);
+                            console.log('✅ インポートノート - 複数ページ復元完了（手動作成）:', {
+                              currentPageContent: firstPage.content?.substring(0, 50) + '...',
+                              totalPages: multiPageData.totalPages
+                            });
+                          }
+                          
+                          return; // 複数ページ復元完了
+                        }
+                      } catch (universalError) {
+                        console.warn('⚠️ UniversalNoteService読み込みエラー:', universalError);
+                      }
+                    }
+                    
+                    // 単一ページまたは複数ページ取得失敗時の処理
+                    setContent(importContent);
+                    return;
+                  }
+                } catch (canvasError) {
+                  console.log('⚠️ インポートノート - キャンバスデータ解析エラー:', canvasError);
+                  setContent(importRecord.content || '');
+                  return;
+                }
+              } else {
+                // canvas_dataがない場合はcontentを使用
+                setContent(importRecord.content || '');
+                return;
+              }
+            } else {
+              console.warn('⚠️ インポートノートが見つかりません:', noteId);
+            }
+          } catch (importError) {
+            console.error('❌ インポートノート読み込みエラー:', importError);
+          }
+        }
+
+        // 📝 Step3: 通常のノート読み込み処理
         // ノート検索開始
         const note = await getNoteById(noteId);
         
@@ -1161,7 +1293,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     };
     
     initializeNote();
-  }, [noteId, isNewNote, getNoteById, navigation]);
+  }, [noteId, isNewNote, getNoteById]); // 🔥 navigation削除で2回読み込み問題解決
 
   // 💾 ダッシュボード戻り時の最終保存
   const handleGoBack = useCallback(async () => {
@@ -1286,7 +1418,11 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
     // ✅ 修正: キャンバスタッチで罫線アイコン非表示、テキスト編集開始で音声プレイヤー非表示
     setIsCanvasIconsVisible(false);
     setShowAudioPlayer(false); // テキスト編集開始時は音声プレイヤーを非表示
-    markAsChanged(); // 🔥 追加: キャンバスタッチ時も変更フラグを立てる
+    
+    // 🚨 CRITICAL: インポートノートの場合はキャンバスタップ時の保存処理をスキップ
+    if (!noteId.startsWith('import_')) {
+      markAsChanged(); // 通常ノートのみ変更フラグを立てる
+    }
   };
 
   // キャンバス以外をタップした時のハンドラ（アイコン非表示・編集解除）
@@ -2286,7 +2422,9 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
           enableRetry: true
         });
 
-        const saveResult = await universalNoteService.saveUniversalNote(universalNote);
+        // 🎯 インポートノートの場合はincludePagesオプションを有効にする
+        const saveOptions = determinedType === 'import' ? { includePages: true } : {};
+        const saveResult = await universalNoteService.saveUniversalNote(universalNote, saveOptions);
         
         if (saveResult.success) {
           setHasUnsavedChanges(false);
@@ -2922,20 +3060,37 @@ const CanvasEditor: React.FC<CanvasEditorProps> = () => {
         end_index: detail.endPosition,     // 正しいプロパティ名
       })));
 
+      // 🚨 CRITICAL: インポートノート用テキスト分割処理（5000バイト制限対応）
+      let finalTextToSpeak = textToSpeak;
+      if (noteId.startsWith('import_') && textToSpeak.length > 4000) {
+        // インポートノートで長いテキストの場合は先頭4000文字まで切り詰め
+        console.log('🎤 インポートノート長文検知 - テキスト切り詰め実行:', {
+          originalLength: textToSpeak.length,
+          truncatedLength: 4000
+        });
+        finalTextToSpeak = textToSpeak.substring(0, 4000) + '...（以下省略）';
+        console.log('🎤 インポートノート切り詰め完了:', {
+          newLength: finalTextToSpeak.length,
+          preview: finalTextToSpeak.substring(0, 100) + '...'
+        });
+      }
+
       // TTSサービスで音声生成（現在選択されたプロバイダーを使用）
       console.log('🎤 TTS API呼び出し開始:', {
-        textLength: textToSpeak.length,
-        provider: currentTTSProvider
+        textLength: finalTextToSpeak.length,
+        provider: currentTTSProvider,
+        isImportNote: noteId.startsWith('import_'),
+        wasTruncated: finalTextToSpeak !== textToSpeak
       });
       
       console.log('🎤 TTS API呼び出し直前:', {
         ttsClientExists: !!ttsClient,
         provider: currentTTSProvider,
-        textLength: textToSpeak.length
+        textLength: finalTextToSpeak.length
       });
       
       const ttsResponse = await ttsClient.synthesize({
-        text: textToSpeak,
+        text: finalTextToSpeak,
         provider_name: currentTTSProvider, // 選択されたプロバイダーを使用
         audio_format: 'mp3',          // ストリーミング互換フォーマットに固定
       });

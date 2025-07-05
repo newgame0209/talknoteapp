@@ -20,6 +20,10 @@ class Page(Base):
     notebook_id = Column(UUID(as_uuid=True), ForeignKey("notebooks.id"), nullable=False)
     notebook = relationship("Notebook", back_populates="pages")
     
+    # 🆕 Phase 2: インポート関連付け（オプショナル）
+    # 注意: 現在のimport機能はメモリ管理のため、FKは文字列IDとして保存
+    import_id = Column(String, nullable=True, comment="インポート処理ID（メモリ管理）")
+    
     # ページ順序
     page_number = Column(Integer, nullable=False, default=1)
     

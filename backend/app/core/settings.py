@@ -104,6 +104,9 @@ class Settings(BaseSettings):
     FEATURE_OCR: bool = True
     FEATURE_AI_CHAT: bool = True
     FEATURE_RESEARCH: bool = True
+    
+    # URL インポート分割機能フラグ
+    IMPORT_SPLIT_ENABLED: bool = True  # 🆕 Phase 7: 複数ページ機能有効化
 
     # CORS設定
     BACKEND_CORS_ORIGINS: List[str] = ["*"]

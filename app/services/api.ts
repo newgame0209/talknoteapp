@@ -270,6 +270,7 @@ export const aiApi = {
       improve_readability?: boolean;
       format_style?: string;
       language?: string;
+      timeout?: number; // 🆕 タイムアウト設定オプション追加
     } = {}
   ) => {
     console.log('[aiApi.enhanceScannedText] 開始 - text長:', text.length);
@@ -279,6 +280,10 @@ export const aiApi = {
     console.log('🎫 API要求にID Token付与:', token ? `${token.substring(0, 50)}...` : 'トークンなし');
     
     try {
+      // 🔧 修正: 長文インポート用タイムアウト設定
+      const timeoutMs = options.timeout || (text.length > 10000 ? 120000 : 30000); // 長文の場合2分、通常30秒
+      console.log(`🔧 AI整形タイムアウト設定: ${timeoutMs}ms (テキスト長: ${text.length})`);
+      
       const response = await api.post('/api/v1/ai/enhance-scanned-text', {
         text,
         analyze_structure: options.analyze_structure ?? true,
@@ -286,6 +291,8 @@ export const aiApi = {
         improve_readability: options.improve_readability ?? true,
         format_style: options.format_style ?? 'structured',
         language: options.language ?? 'ja'
+      }, {
+        timeout: timeoutMs // 🚨 CRITICAL: 動的タイムアウト設定
       });
       
       console.log('[aiApi.enhanceScannedText] 成功 - enhanced text長:', response.data.enhanced_text?.length || 0);
@@ -295,6 +302,169 @@ export const aiApi = {
       throw error;
     }
   }
+};
+
+// インポート関連のAPI
+export const importApi = {
+  // URLからインポート開始
+  importFromUrl: async (url: string, options?: { 
+    auto_split?: boolean; 
+    max_characters_per_page?: number;
+    generate_title?: boolean;
+  }) => {
+    console.log('[importApi.importFromUrl] 開始 - URL:', url);
+    
+    try {
+      const response = await api.post('/api/v1/import/url', {
+        url,
+        auto_split: options?.auto_split ?? true,
+        max_characters_per_page: options?.max_characters_per_page ?? 2000,
+        generate_title: options?.generate_title ?? true
+      });
+      
+      console.log('[importApi.importFromUrl] 成功 - import_id:', response.data.import_id);
+      return response.data;
+    } catch (error) {
+      console.error('[importApi.importFromUrl] エラー:', error);
+      throw error;
+    }
+  },
+
+  // ファイルからインポート開始
+  importFromFile: async (fileData: FormData, options?: {
+    auto_split?: boolean;
+    max_characters_per_page?: number;
+    generate_title?: boolean;
+  }) => {
+    console.log('[importApi.importFromFile] 開始');
+    
+    try {
+      // オプションをFormDataに追加
+      if (options?.auto_split !== undefined) {
+        fileData.append('auto_split', options.auto_split.toString());
+      }
+      if (options?.max_characters_per_page !== undefined) {
+        fileData.append('max_characters_per_page', options.max_characters_per_page.toString());
+      }
+      if (options?.generate_title !== undefined) {
+        fileData.append('generate_title', options.generate_title.toString());
+      }
+
+      const response = await api.post('/api/v1/import/file', fileData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 60000, // 60秒タイムアウト（ファイル処理時間を考慮）
+      });
+      
+      console.log('[importApi.importFromFile] 成功 - import_id:', response.data.import_id);
+      return response.data;
+    } catch (error) {
+      console.error('[importApi.importFromFile] エラー:', error);
+      throw error;
+    }
+  },
+
+  // インポート進捗状況取得
+  getImportStatus: async (importId: string) => {
+    try {
+      const response = await api.get(`/api/v1/import/status/${importId}`);
+      return response.data;
+    } catch (error) {
+      console.error('[importApi.getImportStatus] エラー:', error);
+      throw error;
+    }
+  },
+
+  // インポート結果取得（🔧 修正: 長文AI整形対応タイムアウト延長）
+  getImportResult: async (importId: string) => {
+    try {
+      const response = await api.get(`/api/v1/import/result/${importId}`, {
+        timeout: 180000 // 🚨 CRITICAL: 3分タイムアウト（AI整形処理時間を考慮）
+      });
+      console.log('[importApi.getImportResult] 成功 - note_id:', response.data.note_id);
+      return response.data;
+    } catch (error) {
+      console.error('[importApi.getImportResult] エラー:', error);
+      throw error;
+    }
+  },
+
+  // インポート結果取得（AIタイトル生成フォールバック付き）（🔧 修正: タイムアウト延長）
+  getImportResultWithFallback: async (importId: string) => {
+    try {
+      const response = await api.get(`/api/v1/import/result/${importId}`, {
+        timeout: 180000 // 🚨 CRITICAL: 3分タイムアウト（AI整形処理時間を考慮）
+      });
+      console.log('[importApi.getImportResultWithFallback] 成功 - note_id:', response.data.note_id);
+      
+      const result = response.data;
+      
+      // タイトルが生成されていない場合のフォールバック処理
+      if (result.note_id && (!result.title || result.title === 'インポートしたノート' || result.title === '新しいノート')) {
+        try {
+          console.log('[importApi.getImportResultWithFallback] タイトル生成フォールバック開始');
+          
+          // ノートの内容を取得してタイトルを生成
+          if (result.content && result.content.length > 0) {
+            const firstPageContent = result.content[0]?.text || result.content[0]?.content || '';
+            
+                         if (firstPageContent && firstPageContent.length > 10) {
+               // 既存のAI APIを使用してタイトル生成
+               const titleResult = await aiApi.generateTitle(firstPageContent, 15);
+              
+              if (titleResult.title) {
+                console.log('[importApi.getImportResultWithFallback] フォールバックタイトル生成成功:', titleResult.title);
+                result.title = titleResult.title;
+                result.fallback_title_generated = true;
+              }
+            }
+          }
+          
+          // フォールバック：URLやファイル名から簡単なタイトルを生成
+          if (!result.title || result.title === 'インポートしたノート') {
+            if (result.source_url) {
+              const urlTitle = result.source_url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+              result.title = `${urlTitle} からのインポート`;
+            } else if (result.filename) {
+              const filename = result.filename.replace(/\.[^/.]+$/, ''); // 拡張子を除去
+              result.title = `${filename} からのインポート`;
+            } else {
+              result.title = `インポートしたノート - ${new Date().toLocaleDateString()}`;
+            }
+            result.fallback_title_generated = true;
+          }
+          
+        } catch (titleError) {
+          console.error('[importApi.getImportResultWithFallback] タイトル生成フォールバックエラー:', titleError);
+          // エラーが発生してもインポート自体は成功として扱う
+          result.title = result.title || `インポートしたノート - ${new Date().toLocaleDateString()}`;
+          result.fallback_title_generated = true;
+        }
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('[importApi.getImportResultWithFallback] エラー:', error);
+      throw error;
+    }
+  },
+
+  // インポート履歴取得
+  getImportHistory: async (skip: number = 0, limit: number = 50) => {
+    try {
+      const params = new URLSearchParams({
+        skip: skip.toString(),
+        limit: limit.toString(),
+      });
+      
+      const response = await api.get(`/api/v1/import/history?${params.toString()}`);
+      return response.data;
+    } catch (error) {
+      console.error('[importApi.getImportHistory] エラー:', error);
+      throw error;
+    }
+  },
 };
 
 // Notebooks関連のAPI

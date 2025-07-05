@@ -12,11 +12,15 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import * as FileSystem from 'expo-file-system';
+import { importApi } from '../../services/api';
+import { UniversalNoteService } from '../../services/UniversalNoteService';
 
-// 仮のパラメータ型
+// 新しいパラメータ型定義
 type ImportProgressParams = {
-  file: {
+  importId: string;
+  importType: 'url' | 'file';
+  source: string;
+  file?: {
     name: string;
     uri: string;
     type: string;
@@ -26,104 +30,157 @@ type ImportProgressParams = {
 
 type ImportProgressRouteProp = RouteProp<{ ImportProgress: ImportProgressParams }, 'ImportProgress'>;
 
+interface ImportStatus {
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  progress: number;
+  message?: string;
+  error?: string;
+  result?: {
+    note_id: string;
+    title: string;
+    total_pages: number;
+  };
+}
+
 const ImportProgressScreen: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<any>>();
   const route = useRoute<ImportProgressRouteProp>();
-  const [progress, setProgress] = useState(0);
-  const [isUploading, setIsUploading] = useState(true);
-  const [uploadedBytes, setUploadedBytes] = useState(0);
-  const [totalBytes, setTotalBytes] = useState(0);
+  const [status, setStatus] = useState<ImportStatus>({
+    status: 'pending',
+    progress: 0
+  });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  // 仮のアップロードURL（実際にはバックエンドから取得）
-  const DUMMY_UPLOAD_URL = 'https://httpbin.org/put'; // テスト用のエンドポイント
-  
-  // アップロードタスクの参照
-  const uploadTaskRef = useRef<string | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const navigationDoneRef = useRef<boolean>(false); // 🚨 二重遷移防止フラグ
 
   useEffect(() => {
-    if (!route.params?.file) {
-      setErrorMessage('ファイル情報がありません');
+    if (!route.params?.importId) {
+      setErrorMessage('インポートIDがありません');
       return;
     }
 
-    const file = route.params.file;
-    setTotalBytes(file.size);
-
-    // 実際のアップロード処理
-    startUpload(file);
+    // インポート進捗の監視を開始
+    startProgressPolling(route.params.importId);
     
     // クリーンアップ関数
     return () => {
-      // アップロードタスクのキャンセルは必要ならここに追加
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
     };
   }, []);
 
-  // 実際のアップロード処理
-  const startUpload = async (file: ImportProgressParams['file']) => {
+  // インポート進捗の監視
+  const startProgressPolling = async (importId: string) => {
     try {
-      // 本来はここでバックエンドからSignedURLを取得
-      // const response = await fetch('https://api.example.com/media/upload-url', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ filename: file.name, contentType: file.type })
-      // });
-      // const { signedUrl } = await response.json();
-      
-      // テスト用のダミーURL
-      const signedUrl = DUMMY_UPLOAD_URL;
-      
-      // 実際のアップロード処理
-      const uploadResult = await FileSystem.uploadAsync(signedUrl, file.uri, {
-        httpMethod: 'PUT',
-        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-        headers: { 'Content-Type': file.type },
-      });
-      
-      // 進捗をシミュレート（実際のアップロードは一瞬で完了するため）
-      let currentProgress = 0;
-      const interval = setInterval(() => {
-        currentProgress += 0.02;
-        if (currentProgress >= 1) {
-          clearInterval(interval);
-          setProgress(1);
-          setUploadedBytes(file.size);
-          setIsUploading(false);
-          
-          // アップロード完了後、ノート作成に遷移
-          setTimeout(() => {
-            const noteId = 'import_' + Date.now();
-            navigation.replace('CanvasEditor', { noteId });
-          }, 1500);
-        } else {
-          setProgress(currentProgress);
-          setUploadedBytes(Math.floor(file.size * currentProgress));
-        }
-      }, 100);
-      
-      // アップロード完了
-      setIsUploading(false);
-      setProgress(1);
-      
-      // アップロード完了後、ノート作成（実際にはバックエンドAPIを呼び出す）
-      setTimeout(() => {
-        // 仮のノートID
-        const noteId = 'import_' + Date.now();
-        navigation.replace('CanvasEditor', { noteId });
-      }, 1500);
-      
+      // 最初に一度チェック
+      await checkImportStatus(importId);
+
+      // 2秒間隔で進捗をポーリング
+      pollingIntervalRef.current = setInterval(async () => {
+        await checkImportStatus(importId);
+      }, 2000);
+
     } catch (error) {
-      console.error('アップロードエラー:', error);
-      setErrorMessage('ファイルのアップロード中にエラーが発生しました');
-      setIsUploading(false);
+      console.error('❌ 進捗監視エラー:', error);
+      setErrorMessage('進捗の監視中にエラーが発生しました');
     }
   };
 
-  // アップロードをキャンセル
-  const cancelUpload = () => {
+  // インポート状況をチェック
+  const checkImportStatus = async (importId: string) => {
+    try {
+      const statusResponse = await importApi.getImportStatus(importId);
+      console.log('📊 インポート進捗:', statusResponse);
+
+      setStatus(statusResponse);
+
+      // 完了または失敗した場合はポーリングを停止
+      if (statusResponse.status === 'completed') {
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+        }
+
+        // 結果を取得してノート画面に遷移（AIタイトル生成フォールバック付き）
+        setTimeout(async () => {
+          try {
+            const resultResponse = await importApi.getImportResultWithFallback(importId);
+            console.log('📄 インポート結果（フォールバック付き）:', resultResponse);
+            
+            // 🔍 デバッグ：インポート結果の詳細構造を確認
+            console.log('🔍 デバッグ - インポート結果詳細:');
+            console.log('  - note_id:', resultResponse.note_id);
+            console.log('  - title:', resultResponse.title);
+            console.log('  - total_pages:', resultResponse.total_pages);
+            console.log('  - pages配列:', resultResponse.pages);
+            if (resultResponse.pages && resultResponse.pages.length > 0) {
+              resultResponse.pages.forEach((page: any, index: number) => {
+                console.log(`  - ページ${index + 1}:`, {
+                  page_number: page.page_number,
+                  text_length: page.text_length,
+                  text_preview: page.text ? page.text.substring(0, 100) + '...' : '(空)',
+                  has_text: !!page.text
+                });
+              });
+            }
+
+            if (resultResponse.note_id && resultResponse.title && resultResponse.pages) {
+              // フォールバックタイトル生成の通知
+              if (resultResponse.fallback_title_generated) {
+                console.log('🤖 フォールバックでタイトル生成しました:', resultResponse.title);
+              }
+              
+              // 🔥 UniversalNoteServiceでフロントエンドにノートを作成
+              console.log('📝 フロントエンドでノート作成開始...');
+              const universalNoteService = new UniversalNoteService();
+              const createdNote = await universalNoteService.createNoteFromImport(resultResponse);
+              
+              if (!createdNote) {
+                throw new Error('ノートの作成に失敗しました');
+              }
+              
+              console.log('✅ ノート作成完了:', createdNote.id);
+              
+              // 🚨 CRITICAL: 二重遷移防止 - 一度だけ実行
+              if (navigationDoneRef.current) {
+                console.log('🚫 遷移は既に実行済み - スキップ');
+                return;
+              }
+              navigationDoneRef.current = true;
+              
+              // 作成されたノートのIDでCanvasEditorに遷移
+              navigation.replace('CanvasEditor', { 
+                noteId: createdNote.id,
+                noteType: 'import'
+              });
+            } else {
+              console.error('❌ インポート結果が不完全:', resultResponse);
+              setErrorMessage('ノートの作成に失敗しました');
+            }
+          } catch (error) {
+            console.error('❌ 結果取得エラー:', error);
+            setErrorMessage('インポート結果の取得に失敗しました');
+          }
+        }, 1500);
+
+      } else if (statusResponse.status === 'failed') {
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+        }
+        setErrorMessage(statusResponse.error || 'インポート処理に失敗しました');
+      }
+
+    } catch (error) {
+      console.error('❌ 状況チェックエラー:', error);
+      setErrorMessage('インポート状況の確認中にエラーが発生しました');
+    }
+  };
+
+  // インポートをキャンセル
+  const cancelImport = () => {
     Alert.alert(
-      'アップロードをキャンセル',
-      'アップロードをキャンセルしますか？',
+      'インポートをキャンセル',
+      'インポート処理をキャンセルしますか？',
       [
         {
           text: 'いいえ',
@@ -132,12 +189,47 @@ const ImportProgressScreen: React.FC = () => {
         {
           text: 'はい',
           onPress: () => {
-            // アップロードキャンセル処理
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+            }
             navigation.goBack();
           },
         },
       ]
     );
+  };
+
+  // ステータスメッセージの生成
+  const getStatusMessage = () => {
+    switch (status.status) {
+      case 'pending':
+        return 'インポート処理を開始しています...';
+      case 'processing':
+        return status.message || 'ファイルを処理中です...';
+      case 'completed':
+        return 'インポートが完了しました！';
+      case 'failed':
+        return 'インポート処理に失敗しました';
+      default:
+        return '処理中です...';
+    }
+  };
+
+  // アイコンの選択
+  const getFileIcon = () => {
+    if (route.params?.importType === 'url') {
+      return 'web';
+    }
+    
+    if (route.params?.file?.type) {
+      const fileType = route.params.file.type;
+      if (fileType.includes('pdf')) return 'file-pdf-box';
+      if (fileType.includes('image')) return 'file-image';
+      if (fileType.includes('audio')) return 'file-music';
+      if (fileType.includes('text')) return 'file-document-outline';
+    }
+    
+    return 'file-document';
   };
 
   // バイト数を読みやすい形式に変換
@@ -176,12 +268,12 @@ const ImportProgressScreen: React.FC = () => {
             
             <View style={styles.messageContainer}>
               <Text style={styles.messageText}>
-                ちょっと待ってね！ファイルを処理中です♪
+                {getStatusMessage()}
               </Text>
             </View>
 
             <Text style={styles.statusText}>
-              {isUploading ? 'ファイルをアップロード中' : '処理完了'}
+              {status.status === 'processing' ? 'ファイルをアップロード中' : '処理完了'}
             </Text>
 
             <View style={styles.loaderContainer}>
@@ -189,47 +281,39 @@ const ImportProgressScreen: React.FC = () => {
             </View>
 
             <Text style={styles.processingText}>
-              {isUploading ? '処理中です。しばらくお待ちください...' : 'ノートを準備しています...'}
+              {status.status === 'processing' ? '処理中です。しばらくお待ちください...' : 'ノートを準備しています...'}
             </Text>
 
-            {route.params?.file && (
-              <View style={styles.fileInfoContainer}>
-                <View style={styles.fileInfo}>
-                  <MaterialCommunityIcons
-                    name={
-                      route.params.file.type.includes('pdf')
-                        ? 'file-pdf-box'
-                        : route.params.file.type.includes('image')
-                        ? 'file-image'
-                        : route.params.file.type.includes('audio')
-                        ? 'file-music'
-                        : 'file-document'
-                    }
-                    size={24}
-                    color="#589ff4"
-                  />
-                  <Text style={styles.fileName} numberOfLines={1} ellipsizeMode="middle">
-                    {route.params.file.name}
-                  </Text>
-                </View>
-
-                <View style={styles.progressBarContainer}>
-                  <View style={[styles.progressBar, { width: `${progress * 100}%` }]} />
-                </View>
-                
-                <View style={styles.progressInfoContainer}>
-                  <Text style={styles.progressPercentage}>{Math.round(progress * 100)}%</Text>
-                  <Text style={styles.progressText}>
-                    {formatBytes(uploadedBytes)} / {formatBytes(totalBytes)}
-                  </Text>
-                </View>
-
-
+            <View style={styles.fileInfoContainer}>
+              <View style={styles.fileInfo}>
+                <MaterialCommunityIcons
+                  name={getFileIcon()}
+                  size={24}
+                  color="#589ff4"
+                />
+                <Text style={styles.fileName} numberOfLines={1} ellipsizeMode="middle">
+                  {route.params?.importType === 'url' 
+                    ? route.params.source
+                    : route.params?.file?.name || route.params?.source || 'ファイル'}
+                </Text>
               </View>
-            )}
 
-            {isUploading && (
-              <TouchableOpacity style={styles.cancelButton} onPress={cancelUpload}>
+              <View style={styles.progressBarContainer}>
+                <View style={[styles.progressBar, { width: `${status.progress * 100}%` }]} />
+              </View>
+              
+              <View style={styles.progressInfoContainer}>
+                <Text style={styles.progressPercentage}>{Math.round(status.progress * 100)}%</Text>
+                <Text style={styles.progressText}>
+                  {route.params?.importType === 'url' 
+                    ? 'URLからインポート中' 
+                    : route.params?.file?.size ? formatBytes(route.params.file.size) : 'ファイルサイズ不明'}
+                </Text>
+              </View>
+            </View>
+
+            {status.status === 'processing' && (
+              <TouchableOpacity style={styles.cancelButton} onPress={cancelImport}>
                 <Text style={styles.cancelButtonText}>キャンセル</Text>
               </TouchableOpacity>
             )}

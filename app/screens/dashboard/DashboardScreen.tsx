@@ -26,6 +26,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import { getRecordings, Recording, initDatabase, deleteNote, updateNoteTitle, getAllNotes } from '../../services/database';
+import api from '../../services/api';
 
 // 仮のデータ型定義
 interface Note {
@@ -712,21 +713,102 @@ const DashboardScreen: React.FC = () => {
   };
   
   // インポート実行
-  const executeImport = () => {
-    if (selectedFile) {
-      // ファイルからインポート
-      navigation.navigate('ImportProgress', { file: selectedFile });
-      setIsImportModalVisible(false);
+  const executeImport = async () => {
+    try {
+      if (selectedFile) {
+        // ファイルからインポート
+        console.log('📥 ファイル インポート開始:', selectedFile.name);
+        
+        // モーダルを閉じる
+        setIsImportModalVisible(false);
+        
+        // FormDataを作成
+        const formData = new FormData();
+        formData.append('file', {
+          uri: selectedFile.uri,
+          name: selectedFile.name,
+          type: selectedFile.type,
+        } as any);
+        
+                 // 動的にimportAPIをインポート
+         const apiModule = await import('../../services/api');
+         const { importApi } = apiModule;
+         
+         // ファイルインポート開始
+        const result = await importApi.importFromFile(formData, {
+          auto_split: true,
+          max_characters_per_page: 2000,
+          generate_title: true
+        });
+        
+        console.log('📥 ファイル インポート開始成功:', result);
+        
+        // 進捗画面に遷移（新しいパラメータ形式）
+        navigation.navigate('ImportProgress', { 
+          importId: result.import_id,
+          importType: 'file', 
+          source: selectedFile.name,
+          file: selectedFile // 互換性のため
+        });
+        
+      } else if (urlInput.trim()) {
+        // URLからインポート
+        console.log('📥 URL インポート開始:', urlInput);
+        
+        // URL形式の簡単な検証
+        const urlPattern = /^https?:\/\/.+/i;
+        if (!urlPattern.test(urlInput.trim())) {
+          Alert.alert('エラー', '有効なURL（http://またはhttps://で始まる）を入力してください。');
+          return;
+        }
+        
+        // モーダルを閉じる
+        setIsImportModalVisible(false);
+        
+                 // 動的にimportAPIをインポート
+         const apiModule = await import('../../services/api');
+         const { importApi } = apiModule;
+         
+         // URLインポート開始
+        const result = await importApi.importFromUrl(urlInput.trim(), {
+          auto_split: true,
+          max_characters_per_page: 2000,
+          generate_title: true
+        });
+        
+        console.log('📥 URL インポート開始成功:', result);
+        
+        // 進捗画面に遷移
+        navigation.navigate('ImportProgress', { 
+          importId: result.import_id,
+          importType: 'url', 
+          source: urlInput.trim()
+        });
+        
+      } else {
+        Alert.alert('エラー', 'ファイルまたはURLを指定してください');
+        return;
+      }
+      
+    } catch (error) {
+      console.error('❌ インポートエラー:', error);
+      
+      // エラーメッセージを分析して適切な説明を表示
+      let errorMessage = 'インポート処理でエラーが発生しました。';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('network') || error.message.includes('timeout')) {
+          errorMessage = 'ネットワークエラーが発生しました。インターネット接続を確認してください。';
+        } else if (error.message.includes('invalid') || error.message.includes('format')) {
+          errorMessage = 'ファイル形式またはURLが無効です。';
+        }
+      }
+      
+      Alert.alert('エラー', errorMessage);
+    } finally {
+      // リセット
       setSelectedFile(null);
       setUrlInput('');
-    } else if (urlInput.trim()) {
-      // URLからインポート
-      // TODO: URL検証とインポート処理
-      Alert.alert('URLインポート', `${urlInput} からインポートします`);
-      setIsImportModalVisible(false);
-      setUrlInput('');
-    } else {
-      Alert.alert('エラー', 'ファイルまたはURLを指定してください');
     }
   };
 
